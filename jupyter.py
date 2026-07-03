@@ -163,6 +163,18 @@ if not oDefinitionManager.DoesMaterialExist("PAO"):
             # 재질이 이미 존재하면 위에서 에러가 나는데, 
             # except가 그 에러를 잡아먹고 그냥 아래로 내려보냅니다.
             print("로그: PAO가 이미 존재하거나 생성할 수 없어 스킵합니다.")
+
+# %%
+# STEP import 후 오브젝트 이름 변경
+objects = [ipk.modeler[name] for name in ipk.modeler.object_names if "ttpkp" in name]
+objects.sort(key=lambda o: o.volume)
+
+objects[0].name = "plate"       # 작은 것
+objects[1].name = "plate_base"  # 큰 것
+
+print(f"이름 변경 완료: {[o.name for o in objects]}")
+
+# %%			
 # %%
 oEditor.ChangeProperty(
 	[
@@ -171,8 +183,8 @@ oEditor.ChangeProperty(
 			"NAME:Geometry3DAttributeTab",
 			[
 				"NAME:PropServers", 
-				"ttpkp_attribute151", 
-				"ttpkp_attribute104"
+				"plate", 
+				"plate_base"
 			],
 			[
 				"NAME:ChangedProps",
@@ -219,7 +231,7 @@ oEditor.Subtract(
 	[
 		"NAME:Selections",
 		"Blank Parts:="		, "PAO",
-		"Tool Parts:="		, "ttpkp_attribute104,ttpkp_attribute151"
+		"Tool Parts:="		, "plate, plate_base"
 	], 
 	[
 		"NAME:SubtractParameters",
@@ -280,67 +292,16 @@ for i in range(n_boxes):
             "IsLightweight:=", False
         ])
 # %%
-##오프닝, 팬 원 만들기 ##
-oEditor.CreateCircle(
-	[
-		"NAME:CircleParameters",
-		"IsCovered:="		, True,
-		"XCenter:="		, "-26.75mm",
-		"YCenter:="		, "195mm",
-		"ZCenter:="		, "18.49999998mm",
-		"Radius:="		, "6mm",
-		"WhichAxis:="		, "Z",
-		"NumSegments:="		, "0"
-	], 
-	[
-		"NAME:Attributes",
-		"Name:="		, "Circle1",
-		"Flags:="		, "",
-		"Color:="		, "(143 175 143)",
-		"Transparency:="	, 0,
-		"PartCoordinateSystem:=", "Global",
-		"UDMId:="		, "",
-		"MaterialValue:="	, "\"Al-Extruded\"",
-		"SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
-		"SolveInside:="		, True,
-		"ShellElement:="	, False,
-		"ShellElementThickness:=", "0mm",
-		"ReferenceTemperature:=", "20cel",
-		"IsMaterialEditable:="	, True,
-		"IsSurfaceMaterialEditable:=", True,
-		"UseMaterialAppearance:=", False,
-		"IsLightweight:="	, False
-	])
-oEditor.CreateCircle(
-	[
-		"NAME:CircleParameters",
-		"IsCovered:="		, True,
-		"XCenter:="		, "26.75mm",
-		"YCenter:="		, "195mm",
-		"ZCenter:="		, "18.49999998mm",
-		"Radius:="		, "6mm",
-		"WhichAxis:="		, "Z",
-		"NumSegments:="		, "0"
-	], 
-	[
-		"NAME:Attributes",
-		"Name:="		, "Circle2",
-		"Flags:="		, "",
-		"Color:="		, "(143 175 143)",
-		"Transparency:="	, 0,
-		"PartCoordinateSystem:=", "Global",
-		"UDMId:="		, "",
-		"MaterialValue:="	, "\"Al-Extruded\"",
-		"SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
-		"SolveInside:="		, True,
-		"ShellElement:="	, False,
-		"ShellElementThickness:=", "0mm",
-		"ReferenceTemperature:=", "20cel",
-		"IsMaterialEditable:="	, True,
-		"IsSurfaceMaterialEditable:=", True,
-		"UseMaterialAppearance:=", False,
-		"IsLightweight:="	, False
-	])
+box1 = ipk.modeler["PAO_Separate1"]
+target_faces = [face for face in box1.faces if abs(face.center[2] - 18.5) < 0.1]
+fan_face     = [face for face in target_faces if face.center[0] < 0][0]
+opening_face = [face for face in target_faces if face.center[0] > 0][0]
+
+# 팬 위치를 동적으로
+fan_x = fan_face.center[0]
+fan_y = fan_face.center[1]
+fan_z = fan_face.center[2]
+
 # %%
 oEditor.InsertNativeComponent(
 	[
@@ -425,7 +386,7 @@ oEditor.InsertNativeComponent(
 				"X:="			, ["0","1","2","3"],
 				"Y:="			, ["1","10","100","0"]
 			],
-			"IntakeTemp:="		, "AmbientTemp",
+			"IntakeTemp:="		, "20cel",
 			"Volumetric:="		, "4ltr_per_min",
 			"Swirl:="		, "0",
 			"OperatingRPM:="	, "0",
@@ -447,15 +408,15 @@ oEditor.Move(
 	], 
 	[
 		"NAME:TranslateParameters",
-		"TranslateVectorX:="	, "-26.75mm",
-		"TranslateVectorY:="	, "195mm",
-		"TranslateVectorZ:="	, "18.49999998mm"
+		"TranslateVectorX:="	, f"{fan_x}mm",
+		"TranslateVectorY:="	, f"{fan_y}mm",
+		"TranslateVectorZ:="	, f"{fan_z}mm"
 	])
 oModule = oDesign.GetModule("BoundarySetup")
 oModule.AssignOpeningBoundary(
 	[
 		"NAME:Opening1",
-		"Objects:="		, ["Circle2"],
+        "Faces:=", [opening_face.id],   # Circle2 대신 face ID 직접
 		"Temperature:="		, "AmbientTemp",
 		"External Rad. Temperature:=", "AmbientRadTemp",
 		"Inlet Type:="		, "Pressure",
@@ -465,6 +426,7 @@ oModule.AssignOpeningBoundary(
 
 
 # %%
+
 oModule.AssignBlockBoundary(
 	[
 		"NAME:Block1",
@@ -647,7 +609,7 @@ oEditor.UpdatePriorityList(
 		[
 			"NAME:PriorityListParameters",
 			"EntityType:="		, "Object",
-			"EntityList:="		, "ttpkp_attribute151, ttpkp_attribute104",
+			"EntityList:="		, "plate, plate_base",
 			"PriorityNumber:="	, 3,
 			"PriorityListType:="	, "3D"
 		],
@@ -657,7 +619,7 @@ oEditor.UpdatePriorityList(
 oEditor.Unite(
 	[
 		"NAME:Selections",
-		"Selections:="		, "ttpkp_attribute104,ttpkp_attribute151"
+		"Selections:="		, "plate, plate_base"
 	], 
 	[
 		"NAME:UniteParameters",
@@ -666,6 +628,7 @@ oEditor.Unite(
 	])
 
 # %%
+oModule = oDesign.GetModule("AnalysisSetup")
 oModule.InsertSetup("IcepakSteadyState", 
 	[
 		"NAME:Setup1",
@@ -772,10 +735,7 @@ oModule.InsertSetup("IcepakSteadyState",
 	])
 
 # %%
-oDesktop.RestoreWindow()
-oProject = oDesktop.SetActiveProject("thermal_test")
-oProject.Save()
-oDesign = oProject.SetActiveDesign("Icepak_MMK")
+
 oDesign.AnalyzeAll()
 
 # %%
