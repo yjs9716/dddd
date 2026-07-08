@@ -138,9 +138,9 @@ def _gpr_suggest(df):
     """불확실성 우선 탐색: 2개 모델의 정규화 σ 합이 최대인 격자점 제안."""
     gpr_dp, gpr_cv = _fit_models(df)
 
-    # 전체 설계공간 격자 (1도/1mm, 31x26=806점)
-    a_cands = np.arange(0, 31, 1)
-    t_cands = np.arange(15, 41, 1)
+    # 전체 설계공간 격자 (0.1도/0.1mm, 301x251=75,551점)
+    a_cands = np.round(np.arange(0, 30.05, 0.1), 1)
+    t_cands = np.round(np.arange(15, 40.05, 0.1), 1)
     grid = np.array([[a, t] for a in a_cands for t in t_cands], dtype=float)
     gs   = (grid - _LO) / (_HI - _LO)
 
@@ -151,10 +151,11 @@ def _gpr_suggest(df):
     score = (sig_p / (sig_p.max() + 1e-12)
            + sig_c / (sig_c.max() + 1e-12))
 
-    # 이미 실험한 점 제외
-    done = set(zip(df["angle"].round().astype(int), df["thickness"].round().astype(int)))
+    # 이미 실험한 점 제외 (0.1 단위 → ×10 정수화로 부동소수점 비교 회피)
+    done = set(zip((df["angle"] * 10).round().astype(int),
+                   (df["thickness"] * 10).round().astype(int)))
     for i, (a, t) in enumerate(grid):
-        if (int(a), int(t)) in done:
+        if (int(round(a * 10)), int(round(t * 10))) in done:
             score[i] = -np.inf
 
     best_i = int(np.argmax(score))

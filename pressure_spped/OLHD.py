@@ -26,8 +26,8 @@ def generate_olhd(n_samples=20, seed=42):
     u_bounds = [30, 40]   # 각도 최대, 유로두께 최대
     scaled = qmc.scale(best_sample, l_bounds, u_bounds)
 
-    # 각도는 정수로 반올림
-    scaled[:, 0] = np.round(scaled[:, 0]).astype(int)
+    # 각도/유로두께 모두 소수점 첫째자리로 반올림
+    scaled = np.round(scaled, 1)
 
     return scaled
 

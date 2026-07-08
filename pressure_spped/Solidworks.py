@@ -40,7 +40,7 @@ def update_sw(app, errors, warnings, angle, flow_thickness):
 def export_step(app, errors, angle, flow_thickness):
     """STEP 파일 저장 후 경로 반환"""
     os.makedirs(r"E:\Thermal_Anlaysis\Step", exist_ok=True)
-    step_path = r"E:\Thermal_Anlaysis\Step\flowpath_a%d_t%d.STEP" % (angle, flow_thickness)
+    step_path = r"E:\Thermal_Anlaysis\Step\flowpath_a%.1f_t%.1f.STEP" % (angle, flow_thickness)
     asm = app.ActivateDoc3(ASM_PATH, False, 0, errors)
     asm.SaveAs3(step_path, 0, 0)
     print("STEP 저장 완료:", step_path)
