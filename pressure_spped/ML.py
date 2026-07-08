@@ -1,13 +1,8 @@
-# 목적함수 = 차압 + 속도CV 2개 버전 ML (ML_final.py 기반)
+# 목적함수 = 차압 + 속도CV 2개 (ML_final.py 기반)
 # 온도/온도편차는 목적함수에서 제외, 기록용 컬럼으로만 유지
 import os
-import sys
-
 import numpy as np
 import pandas as pd
-
-# 부모 폴더의 OLHD.py 사용
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from OLHD import generate_olhd
 
 # 새 캠페인 → 기존 results.csv와 분리 (덮어쓰기 방지)
@@ -21,7 +16,7 @@ N_CONSECUTIVE = 3      # 연속 만족 횟수 (둘 다 만족해야 종료)
 _LO = np.array([0.0,  15.0])   # 각도 min, 두께 min
 _HI = np.array([30.0, 40.0])   # 각도 max, 두께 max
 
-# DOE 샘플 (고정 — 기존 캠페인과 동일 seed라 idx 대응 비교 가능)
+# DOE 샘플 (고정 — 기존 캠페인과 동일 seed라 idx별 형상이 같아 직접 비교 가능)
 _DOE_SAMPLES = generate_olhd(n_samples=N_DOE, seed=42)
 
 _COLUMNS = ["idx", "angle", "thickness",

@@ -1,35 +1,35 @@
 # pressure_spped — 차압 + 속도CV 2목적 캠페인
 
-유로(각도/두께) 재최적화용. 목적함수를 **차압 + 핀뱅크 입구 속도CV**로 교체한 버전.
-온도/온도편차는 목적함수에서 제외하고 **기록용으로만** 저장 (열해석 자체는 그대로 켜둠).
+유로(각도/두께) 재최적화. 목적함수를 **차압 + 핀뱅크 입구 속도CV**로 교체한 버전.
+온도/온도편차는 목적함수에서 제외하고 **기록용으로만** 저장 (열해석은 그대로 켜둠).
 
-## 파일
+**이 폴더 하나만 내부망에 통째로 복사하면 실행 가능** (루트 파일 의존 없음).
 
-| 파일 | 역할 |
+## 파일 (루트와 동일 구조)
+
+| 파일 | 원본 대비 변경점 |
 |------|------|
-| `main_ps.py` | 메인 루프 (main_final.py 기반, 부모 폴더 모듈 재사용) |
-| `sheets.py` | 핀뱅크 입구에 V_inlet_01~30 비모델 시트 생성 (피치 6.5mm = 틈 4 + 핀 2.5) |
-| `postprocess.py` | 속도 CSV export + CV 계산, 온도/차압 CSV 파싱 |
-| `ml_ps.py` | GPR 2모델(차압, CV) 불확실성 탐색 + 종료판정 (ML_final.py 기반) |
+| `main.py` | run_icepak 반환값에 speed_path 추가, update_ml에 vel_cv 전달 |
+| `icepak.py` | run_icepak 끝에 V_inlet_01~30 시트 생성(피치 6.5mm) + Speed export 추가 |
+| `ML.py` | GPR 3모델 → **2모델(차압 log, 속도CV)**. 탐색·종료판정 모두 2개 기준 |
+| `result_parser.py` | speed CSV 파싱 → CV(%) 계산 추가. 저장처: summary_ps.xlsx |
+| `Solidworks.py` | 변경 없음 (루트 복사본) |
+| `OLHD.py` | 변경 없음 (루트 복사본, seed=42 동일 → 기존 캠페인과 idx별 형상 동일) |
 
-기존 루트 파일(`Solidworks.py`, `icepak_final.py`, `OLHD.py`)은 수정 없이 그대로 import.
-결과는 `results_ps.csv`로 저장 — 기존 `results.csv`(34회 캠페인)와 분리.
+결과 파일: `results_ps.csv`, `summary_ps.xlsx`, `Results\speed_{idx:03d}.csv`
+— 기존 34회 캠페인 산출물(results.csv, summary.xlsx)과 분리.
+
+## CV 정의
+
+레인 30개 평균유속의 모집단 표준편차(STDEV.P) / 평균 × 100 [%].
+수동 3점 결과: (두께20,각도0)=21.82 / (30,30)=21.73 / (40,30)=23.71
 
 ## 실행 전 확인 (게이트)
 
-1. **CV 노이즈 플로어 미확정**: (40,30) 반복 실행으로 CV 23.7%가 재현되는지 확인 전까지
-   "CV가 목적함수로 유효하다"는 미확정. 수동 3점 결과: (20,0)=21.82, (30,30)=21.73, (40,30)=23.71
-2. **모델 단위 mm 확인**: `sheets.py` 좌표는 mm 기준. Modeler > Units가 m면 어긋남
-3. **Speed 수량 이름**: `postprocess.py`의 Fields Summary가 `"Speed"`를 씀.
-   수동 측정 때 GUI에서 쓴 수량과 같은지 확인 (다르면 해당 문자열 교체)
-4. **MEAN_COL 확인**: 첫 실행 후 `speed_000.csv`를 열어 평균값 열이 인덱스 9(J열)가 맞는지 확인
-5. **PAO 물성 온도의존 여부**: 재질카드가 상수면 flow-only 전환 가능(추후 경량화),
-   온도의존이면 열해석 유지 필수. 현재 코드는 열해석 유지라 어느 쪽이든 안전
-
-## 시트 생성 타이밍
-
-시트는 NonModel이라 Solve 전/후 어디서 생성해도 결과에 영향 없음.
-시트 생성 루프를 icepak 실행 로직(run_icepak) 안에 직접 포함시켜도 되고,
-main_ps.py가 대신 생성하게 둬도 됨 — main 쪽은 V_inlet_01이 이미 있으면 건너뛰므로 중복 생성 안 됨.
-속도 export는 반드시 run_icepak()의 온도/차압 export가 끝난 뒤 호출
-(`EditFieldsSummarySetting`은 설정을 통째로 교체하므로 순서를 바꾸면 온도/차압 CSV가 깨짐).
+1. **CV 노이즈 플로어**: (40,30) 반복 실행으로 23.7%가 재현되는지 미확인.
+   재현 안 되면(노이즈면) 이 캠페인 무의미 → 먼저 확인할 것
+2. **모델 단위 mm**: 시트 좌표는 mm 기준. Modeler > Units 확인
+3. **Speed 수량 이름**: icepak.py의 Fields Summary가 `"Speed"` 사용.
+   수동 측정 때 GUI에서 쓴 수량과 다르면 해당 문자열 교체
+4. **speed CSV의 Mean 열**: 첫 실행 후 speed_000.csv 열어서 평균값이
+   J열(인덱스 9)이 맞는지 확인 — 다르면 result_parser.py의 열 인덱스 수정
