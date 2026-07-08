@@ -6,16 +6,17 @@ N_LANES  = 30
 X_POS    = -168.499999983333    # 핀뱅크 시작(입구) X좌표 [mm]
 Y_START  = 19.0000000166667     # 첫 레인 Y 시작 [mm]
 Z_START  = 0.500000016666667    # 시트 하단 Z [mm]
-WIDTH    = -4.00000003333333    # 레인 피치 (Y방향, 음수 = -Y로 진행) [mm]
+WIDTH    = -4.00000003333333    # 시트 폭 = 레인 틈 (Y방향, 음수 = -Y로 진행) [mm]
 HEIGHT   = 7.49999996666666     # 핀 높이 [mm]
+PITCH    = 6.5                  # 레인 간격 = 틈 4mm + 핀 두께 2.5mm [mm]
 PREFIX   = "V_inlet"
 
 
 def create_inlet_sheets(oEditor):
-    """입구 단면에 V_inlet_01 ~ V_inlet_30 시트 생성.
+    """입구 단면에 V_inlet_01 ~ V_inlet_30 시트 생성 (PITCH 간격, 핀 사이 틈에만).
     NonModel이라 해석 결과에 영향 없음 → Solve 후에 만들어도 됨."""
     for i in range(N_LANES):
-        y = Y_START + WIDTH * i
+        y = Y_START - PITCH * i
         oEditor.CreateRectangle(
             [
                 "NAME:RectangleParameters",

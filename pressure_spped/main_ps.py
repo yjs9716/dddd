@@ -31,9 +31,12 @@ while not is_done():
     max_temp, temp_std, pressure_drop = parse_result_csv(result_path)
 
     # 30개 시트 생성 → 속도 export → CV 계산 (Solve 후, NonModel이라 결과 영향 없음)
+    # 시트 생성을 icepak 실행 로직(run_icepak) 안에 직접 포함시킨 경우
+    # 이미 존재하므로 여기서는 자동으로 건너뜀 (이름 충돌 방지)
     oDesign = ipk.odesign
     oEditor = oDesign.SetActiveEditor("3D Modeler")
-    create_inlet_sheets(oEditor)
+    if "V_inlet_01" not in ipk.modeler.object_names:
+        create_inlet_sheets(oEditor)
     speed_path = export_speed_csv(oDesign, idx)
     speeds, vel_cv = parse_speed_csv(speed_path)
 

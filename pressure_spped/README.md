@@ -8,7 +8,7 @@
 | 파일 | 역할 |
 |------|------|
 | `main_ps.py` | 메인 루프 (main_final.py 기반, 부모 폴더 모듈 재사용) |
-| `sheets.py` | 핀뱅크 입구에 V_inlet_01~30 비모델 시트 생성 |
+| `sheets.py` | 핀뱅크 입구에 V_inlet_01~30 비모델 시트 생성 (피치 6.5mm = 틈 4 + 핀 2.5) |
 | `postprocess.py` | 속도 CSV export + CV 계산, 온도/차압 CSV 파싱 |
 | `ml_ps.py` | GPR 2모델(차압, CV) 불확실성 탐색 + 종료판정 (ML_final.py 기반) |
 
@@ -28,6 +28,8 @@
 
 ## 시트 생성 타이밍
 
-시트는 NonModel이라 Solve 후 생성해도 결과에 영향 없음 (수동 검증 때와 동일한 순서).
-`run_icepak()`이 온도/차압 export까지 끝낸 뒤 → 시트 생성 → 속도 export 순서.
-`EditFieldsSummarySetting`은 설정을 통째로 교체하므로 이 순서를 바꾸면 안 됨.
+시트는 NonModel이라 Solve 전/후 어디서 생성해도 결과에 영향 없음.
+시트 생성 루프를 icepak 실행 로직(run_icepak) 안에 직접 포함시켜도 되고,
+main_ps.py가 대신 생성하게 둬도 됨 — main 쪽은 V_inlet_01이 이미 있으면 건너뛰므로 중복 생성 안 됨.
+속도 export는 반드시 run_icepak()의 온도/차압 export가 끝난 뒤 호출
+(`EditFieldsSummarySetting`은 설정을 통째로 교체하므로 순서를 바꾸면 온도/차압 CSV가 깨짐).
