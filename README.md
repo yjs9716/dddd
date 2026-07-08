@@ -13,27 +13,35 @@
 │  claude.ai 채팅        │        │  SolidWorks (모델 업데이트) │
 │  코드 작성/검토        │ ──수동──▶  ANSYS Icepak (열해석)     │
 │  github.com/yjs9716   │  복붙   │  Python (ML 최적화)         │
-│  /dddd  (코드 저장)   │        │  결과: summary.xlsx          │
+│  /dddd  (코드 저장)   │        │  결과: results.csv          │
 └────────────────────────┘        └────────────────────────────┘
 ```
 
+**작업 원칙**: 코드 수정/커밋은 반드시 사용자 승인 후에만 진행. Claude는 코드를 채팅에 먼저 제시하고, 사용자가 명시적으로 승인("커밋해", "ㄱ" 등)했을 때만 실제로 파일을 쓰고 GitHub에 반영한다.
+
 ---
 
-## 파일 구조
+## 파일 구조 (현재)
 
 ```
 dddd/
-├── main.py            # 메인 루프 (SW → Icepak → ML 순차 실행)
-├── Solidworks.py      # SolidWorks COM 자동화 (글로벌 변수 제어 + STEP 저장)
-├── icepak.py          # ANSYS Icepak 연결 및 프로젝트 생성
-├── ML.py              # 실험계획 + GPR 최적화 (현재 스텁, 구현 예정)
-├── result_parser.py   # Icepak CSV 결과 파싱 → summary.xlsx 저장
-└── README.md          # 본 문서
+├── main_final.py       # 메인 루프 (SW → Icepak → ML 순차 실행, 최신)
+├── Solidworks.py       # SolidWorks COM 자동화 (글로벌 변수 제어 + STEP 저장)
+├── icepak_final.py     # ANSYS Icepak 해석 파이프라인 전체 (jupyter.py 통합본, 최신)
+├── ML_final.py         # DOE + GPR 기반 적응 샘플링, 예측오차 기반 종료 (최신)
+├── OLHD.py             # Optimal Latin Hypercube Design 초기 샘플 생성
+├── OLHD_PLOT.py        # OLHD 샘플 분포 시각화 (Jupyter 셀 실행용)
+├── result_parser.py    # Icepak CSV 결과 파싱 → summary 저장
+├── jupyter.py          # 사용자가 스크립트 레코더로 작성한 원본 (icepak_final.py의 소스)
+├── main.py, ML.py, icepak.py   # 구버전 (초기 스텁, 참고용으로만 유지)
+├── 냉각판형상.PNG        # 냉각판 유로/방열핀 형상 스케치
+├── d.PNG                # 유로 매니폴드 U턴 형상 및 유동경로 스케치
+└── README.md            # 본 문서
 ```
 
 ---
 
-## 설계변수 (Design Variables)
+## 설계변수 (Design Variables) — 1단계: 유로
 
 | 변수 | 범위 | 단위 | SolidWorks 글로벌 변수명 |
 |------|------|------|--------------------------|
@@ -47,7 +55,7 @@ dddd/
 | 목표 | 방향 | 설명 |
 |------|------|------|
 | 최대 온도 | 최소화 | 19개 채널 중 최대값 |
-| 온도 표준편차 | 최소화 | 19개 채널 평균온도의 std (균일성 극대화) |
+| 온도 표준편차 | 최소화 | 19개 채널 **평균온도**(J열) 기준 std (균일성) |
 | 차압 | 최소화 | 입출구 압력 차이 |
 
 ---
@@ -61,12 +69,13 @@ dddd/
 | 열전도도 (k) | 0.142 | W/m·K |
 | 밀도 (ρ) | 794 | kg/m³ |
 | 비열 (Cp) | 2219 | J/kg·K |
-| 동적점도 (μ) | 0.00990 | kg/m·s |
+| 동적점도 (μ) | 0.00990 (25°C 기준) | kg/m·s |
 | 열팽창계수 (β) | 0.00083 | 1/K |
 | **입구 온도** | **20** | **°C** |
-| 유량 | 3 ~ 4 | LPM |
+| 유량 | 4 (고정, Fan Volumetric) | LPM |
 
-> **유동 체계**: 레이놀즈수 Re < 500 → 완전 층류 (Laminar), Pr ≈ 142
+> **유동 체계**: 레이놀즈수 Re < 500 → 완전 층류 (Laminar), Pr ≈ 142  
+> 실제 운용 유량은 스펙(4LPM)보다 훨씬 적을 것으로 추정("쫄쫄쫄" 수준). 고정유량 해석에서는 **차압 최소화 = 실제 저유량 환경에서 유량 확보에 유리** → 차압이 사실상 대리 목적함수 역할.
 
 ### Icepak 설정
 
@@ -74,38 +83,109 @@ dddd/
 |------|------|
 | 해석 유형 | Steady State (정상상태) |
 | 유동 모델 | Laminar |
-| 외기 온도 | 43 °C |
-| 반복 횟수 | ~150 iterations |
-| Flow Regime | Laminar (강제 설정) |
+| 외기 온도 | 43 °C (Design Settings AmbientTemperature는 25cel로 남아있음, 주의) |
+| 반복 횟수 | Max Iterations 1000 (수렴 시 조기 종료) |
+| Flow Regime | Laminar |
+| 입구 경계조건 | Fan (Native Component, FixedVolumetric, 4ltr_per_min) — Region 경계에 붙어야 하는 소프트웨어 제약 있음 |
+| 출구 경계조건 | Opening (Pressure, AmbientPressure/AmbientTemp 참조) |
+| Air Region | **딱 붙임(padding 0) 유지로 최종 확정.** 내부 PAO 강제대류(h≈142 W/m²K)가 외기 자연대류(h≈5~15 W/m²K)보다 10~30배 강해 외기 손실은 무시 가능. Region 확장 시도는 계산 삭제/메시 없음/메시 품질 에러가 연쇄 발생해 롤백함 |
+| Include Gravity | False (자연대류 미고려, Region 딱 붙임 결정과 일관) |
+| 발열체 재질 | **FR-4로 확정** (기존 Al-Extruded는 오류였음 — 실제 시험 발열체가 FR-4 기준 발열체이므로 해석도 동일하게 맞춰야 결과 비교 가능) |
 
 ---
 
 ## 파이프라인 흐름
 
 ```
-[main.py 시작]
+[main_final.py 시작]
      │
      ├─ connect_sw()      → SolidWorks COM 연결 + 어셈블리 열기
-     ├─ connect_aedt()    → ANSYS Desktop 실행 (non-graphical=False)
+     ├─ connect_aedt()    → ANSYS Desktop 실행
      │
      └─ [메인 루프: while not is_done()]
            │
            ├─ get_next_params()          → (angle, thickness) 반환
-           │                               (초기: LHS+maxmin DOE / 이후: GPR 제안)
+           │                               (idx<20: OLHD 순서 / idx>=20: GPR 불확실성 최대점 제안)
            │
            ├─ update_sw(angle, thickness) → SolidWorks 글로벌 변수 수정 + 리빌드 + 저장
            │
            ├─ export_step(angle, thickness) → STEP 파일 저장
-           │                                  경로: E:\Thermal_Anlaysis\Step\flowpath_a{angle}_t{thickness}.STEP
            │
-           ├─ run_icepak(step_file)       → 기존 프로젝트 닫기 → STEP import
-           │                                → (사용자 스크립트 레코더 코드로 해석 실행)
-           │                                → result_xxx.csv 생성
+           ├─ run_icepak(step_file, idx)  → 기존 프로젝트 삭제 → STEP import
+           │                                → 재질/경계조건/메시/Setup 전체 자동 구성 → Solve
+           │                                → result_{idx:03d}.csv 저장
            │
-           ├─ extract_and_save(idx, ...)  → CSV 파싱 → summary.xlsx 누적 저장
+           ├─ extract_and_save(idx, ...)  → CSV 파싱 → summary 누적 저장
            │
-           └─ update_ml(angle, thickness, results) → ML 모델 업데이트
+           └─ update_ml(...)              → results.csv에 실측값 + (적응단계는) 예측값도 기록
 ```
+
+---
+
+## DOE / ML 전략 (ML_final.py, 확정본)
+
+### 1단계: OLHD 초기 샘플링
+- `OLHD.py`: LHS + maxmin 최적화, **시드 탐색 100,000회**로 확정(2.5→4.5 최소거리 개선 확인)
+- 실험 시작 후에는 **seed, n_samples, N_SEED_SEARCH 절대 변경 금지** (results.csv의 idx와 1:1 대응 깨짐)
+- 각도/두께 모두 정수 반올림
+
+### 2단계: GPR 기반 불확실성 우선 탐색 (idx ≥ 20)
+- 온도 / 편차 / log(차압) **3개 GPR 모델을 독립적으로 학습** (합쳐서 1개로 학습하지 않음)
+- WhiteKernel로 CFD 수렴 노이즈 흡수
+- 다음 실험점: 3개 모델의 **정규화 σ 합이 최대인 격자점** (모델 정확도를 고르게 끌어올리는 전략, "최적점 탐색"이 아니라 "결과 장 전체를 정확하게 학습"이 목적)
+- **종료 조건**: 매 적응 회차마다 실험 전 예측값 vs 실측값 비교 → 오차가 **3회 연속으로 온도/편차/차압 모두 1% 이내**면 자동 종료 (상한 없음, 무제한 실행 가능)
+- results.csv에 pred_* 컬럼도 함께 저장 → 재시작해도 종료 판정 유지
+
+---
+
+## 유로(각도/두께) 최적화 — 핵심 결론 (34회 실험 기준)
+
+### 결정적 발견: 열-수력 변수 분리(decoupling)
+- **온도는 유로 형상에 사실상 무반응.** 설계공간 전체(각도 0~30°, 두께 15~40mm)에서 최대온도 변동폭이 모델 자체 오차(1%) 이내 (알루미늄 발열체 기준 63.5~64.1°C)
+- **차압만 유의미하게 반응** (1246~3174Pa, 약 2.5배 범위)
+- 물리적 이유: 완전발달 층류에서는 **Nusselt수(대류계수 h)가 유속과 무관**. 유로폭/각도는 매니폴드(분배구간) 유속만 바꾸고, 실제 열교환이 일어나는 핀 틈새(4mm 고정) 형상·유속은 건드리지 못함. 유로폭 증가는 차압에만 영향 (ΔP는 유속에 비례) → 온도-차압이 서로 다른 물리 메커니즘에 지배되어 트레이드오프가 원천적으로 성립하지 않음
+
+### 한계대체율 분석 결과
+- 차압 기준 정렬 후 인접점 간 "차압 감소 대비 온도 증가 비율"을 전 구간에서 계산 → **뚜렷한 무릎점(꺾임) 없이 경계값(각도 30°, 두께 40mm)까지 단조 개선**
+- 즉 이 2변수 문제는 **내부 최적점이 존재하지 않는 경계해(boundary solution) 문제**
+- Pareto/무릎점(가중치 기반) 접근은 온도 신호가 노이즈 수준이라 가중치에 따라 답이 26→31→33mm로 계속 흔들림 → 무릎점 방법론 자체가 이 문제에 부적합함을 시사
+
+### 기각된 추가 목적함수 후보들
+| 후보 | 결과 | 사유 |
+|------|------|------|
+| 냉각수 중량 | 기각 | 유로 넓힐수록 알루미늄(2700kg/m³)이 PAO(794kg/m³)로 치환되어 오히려 가벼워짐 → 차압과 같은 방향, 트레이드오프 아님 |
+| 구조 강성(잔존 재료부피) | 기각 | 이 형상은 유로가 넓어져도 바깥 테두리 벽두께가 얇아지는 구조가 아님(사용자 확인) → 개념 자체가 미적용 |
+| 내압 응력 | 기각 | 후프응력 시산 시 σ≈0.013MPa, 알루미늄 항복강도(200~300MPa) 대비 무시 가능 |
+| **핀뱅크 유동 균일도** | **조사 중** | 아래 참조 |
+
+### 결론 (잠정, 사용자 최종 확정 보류 상태)
+- 데이터/물리 근거로는 **각도 30°, 두께 40mm(경계값)**가 명확히 우세
+- 사용자는 직관적 불편함으로 즉각 확정을 보류 중 — 방열핀 단계 진행 후 재논의 예정
+
+---
+
+## 형상 오류 수정 이력
+
+1. **발열체 재질 오류 발견 및 수정**: source1~19 박스 재질이 Al-Extruded로 잘못 설정되어 있었음 → 실제 시험 기준 발열체는 FR-4 → 34회 기존 결과는 절대온도가 실제보다 낮게 나왔을 가능성 있음(전도저항 과소평가). 단, 발열체 재질은 모든 케이스에 동일하게 적용된 오류이므로 **"유로 형상이 온도에 무반응"이라는 상대비교 결론 자체는 유효**. FR-4로 재실행 시 절대온도가 크게 상승함을 확인 (예: 63°C대 → 111°C대)
+
+2. **핀 위 바이패스 틈 발견**: 방열핀 높이 7.5mm, 핀 상단과 유로 천장 사이 틈 0.5mm 존재. 층류 h∝(gap)³ 법칙상 이론적으로 바이패스 유량은 1% 미만으로 예측되며, 실측(세로선 속도 프로파일)에서도 해당 틈 유속이 벽면 수준(거의 0)으로 확인되어 **바이패스는 무시 가능** 결론. 단, 이 값은 유로 각도/두께 설계변수와 무관(핀 높이/틈 비율에 의해서만 결정)하므로 현재 2변수 최적화의 목적함수 후보는 아니며, **방열핀 단계에서 핀 높이가 설계변수가 되면 1급 트레이드오프 변수가 될 것으로 예상**
+
+3. **핀뱅크 유동 균일도 (조사 진행 중)**: 방열핀 사이 통로(레인)로 유입되는 유량이 유로 각도/두께(상류 매니폴드 설계)에 따라 균일한지 확인 필요. 온도(19채널 간 std)는 X방향(발열체 배치 방향) 편차만 잡고, 핀뱅크 내 Y방향(레인 간) 분배 불균일은 원리적으로 반영하지 못하는 사각지대 → 별도 지표 필요성 확인됨.
+   - **측정 원칙**: 레인 사이 상단 틈(바이패스 경로)의 유속이 무시 가능한 수준으로 확인되어, 각 레인은 사실상 밀봉된 상태로 간주 가능 → 질량보존에 의해 입구=중간=출구 유량이 거의 동일 → **핀뱅크 진입 직전(입구) 1개 단면만 측정하면 충분**
+   - **측정 방법**: 비모델(Non-Model) 시트를 폭 전체에 걸쳐 배치하거나, 우선 선(line) 프로파일로 저비용 스크리닝 후 유의미한 편차가 보이면 면(surface) 적분(Mass Flow)으로 정밀 측정하는 2단계 접근 권장
+   - **미해결**: 정확한 핀 개수/피치 미확정(대략 30개 추정). 핀이 개별 객체로 분리되어 있으면 좌표 자동탐지 가능, 병합된 단일 바디면 등간격 근사 또는 선 스캔 후 피크 검출(find_peaks) 방식 필요
+
+---
+
+## Fan → Opening 전환 검토 (보류, 원복 확정)
+
+- Region을 넓히기 위해 Fan(Native Component)을 Opening(Mass Flow) 경계조건으로 교체하는 방안을 검토함
+  - 변환값: 4LPM = 6.667×10⁻⁵ m³/s × PAO 밀도(794) ≈ **0.0529 kg/s**
+  - Mass Flow가 Velocity보다 적합 (면적 변화·밀도 변화에 무관하게 유량 고정 보장)
+  - Inlet=Mass Flow, Outlet=Opening(Pressure) 조합이 물리적으로 올바른 표준 조합
+- 그러나 이 변경은 Region 확장이 전제였고, Region 확장은 다수의 연쇄 에러(계산 삭제됨, 메시 없음, 메시 품질 나쁨)를 유발함
+  - 근본 원인: Region이 확장되면 냉각수 입출구 면이 도메인 "바깥 경계"에서 "PAO-Air 두 유체 간 내부 인터페이스"로 성격이 바뀌어버려 Icepak이 처리하지 못함
+- **최종 결정: Fan 유지, Region 딱 붙임 유지 — 원래 안정적으로 작동하던 구성으로 완전히 원복.** `icepak_final.py`는 수정 없이 그대로 사용
 
 ---
 
@@ -122,25 +202,12 @@ dddd/
          J열 (인덱스 9): 압력 강하 (Pa)
 ```
 
-### 누적 요약 (`summary.xlsx`)
+### 누적 결과 (`results.csv`, ML_final.py 관리)
 
 ```
 columns: idx | angle | thickness | max_temp | temp_std | pressure_drop
+          | pred_max_temp | pred_temp_std | pred_pressure_drop
 ```
-
----
-
-## 실험계획법 (DOE) 전략
-
-### 1단계: 초기 샘플링 (LHS + maxmin / OLHD)
-- 샘플 수: 약 20개
-- 설계 공간 균등 탐색
-- `doe.py` 구현 예정
-
-### 2단계: GPR 기반 베이지안 최적화
-- Gaussian Process Regression으로 surrogate model 구축
-- EI (Expected Improvement) 기반 다음 실험점 제안
-- `ML.py`에 구현 예정
 
 ---
 
@@ -148,18 +215,25 @@ columns: idx | angle | thickness | max_temp | temp_std | pressure_drop
 
 ### 완료
 - [x] SolidWorks 자동화 (`Solidworks.py`)
-- [x] ANSYS Desktop 연결 및 프로젝트 생성 (`icepak.py` 골격)
-- [x] 메인 루프 구조 (`main.py`)
-- [x] CSV 결과 파싱 로직 (`result_parser.py`)
+- [x] Icepak 해석 파이프라인 전체 자동화 (`icepak_final.py`) — 재질/STEP import/오브젝트 이름 자동 변경/Fan·Opening 동적 face 탐지/메시/Solve/후처리 export까지 통합
+- [x] 메인 루프 (`main_final.py`)
+- [x] CSV 결과 파싱 (`result_parser.py`)
+- [x] OLHD 초기 실험계획 (`OLHD.py`, 시드탐색 10만회 확정) + 시각화 (`OLHD_PLOT.py`)
+- [x] GPR 3모델 분리 학습 + 불확실성 우선 탐색 + 예측오차 기반 자동 종료 (`ML_final.py`)
+- [x] 유로(각도/두께) 34회 DOE 완료, 온도-차압 decoupling 확인
+- [x] 발열체 재질 오류(Al→FR-4) 발견 및 원인 규명
+- [x] 핀 상단 바이패스 유량 무시 가능함을 이론+실측으로 검증
 
-### 진행 중
-- [ ] `icepak.py`: 스크립트 레코더 코드 삽입 (사용자 직접 입력 예정)
-  - 재료 설정, 경계조건, Fan/Opening 박스 생성, solve 명령
+### 진행 중 / 보류
+- [ ] 유로 최종 설계점 확정 (데이터상 각도30°/두께40mm 우세, 사용자 확정 보류 중)
+- [ ] 핀뱅크 레인 간 유동 균일도 측정 (측정 방법론 정리됨, 실측 미실행 — 핀 개수/피치 확인 필요)
+- [ ] FR-4 재질로 유로 DOE 재실행 여부 결정 (상대비교 결론은 유효하나 절대온도 갱신 필요성 검토)
 
-### 미완성 (구현 예정)
-- [ ] `doe.py`: LHS+maxmin 초기 실험계획 생성
-- [ ] `ML.py`: results.csv 기반 진행 상태 관리, DOE→GPR 전환 로직
-- [ ] `main.py`: while 루프 전환, result_parser 연동, idx 관리
+### 다음 단계: 방열핀 최적화 (2단계)
+- 설계변수 후보: 핀 두께, 개수, 높이, 오프셋/스트립 배치
+- 변수 4~5개로 격자 전수탐색 불가 → GPR surrogate + 유전알고리즘(GA) 등 연속 최적화 결합 필요
+- **핀 높이 대 상단 틈 비율이 1급 설계변수가 될 것으로 예상** (바이패스 발견의 직접적 후속)
+- 유로 단계에서 정립한 방법론(GPR 3분리, 불확실성 탐색, 한계대체율/Pareto 분석, 1케이스 저비용 검증 후 확장하는 습관)을 그대로 재사용
 
 ---
 
@@ -176,14 +250,16 @@ E:\Thermal_Anlaysis\
 │   └── flowpath_a{angle}_t{thickness}.STEP
 ├── Results\
 │   └── result_{idx:03d}.csv
-└── summary.xlsx             (누적 결과)
+└── results.csv               (누적 결과, ML_final.py 관리)
 ```
 
 ---
 
 ## 주의사항
 
-1. **DRM 제약**: `summary.xlsx`는 `pandas`로 직접 읽고 써야 함. Excel로 열어서 저장 누르면 DRM 걸림.
+1. **DRM 제약**: 결과 파일은 `pandas`로 직접 읽고 써야 함. Excel로 열어서 저장 누르면 DRM 걸림.
 2. **내부망 코드 반영**: GitHub에 올린 코드를 내부망 컴퓨터에 수동 복붙 필요.
-3. **Icepak 재시작 시**: `run_icepak()`이 기존 프로젝트를 닫고 디스크 파일을 삭제 후 새로 생성함.
+3. **Icepak 재시작 시**: `run_icepak()`이 기존 프로젝트를 닫고 디스크 파일을 삭제 후 새로 생성함 — 즉 케이스별 프로젝트 파일은 누적 보관되지 않음(사후 재해석 불가, 필요한 데이터는 해당 케이스 실행 시점에 미리 뽑아둘 것).
 4. **SolidWorks COM**: `pythoncom.CoInitialize()` 필수, 어셈블리 열기 후 작업.
+5. **OLHD.py 변경 금지**: 실험 시작 후 seed/n_samples/N_SEED_SEARCH를 바꾸면 idx 대응이 깨짐.
+6. **형상을 GUI로 직접 수정한 경우**: 메시 재생성 필수. Region 등 도메인 형상을 바꾼 경우 면 재탐지 → 경계조건 재할당 → 메시 설정 재조정 → 메시 재생성 순서를 반드시 지킬 것 (순서를 어기면 "계산 삭제됨/메시 없음/메시 품질 나쁨" 연쇄 에러 발생).
