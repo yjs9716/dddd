@@ -17,8 +17,8 @@ while not is_done():
     from ML import _load_results
     idx = len(_load_results())
 
-    ipk, result_path, speed_path = run_icepak(desktop, ipk, step_file, idx)
-    max_temp, temp_std, pressure_drop, vel_cv = extract_and_save(idx, angle, thickness, result_path, speed_path)
+    ipk, result_path = run_icepak(desktop, ipk, step_file, idx)
+    max_temp, temp_std, pressure_drop, vel_cv = extract_and_save(idx, angle, thickness, result_path)
     update_ml(angle, thickness, pressure_drop, vel_cv, max_temp, temp_std)
     print(f"[{idx}] 각도:{angle} 두께:{thickness} 차압:{pressure_drop} 속도CV:{vel_cv:.4f}%")
 

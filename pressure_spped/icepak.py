@@ -624,46 +624,8 @@ def run_icepak(desktop, ipk, step_file, idx):
     oDesign.AnalyzeAll()
     print(f"[{idx}] 해석 완료")
 
-    # 결과 CSV 저장 (idx별 동적 경로)
-    result_path = rf"E:\Thermal_Anlaysis\Results\result_{idx:03d}.csv"
-    os.makedirs(r"E:\Thermal_Anlaysis\Results", exist_ok=True)
-
-    oModule = oDesign.GetModule("Solutions")
-    oModule.EditFieldsSummarySetting(
-        [
-            "SolutionName:=", "Setup1 : SteadyState",
-            "Variation:=", "Nominal",
-            "Calculation:=", ["Object","Volume","source1","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source2","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source3","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source4","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source5","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source6","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source7","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source8","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source9","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source10","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source11","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source12","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source13","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source14","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source15","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source16","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source17","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source18","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source19","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Surface","Fan1_Passage","Pressure","0.00,0.00,1.00","Default","Reduced","Nominal",False]
-        ])
-    oModule.ExportFieldsSummary(
-        [
-            "SolutionName:=", "Setup1 : SteadyState",
-            "DesignVariationKey:=", "Nominal",
-            "ExportFileName:=", result_path,
-            "IntrinsicValue:=", ""
-        ])
-    print(f"[{idx}] CSV 저장 완료: {result_path}")
-
-    # ── 핀뱅크 입구 레인별 속도 측정 시트 30개 생성 (NonModel, 피치 6.5mm = 틈4 + 핀2.5) ──
+    # ── 핀뱅크 입구 레인별 속도 측정 시트 30개 생성 (NonModel, 피치 6.5mm = 틈4 + 핀2.5)
+    #    아래 Fields Summary가 V_inlet 이름을 참조하므로 반드시 export보다 먼저 생성 ──
     x_pos = -168.499999983333
     y_start = 19.0000000166667
     z_start = 0.500000016666667
@@ -706,28 +668,49 @@ def run_icepak(desktop, ipk, step_file, idx):
         )
     print(f"[{idx}] 측정 시트 30개 생성 완료 (V_inlet_01 ~ V_inlet_30)")
 
-    # ── 30개 시트 Speed 요약 export (반드시 온도/차압 export 뒤에 실행 —
-    #    EditFieldsSummarySetting은 설정을 통째로 교체하므로 순서 변경 금지) ──
-    speed_path = rf"E:\Thermal_Anlaysis\Results\speed_{idx:03d}.csv"
+    # 결과 CSV 저장 (idx별 동적 경로)
+    result_path = rf"E:\Thermal_Anlaysis\Results\result_{idx:03d}.csv"
+    os.makedirs(r"E:\Thermal_Anlaysis\Results", exist_ok=True)
 
-    speed_setting = [
-        "SolutionName:=", "Setup1 : SteadyState",
-        "Variation:=", "Nominal",
+    oModule = oDesign.GetModule("Solutions")
+    summary_setting = [
+            "SolutionName:=", "Setup1 : SteadyState",
+            "Variation:=", "Nominal",
+            "Calculation:=", ["Object","Volume","source1","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source2","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source3","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source4","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source5","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source6","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source7","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source8","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source9","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source10","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source11","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source12","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source13","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source14","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source15","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source16","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source17","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source18","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Volume","source19","Temperature","","Default","All","Nominal",True],
+            "Calculation:=", ["Object","Surface","Fan1_Passage","Pressure","0.00,0.00,1.00","Default","Reduced","Nominal",False],
     ]
+    # 레인별 입구 속도 30개 이어붙임 (GUI 수동 측정과 동일 설정: -X방향 성분, Reduced)
     for i in range(30):
-        speed_setting += [
+        summary_setting += [
             "Calculation:=",
-            ["Object", "Surface", f"V_inlet_{i+1:02d}", "Speed", "", "Default", "All", "Nominal", True],
+            ["Object", "Surface", f"V_inlet_{i+1:02d}", "Speed", "-1.00,0.00,0.00", "Default", "Reduced", "Nominal", True],
         ]
-
-    oModule.EditFieldsSummarySetting(speed_setting)
+    oModule.EditFieldsSummarySetting(summary_setting)
     oModule.ExportFieldsSummary(
         [
             "SolutionName:=", "Setup1 : SteadyState",
             "DesignVariationKey:=", "Nominal",
-            "ExportFileName:=", speed_path,
+            "ExportFileName:=", result_path,
             "IntrinsicValue:=", ""
         ])
-    print(f"[{idx}] 속도 CSV 저장 완료: {speed_path}")
+    print(f"[{idx}] CSV 저장 완료: {result_path}")
 
-    return ipk, result_path, speed_path
+    return ipk, result_path

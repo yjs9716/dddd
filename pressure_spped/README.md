@@ -9,19 +9,28 @@
 
 | 파일 | 원본 대비 변경점 |
 |------|------|
-| `main.py` | run_icepak 반환값에 speed_path 추가, update_ml에 vel_cv 전달 |
-| `icepak.py` | run_icepak 끝에 V_inlet_01~30 시트 생성(피치 6.5mm) + Speed export 추가 |
+| `main.py` | update_ml에 vel_cv 전달 추가 (흐름은 main_final.py와 동일) |
+| `icepak.py` | Solve 후 V_inlet_01~30 시트 생성(피치 6.5mm) → 기존 Fields Summary에 속도 30줄 이어붙여 **CSV 한 장으로** export |
 | `ML.py` | GPR 3모델 → **2모델(차압 log, 속도CV)**. 탐색·종료판정 모두 2개 기준 |
-| `result_parser.py` | speed CSV 파싱 → CV(%) 계산 추가. 저장처: summary_ps.xlsx |
+| `result_parser.py` | CSV 한 장에서 온도/차압/속도 모두 파싱, CV(%) 계산. 저장처: summary_ps.xlsx |
 | `Solidworks.py` | 변경 없음 (루트 복사본) |
 | `OLHD.py` | 변경 없음 (루트 복사본, seed=42 동일 → 기존 캠페인과 idx별 형상 동일) |
 
-결과 파일: `results_ps.csv`, `summary_ps.xlsx`, `Results\speed_{idx:03d}.csv`
+## 결과 CSV 구조 (result_{idx:03d}.csv 한 장)
+
+```
+행 1~5   : 헤더/메타 (skiprows=5)
+행 6~24  : source1~19 온도  (I열=최대, J열=평균)
+행 25    : Fan1_Passage 차압 (J열)
+행 26~55 : V_inlet_01~30 입구 속도 (J열) — Speed, -X방향 성분, Reduced
+```
+
+누적 결과: `results_ps.csv`(ML 관리), `summary_ps.xlsx`
 — 기존 34회 캠페인 산출물(results.csv, summary.xlsx)과 분리.
 
 ## CV 정의
 
-레인 30개 평균유속의 모집단 표준편차(STDEV.P) / 평균 × 100 [%].
+레인 30개 입구 속도의 모집단 표준편차(STDEV.P) / 평균 × 100 [%].
 수동 3점 결과: (두께20,각도0)=21.82 / (30,30)=21.73 / (40,30)=23.71
 
 ## 실행 전 확인 (게이트)
@@ -29,7 +38,5 @@
 1. **CV 노이즈 플로어**: (40,30) 반복 실행으로 23.7%가 재현되는지 미확인.
    재현 안 되면(노이즈면) 이 캠페인 무의미 → 먼저 확인할 것
 2. **모델 단위 mm**: 시트 좌표는 mm 기준. Modeler > Units 확인
-3. **Speed 수량 이름**: icepak.py의 Fields Summary가 `"Speed"` 사용.
-   수동 측정 때 GUI에서 쓴 수량과 다르면 해당 문자열 교체
-4. **speed CSV의 Mean 열**: 첫 실행 후 speed_000.csv 열어서 평균값이
-   J열(인덱스 9)이 맞는지 확인 — 다르면 result_parser.py의 열 인덱스 수정
+3. **첫 실행 후 CSV 검증**: result_000.csv를 열어 행 26~55에 속도 30개가
+   위 구조대로 들어왔는지, 값 위치(J열)가 맞는지 확인
