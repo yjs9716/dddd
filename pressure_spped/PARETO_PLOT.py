@@ -86,8 +86,13 @@ for i in range(len(sf)):
         print(f"{a:4.0f} | {t:4.0f} | {mp:6.1f} | {mc:5.2f} | {d_dp:5.1f} | {d_cv:6.3f} | {ratio:8.4f}")
 
 best_seg = np.nanargmax(ratios)
+knee2_angle, knee2_thick = sg[best_seg]
+knee2_dp, knee2_cv = sf[best_seg]
 print(f"\n개선율 최대 구간: 두께 {sg[best_seg-1,1]:.0f}→{sg[best_seg,1]:.0f}mm 부근"
       f"  (100Pa당 CV {ratios[best_seg]:.3f}%p 개선) — 무릎점 후보")
+print(f"[참고] 한계대체율 기준 무릎점: 각도={knee2_angle:.0f}°, 두께={knee2_thick:.0f}mm"
+      f"  (예측차압={knee2_dp:.1f}Pa, 예측CV={knee2_cv:.2f}%)"
+      f"  — 가중치 기준 무릎점과 다른 지점일 수 있음(서로 다른 정의)")
 
 # %%
 fig = plt.figure(figsize=(18, 6))
@@ -96,7 +101,8 @@ fig = plt.figure(figsize=(18, 6))
 ax1 = fig.add_subplot(131)
 ax1.scatter(F[~pareto_mask, 0], F[~pareto_mask, 1], c="lightgray", s=8, alpha=0.4, label="지배됨")
 ax1.plot(sf[:, 0], sf[:, 1], "r.-", linewidth=1, markersize=6, label="Pareto front (차압↑ 순)")
-ax1.scatter([knee_dp], [knee_cv], c="gold", s=300, marker="*", edgecolor="black", zorder=10, label="무릎점(참고)")
+ax1.scatter([knee_dp], [knee_cv], c="gold", s=300, marker="*", edgecolor="black", zorder=10, label="무릎점(가중치)")
+ax1.scatter([knee2_dp], [knee2_cv], c="deepskyblue", s=200, marker="D", edgecolor="black", zorder=10, label="무릎점(한계대체율)")
 ax1.set_xlabel("차압 (Pa)"); ax1.set_ylabel("속도CV (%)")
 ax1.set_title("목적함수 공간 (차압 vs 속도CV)")
 ax1.legend(fontsize=8)
@@ -104,7 +110,8 @@ ax1.legend(fontsize=8)
 # (2) 한계대체율: 프론트 위 구간별 가성비
 ax2 = fig.add_subplot(132)
 ax2.plot(sf[1:, 0], ratios[1:], "b.-", linewidth=1)
-ax2.axvline(knee_dp, color="gold", linestyle="--", linewidth=1.5, label="무릎점(참고)")
+ax2.axvline(knee2_dp, color="deepskyblue", linestyle="--", linewidth=1.5, label="무릎점(한계대체율)")
+ax2.axvline(knee_dp, color="gold", linestyle="--", linewidth=1.5, label="무릎점(가중치)")
 ax2.set_xlabel("차압 (Pa)"); ax2.set_ylabel("CV 개선율 (%p / 100Pa)")
 ax2.set_title("한계대체율 (클수록 가성비 구간)")
 ax2.legend(fontsize=8)
@@ -114,7 +121,8 @@ ax3 = fig.add_subplot(133)
 ax3.scatter(A.ravel(), T.ravel(), c="lightgray", s=5, alpha=0.3, label="전체 격자")
 ax3.scatter(pareto_grid[:, 0], pareto_grid[:, 1], c="red", s=40, label="Pareto 최적 설계")
 ax3.scatter(df["angle"], df["thickness"], c="black", marker="x", s=30, label="실험점")
-ax3.scatter([knee_angle], [knee_thick], c="gold", s=300, marker="*", edgecolor="black", zorder=10, label="무릎점(참고)")
+ax3.scatter([knee_angle], [knee_thick], c="gold", s=300, marker="*", edgecolor="black", zorder=10, label="무릎점(가중치)")
+ax3.scatter([knee2_angle], [knee2_thick], c="deepskyblue", s=200, marker="D", edgecolor="black", zorder=10, label="무릎점(한계대체율)")
 ax3.set_xlabel("각도 (°)"); ax3.set_ylabel("유로두께 (mm)")
 ax3.set_title("설계공간 상 위치")
 ax3.legend(fontsize=8)
