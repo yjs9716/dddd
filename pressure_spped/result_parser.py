@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 
-SUMMARY_PATH = r"E:\Thermal_Anlaysis\summary_ps.xlsx"
+SUMMARY_PATH = r"E:\Thermal_Anlaysis\summary_ps.csv"
 
 def extract_and_save(idx, angle, thickness, result_path):
     # CSV 한 장 구조 (skiprows=5 이후):
@@ -29,7 +29,14 @@ def extract_and_save(idx, angle, thickness, result_path):
     vel_cv = float(speeds.std(ddof=0) / speeds.mean() * 100)
 
     if os.path.exists(SUMMARY_PATH):
-        df_summary = pd.read_excel(SUMMARY_PATH)
+        try:
+            df_summary = pd.read_csv(SUMMARY_PATH)
+        except Exception as e:
+            # DRM 등으로 기존 파일이 손상된 경우 — results_ps.csv(ML.py 관리)가
+            # 이미 동일 데이터를 보관 중이므로 요약본은 새로 시작해도 데이터 손실 없음
+            print(f"[{idx}] summary_ps.csv 손상 감지({e}) — 새로 시작합니다")
+            df_summary = pd.DataFrame(columns=["idx", "angle", "thickness",
+                                               "pressure_drop", "vel_cv", "max_temp", "temp_std"])
     else:
         df_summary = pd.DataFrame(columns=["idx", "angle", "thickness",
                                            "pressure_drop", "vel_cv", "max_temp", "temp_std"])
@@ -44,6 +51,6 @@ def extract_and_save(idx, angle, thickness, result_path):
         "temp_std": temp_std
     }
     df_summary = pd.concat([df_summary, pd.DataFrame([new_row])], ignore_index=True)
-    df_summary.to_excel(SUMMARY_PATH, index=False)
+    df_summary.to_csv(SUMMARY_PATH, index=False)
     print(f"[{idx}] 차압:{pressure_drop} 속도CV:{vel_cv:.4f}% (기록용 — 최대온도:{overall_max_temp} 온도std:{temp_std})")
     return overall_max_temp, temp_std, pressure_drop, vel_cv
