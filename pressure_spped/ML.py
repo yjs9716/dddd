@@ -9,7 +9,7 @@ from OLHD import generate_olhd
 RESULTS_PATH = r"E:\Thermal_Anlaysis\results_ps.csv"
 
 N_DOE         = 20     # 초기 DOE 샘플 수
-ERR_THRESHOLD = 1.0    # 종료 기준: 예측오차 [%]
+ERR_THRESHOLD = 0.5    # 종료 기준: 예측오차 [%] (실측 노이즈 바닥 확인 후 0.5로 확정)
 N_CONSECUTIVE = 3      # 연속 만족 횟수 (둘 다 만족해야 종료)
 
 # 설계공간 (OLHD.py와 동일해야 함)
