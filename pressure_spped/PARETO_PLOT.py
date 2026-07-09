@@ -4,6 +4,7 @@
 # Jupyter에서 셀 단위로 실행
 
 # %%
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -119,6 +120,9 @@ ax3.set_title("설계공간 상 위치")
 ax3.legend(fontsize=8)
 
 plt.tight_layout()
-plt.savefig("pareto_front_ps.png", dpi=150, bbox_inches="tight")
+PLOT_DIR = r"E:\Thermal_Anlaysis\260708\plot"
+os.makedirs(PLOT_DIR, exist_ok=True)
+save_path = os.path.join(PLOT_DIR, "pareto_front_ps.png")
+plt.savefig(save_path, dpi=150, bbox_inches="tight")
 plt.show()
-print("저장 완료: pareto_front_ps.png")
+print(f"저장 완료: {save_path}")

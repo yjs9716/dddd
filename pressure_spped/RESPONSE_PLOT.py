@@ -4,6 +4,7 @@
 # Jupyter에서 셀 단위로 실행
 
 # %%
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -57,9 +58,12 @@ _draw(axes[1, 0], Zsig_dp, "log차압 예측 불확실성 (σ)", "Greys")
 _draw(axes[1, 1], Zsig_cv, "속도CV 예측 불확실성 (σ)", "Greys")
 
 plt.tight_layout()
-plt.savefig("response_surface_ps.png", dpi=150, bbox_inches="tight")
+PLOT_DIR = r"E:\Thermal_Anlaysis\260708\plot"
+os.makedirs(PLOT_DIR, exist_ok=True)
+save_path = os.path.join(PLOT_DIR, "response_surface_ps.png")
+plt.savefig(save_path, dpi=150, bbox_inches="tight")
 plt.show()
-print("저장 완료: response_surface_ps.png")
+print(f"저장 완료: {save_path}")
 
 # %%
 # 차압-속도CV는 트레이드오프 관계라 단일 "최적점"이 없음 (파레토 문제)
