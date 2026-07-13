@@ -119,10 +119,20 @@ def find_all_peaks(sf, sg, dp_dense, mrs_smooth, gpr_dp, gpr_cv, support_window=
     prom = (mrs_smooth.max() - mrs_smooth.min()) * prominence_ratio
     peak_idx, _ = find_peaks(mrs_smooth, prominence=prom)
 
+    # find_peaks는 배열 양끝(경계)은 절대 봉우리로 인정하지 않는다(양옆 비교 불가).
+    # 하지만 전체 최댓값(np.argmax)이 경계에 있는 경우가 실제로 자주 나오므로,
+    # "경계 최댓값"도 별도로 후보에 넣되 edge=True로 표시해서 구분한다.
+    edge_i = int(np.argmax(mrs_smooth))
+    is_edge = edge_i in (0, len(mrs_smooth) - 1) or edge_i <= 2 or edge_i >= len(mrs_smooth) - 3
+    all_idx = list(peak_idx)
+    if is_edge and edge_i not in all_idx:
+        all_idx.append(edge_i)
+
     peaks = []
-    for i in peak_idx:
+    for i in all_idx:
         dp_peak = dp_dense[i]
         mrs_peak = mrs_smooth[i]
+        edge_flag = (i == edge_i and is_edge)
 
         support = int(np.sum(np.abs(sf[:, 0] - dp_peak) <= support_window))
 
@@ -132,7 +142,7 @@ def find_all_peaks(sf, sg, dp_dense, mrs_smooth, gpr_dp, gpr_cv, support_window=
         _, sig_p = gpr_dp.predict(xs, return_std=True)
         _, sig_c = gpr_cv.predict(xs, return_std=True)
 
-        peaks.append(dict(dp=dp_peak, mrs=mrs_peak, support=support,
+        peaks.append(dict(dp=dp_peak, mrs=mrs_peak, support=support, edge=edge_flag,
                            sig_dp_log=float(sig_p[0]), sig_cv=float(sig_c[0])))
     return peaks
 
@@ -144,6 +154,7 @@ for name, d in subsets.items():
                           mrs_smooth=mrs_smooth, gpr_dp=gpr_dp, gpr_cv=gpr_cv)
     if mrs_smooth is not None:
         peak_i = np.argmax(mrs_smooth)
+        print(f"[{name}] 파레토 dp 범위: {dp_dense.min():.1f} ~ {dp_dense.max():.1f} Pa")
         print(f"[{name}] 스무딩 후 무릎(최대 MRS) dp={dp_dense[peak_i]:.1f}Pa 부근, "
               f"MRS={mrs_smooth[peak_i]:.4f}")
 
@@ -152,7 +163,12 @@ for name, d in subsets.items():
         print(f"  국소 봉우리(부봉우리 포함) 총 {len(peaks)}개:")
         for p in sorted(peaks, key=lambda x: -x["mrs"]):
             flag = "메인" if abs(p["dp"] - dp_dense[peak_i]) < 1e-6 else "부봉우리"
-            reliable = "신뢰 O" if (p["support"] >= 3) else "신뢰 X(점 부족)"
+            if p["edge"]:
+                reliable = "주의: 경계 최댓값 - 스플라인 경계효과 의심, 내부 진짜 봉우리 아닐 수 있음"
+            elif p["support"] >= 3:
+                reliable = "신뢰 O"
+            else:
+                reliable = "신뢰 X(점 부족)"
             print(f"    [{flag}] dp={p['dp']:7.1f}Pa  MRS={p['mrs']:.4f}  "
                   f"주변 원본점수={p['support']:2d}개  ({reliable})  "
                   f"σ(log차압)={p['sig_dp_log']:.4f}  σ(CV)={p['sig_cv']:.4f}")
@@ -179,11 +195,14 @@ for name, r in results.items():
     if r["dp_dense"] is not None:
         ax2.plot(r["dp_dense"], r["mrs_smooth"], "-", lw=2, color=colors[name], label=name)
         peak_i = np.argmax(r["mrs_smooth"])
+        main_peak = next((p for p in r.get("peaks", [])
+                           if abs(p["dp"] - r["dp_dense"][peak_i]) < 1e-6), None)
+        main_marker = "^" if (main_peak and main_peak["edge"]) else "*"
         ax2.scatter([r["dp_dense"][peak_i]], [r["mrs_smooth"][peak_i]],
-                    color=colors[name], s=120, edgecolor="black", zorder=5, marker="*")
+                    color=colors[name], s=120, edgecolor="black", zorder=5, marker=main_marker)
         for p in r.get("peaks", []):
             if abs(p["dp"] - r["dp_dense"][peak_i]) < 1e-6:
-                continue  # 메인 봉우리는 위에서 별표로 이미 표시
+                continue  # 메인 봉우리는 위에서 이미 표시(별표=내부, 세모=경계)
             marker = "o" if p["support"] >= 3 else "x"
             ax2.scatter([p["dp"]], [p["mrs"]], color=colors[name], s=60,
                         edgecolor="black", zorder=4, marker=marker)
