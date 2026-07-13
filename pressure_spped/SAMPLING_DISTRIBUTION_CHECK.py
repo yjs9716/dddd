@@ -165,3 +165,50 @@ ax.set_title("실험점 분포: 경계 근처 vs 무릎점 근방")
 ax.legend(fontsize=8, loc="upper left", bbox_to_anchor=(1.02, 1))
 plt.tight_layout()
 plt.show()
+
+
+# %%
+# ===== 3) 무릎점(각도=30°, 도메인 상한)이 실측 지지를 받는지, 아니면 외삽인지 확인 =====
+NEAR_BOUNDARY_DEG = 2.0   # 각도 상한으로부터 이 안쪽에 있는 실측점을 '지지점'으로 카운트
+
+print(f"\n실측 데이터의 각도 최댓값: {df_112['angle'].max():.2f}°  (도메인 상한 {a_hi}°)")
+
+near_knee_mask = (df_112["angle"] >= a_hi - NEAR_BOUNDARY_DEG) & \
+                 (df_112["thickness"] >= knee_thick - 5) & (df_112["thickness"] <= knee_thick + 5)
+n_support = int(near_knee_mask.sum())
+print(f"무릎점(각도≈30°, 두께≈{knee_thick:.1f}mm) 근방 ±2°/±5mm 안의 실측점: {n_support}개")
+if n_support > 0:
+    print(df_112.loc[near_knee_mask, ["idx", "angle", "thickness", "pressure_drop", "vel_cv"]]
+          .to_string(index=False))
+
+# 두께=knee_thick 고정, 각도 0~30을 따라가며 GPR sigma 변화 확인 (경계에서 튀는지)
+angle_slice = np.linspace(a_lo, a_hi, 61)
+slice_pts = np.column_stack([angle_slice, np.full_like(angle_slice, knee_thick)])
+slice_ns = (slice_pts - _LO) / (_HI - _LO)
+_, sig_p_slice = gpr_dp.predict(slice_ns, return_std=True)
+_, sig_c_slice = gpr_cv.predict(slice_ns, return_std=True)
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+axes[0].plot(angle_slice, sig_p_slice, "b.-")
+axes[0].axvline(knee_angle, color="gold", linestyle="--", label="무릎점 각도")
+axes[0].set_xlabel("각도 (°)"); axes[0].set_ylabel("σ(log 차압)")
+axes[0].set_title(f"두께={knee_thick:.1f}mm 고정, 각도별 예측 불확실성(차압)")
+axes[0].legend()
+
+axes[1].plot(angle_slice, sig_c_slice, "r.-")
+axes[1].axvline(knee_angle, color="gold", linestyle="--", label="무릎점 각도")
+axes[1].set_xlabel("각도 (°)"); axes[1].set_ylabel("σ(속도CV)")
+axes[1].set_title(f"두께={knee_thick:.1f}mm 고정, 각도별 예측 불확실성(CV)")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+
+print("""
+[해석 기준]
+- 무릎점 근방에 실측점이 여러 개 있고(3개 이상), 각도=30° 근처에서 sigma가 특별히
+  튀지 않고 다른 구간과 비슷한 수준이다
+  -> 각도=30°가 진짜 최적점(설계범위를 넓히면 더 좋아질 수 있다는 뜻)일 가능성 높음
+- 무릎점 근방 실측점이 1~2개뿐이거나, 각도=30° 근처에서 sigma가 확 커진다
+  -> GPR이 경계 바로 안쪽 데이터로 경계 자체를 외삽한 것 -> 이 무릎점 위치는 아직 불확실함
+""")
