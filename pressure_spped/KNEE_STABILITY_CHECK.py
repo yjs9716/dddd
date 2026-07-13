@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.interpolate import UnivariateSpline
+from scipy.signal import find_peaks
 
 from ML import _fit_models, RESULTS_PATH, _LO, _HI, N_DOE, N_CONSECUTIVE
 
@@ -104,17 +105,57 @@ def compute_smoothed_mrs(df_subset, grid_step=GRID_STEP, s_factor=SPLINE_S_FACTO
     cv_smooth = spl(dp_dense)
     mrs_smooth = -spl.derivative()(dp_dense) * 100  # %p / 100Pa 단위 맞추려면 아래서 스케일
 
-    return sf, sg, dp_dense, cv_smooth, mrs_smooth
+    return sf, sg, dp_dense, cv_smooth, mrs_smooth, gpr_dp, gpr_cv
+
+
+def find_all_peaks(sf, sg, dp_dense, mrs_smooth, gpr_dp, gpr_cv, support_window=50.0,
+                    prominence_ratio=0.05):
+    """스무딩된 MRS 곡선의 모든 국소 최댓값을 찾고, 각각이 '진짜 신호'인지 판단할 근거를 붙인다.
+    - support: 그 봉우리 dp 근방(±support_window Pa) 안에 있는 원본 파레토 점 개수
+               (많을수록 여러 실험점이 뒷받침 -> 신뢰도 높음, 1~2개면 노이즈 의심)
+    - sigma:   가장 가까운 원본 파레토 grid점에서 GPR의 예측 표준편차(불확실성)
+               (크면 아직 모델이 그 구간을 자신 없어 함 -> 봉우리 위치가 덜 신뢰됨)
+    """
+    prom = (mrs_smooth.max() - mrs_smooth.min()) * prominence_ratio
+    peak_idx, _ = find_peaks(mrs_smooth, prominence=prom)
+
+    peaks = []
+    for i in peak_idx:
+        dp_peak = dp_dense[i]
+        mrs_peak = mrs_smooth[i]
+
+        support = int(np.sum(np.abs(sf[:, 0] - dp_peak) <= support_window))
+
+        nearest_j = int(np.argmin(np.abs(sf[:, 0] - dp_peak)))
+        a, t = sg[nearest_j]
+        xs = (np.array([[a, t]], dtype=float) - _LO) / (_HI - _LO)
+        _, sig_p = gpr_dp.predict(xs, return_std=True)
+        _, sig_c = gpr_cv.predict(xs, return_std=True)
+
+        peaks.append(dict(dp=dp_peak, mrs=mrs_peak, support=support,
+                           sig_dp_log=float(sig_p[0]), sig_cv=float(sig_c[0])))
+    return peaks
 
 
 results = {}
 for name, d in subsets.items():
-    sf, sg, dp_dense, cv_smooth, mrs_smooth = compute_smoothed_mrs(d)
-    results[name] = dict(sf=sf, sg=sg, dp_dense=dp_dense, cv_smooth=cv_smooth, mrs_smooth=mrs_smooth)
+    sf, sg, dp_dense, cv_smooth, mrs_smooth, gpr_dp, gpr_cv = compute_smoothed_mrs(d)
+    results[name] = dict(sf=sf, sg=sg, dp_dense=dp_dense, cv_smooth=cv_smooth,
+                          mrs_smooth=mrs_smooth, gpr_dp=gpr_dp, gpr_cv=gpr_cv)
     if mrs_smooth is not None:
         peak_i = np.argmax(mrs_smooth)
         print(f"[{name}] 스무딩 후 무릎(최대 MRS) dp={dp_dense[peak_i]:.1f}Pa 부근, "
               f"MRS={mrs_smooth[peak_i]:.4f}")
+
+        peaks = find_all_peaks(sf, sg, dp_dense, mrs_smooth, gpr_dp, gpr_cv)
+        results[name]["peaks"] = peaks
+        print(f"  국소 봉우리(부봉우리 포함) 총 {len(peaks)}개:")
+        for p in sorted(peaks, key=lambda x: -x["mrs"]):
+            flag = "메인" if abs(p["dp"] - dp_dense[peak_i]) < 1e-6 else "부봉우리"
+            reliable = "신뢰 O" if (p["support"] >= 3) else "신뢰 X(점 부족)"
+            print(f"    [{flag}] dp={p['dp']:7.1f}Pa  MRS={p['mrs']:.4f}  "
+                  f"주변 원본점수={p['support']:2d}개  ({reliable})  "
+                  f"σ(log차압)={p['sig_dp_log']:.4f}  σ(CV)={p['sig_cv']:.4f}")
     else:
         print(f"[{name}] 파레토 점이 너무 적어 스플라인 스무딩 불가")
 
@@ -139,7 +180,13 @@ for name, r in results.items():
         ax2.plot(r["dp_dense"], r["mrs_smooth"], "-", lw=2, color=colors[name], label=name)
         peak_i = np.argmax(r["mrs_smooth"])
         ax2.scatter([r["dp_dense"][peak_i]], [r["mrs_smooth"][peak_i]],
-                    color=colors[name], s=100, edgecolor="black", zorder=5)
+                    color=colors[name], s=120, edgecolor="black", zorder=5, marker="*")
+        for p in r.get("peaks", []):
+            if abs(p["dp"] - r["dp_dense"][peak_i]) < 1e-6:
+                continue  # 메인 봉우리는 위에서 별표로 이미 표시
+            marker = "o" if p["support"] >= 3 else "x"
+            ax2.scatter([p["dp"]], [p["mrs"]], color=colors[name], s=60,
+                        edgecolor="black", zorder=4, marker=marker)
 ax2.set_xlabel("차압 (Pa)")
 ax2.set_ylabel("스무딩된 MRS (%p / 100Pa)")
 ax2.set_title("스무딩 후 한계대체율 비교 (3개 모델 겹침)")
@@ -149,9 +196,15 @@ plt.tight_layout()
 plt.show()
 
 print("""
-[해석 기준]
+[해석 기준 - 메인 봉우리]
 - 스무딩 후에도 세 곡선의 봉우리 위치/모양이 비슷하다  -> (A) 실제 물리적 무릎, 격자 노이즈가 아니었음
 - 스무딩하면 봉우리가 사라지거나, 스무딩 후에도 세 곡선이 서로 다른 자리에서 봉우리를 만든다
   -> (B) 원래 원시 유한차분(PARETO_PLOT.py의 -d_cv/d_dp) 자체가 격자/모델 노이즈에 민감했던 것.
      이 경우 실험을 더 늘리는 것보다 파레토 프론트를 스무딩해서 쓰는 게 우선입니다.
+
+[해석 기준 - 부봉우리(58점엔 없다가 112/185점에 나타나는 경우)]
+- 그래프 범례에서 점(o) 마커: 주변 원본점 3개 이상이 뒷받침 -> 데이터가 늘며 드러난 실제 국소 구조일 가능성
+- x 마커: 주변 원본점 1~2개뿐 -> 그 근방 표본 부족으로 생긴 국소 과적합/노이즈일 가능성 높음
+- σ(log차압)/σ(CV) 값을 같은 모델의 다른(메인 봉우리) 지점 σ와 비교해서, 부봉우리 쪽이 유독 크면
+  "아직 그 구간은 모델이 확신 못 하는 상태"라는 뜻 -> 그 부봉우리는 값으로 쓰지 말고 추가 실험 필요 신호로만 활용
 """)
