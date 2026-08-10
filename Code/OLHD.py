@@ -14,7 +14,7 @@ from scipy.stats import qmc
 PARAM_SPEC = [
     ("input_thick",        15.0, 35.0),   # mm
     ("input_angle",        90.0, 150.0),  # deg
-    ("power_input_thick",  10.0, 40.0),   # mm
+    ("power_input_thick",  5.0, 20.0),    # mm
     ("power_output_thick", 15.0, 40.0),   # mm
     ("mid_thick",          15.0, 35.0),   # mm
     ("mid_angle",          90.0, 140.0),  # deg
