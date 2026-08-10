@@ -245,8 +245,9 @@ def run_icepak(desktop, ipk, step_file, idx):
     # Fan/Opening face 동적 탐지
     box1         = ipk.modeler["PAO_Separate1"]
     target_faces = [face for face in box1.faces if abs(face.center[2] - 18.5) < 0.1]
-    fan_face     = [face for face in target_faces if face.center[0] < 0][0]
-    opening_face = [face for face in target_faces if face.center[0] > 0][0]
+    target_faces.sort(key=lambda face: face.center[0])
+    fan_face     = target_faces[-1]   # x값이 큰 쪽 = Fan
+    opening_face = target_faces[0]    # x값이 작은 쪽 = Opening
     fan_x = fan_face.center[0]
     fan_y = fan_face.center[1]
     fan_z = fan_face.center[2]
