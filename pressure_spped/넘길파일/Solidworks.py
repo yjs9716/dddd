@@ -14,11 +14,7 @@ import pythoncom
 import win32com.client
 
 from OLHD import PARAM_NAMES
-
-# 경로 상수
-PART_PATH = r"E:\Thermal_Anlaysis\Solidworks\plate_base.SLDPRT"
-ASM_PATH  = r"E:\Thermal_Anlaysis\Solidworks\flowpath.SLDASM"
-STEP_DIR  = r"E:\Thermal_Anlaysis\Step"
+from paths import PART_PATH, ASM_PATH, STEP_DIR
 
 
 def connect_sw():

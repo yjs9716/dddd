@@ -88,13 +88,26 @@ V1의 `set_value`는 해당 이름의 수식을 못 찾아도 **조용히 넘어
 | `Solidworks.py` | 재작성 | 글로벌 변수 7개 일괄 set + 변수명 검증 |
 | `result_parser.py` | 수정 | summary 컬럼 7변수화, dict 반환 |
 | `main.py` | 재작성 | dict 전달 + 실패 시 skip 로직 |
-| `icepak.py` | **무변경** | 형상 비의존 구조라 V1 그대로 복사 (단, 4절 확인사항 참고) |
+| `icepak.py` | 경로만 수정 | 로직은 V1 그대로, 하드코딩 경로만 `paths.py` 참조로 변경 (4절 확인사항 참고) |
+| `paths.py` | 신규 | 작업폴더 경로 전부 이 파일 한 곳에서 관리 |
 
-### 출력 파일 (V1과 분리 — 덮어쓰기 없음)
+### 작업폴더 / 경로
 
-- `E:\Thermal_Anlaysis\results_v2.csv` — 실험 결과 + 예측값
-- `E:\Thermal_Anlaysis\summary_v2.csv` — 요약
-- `E:\Thermal_Anlaysis\failed_v2.csv` — 형상 미성립 등 실패점
+작업폴더: `E:\Thermal_Anlaysis\Liquid_plate\260810` (AEDT / Code / Result / Solidworks 하위폴더)
+모든 경로는 **`paths.py` 한 곳에서만** 정의함 — 폴더 구조 바뀌면 여기만 수정.
+
+| 상수 | 실제 경로 | 용도 |
+|---|---|---|
+| `PART_PATH` | `...\Solidworks\plate_base.SLDPRT` | 형상 파트 |
+| `ASM_PATH` | `...\Solidworks\flowpath.SLDASM` | 어셈블리 |
+| `STEP_DIR` | `...\Solidworks\Step\` | 실험점별 STEP 저장 |
+| `AEDT_PROJ_PATH` | `...\AEDT\thermal_test` | Icepak 프로젝트 |
+| `ICEPAK_RESULT_DIR` | `...\Result\` | Icepak 원본 CSV (`result_000.csv` 등) |
+| `RESULTS_PATH` | `...\Result\results_v2.csv` | 실험 결과 + 예측값 (V1과 분리) |
+| `SUMMARY_PATH` | `...\Result\summary_v2.csv` | 요약 |
+| `FAILED_PATH` | `...\Result\failed_v2.csv` | 형상 미성립 등 실패점 |
+
+> `Code` 폴더는 이 `.py` 파일들을 두는 곳 — 경로 상수는 아니고 실행 위치.
 
 > ⚠ **`results_v2.csv` 삭제 금지.** STEP 파일명이 V1처럼 파라미터값이 아니라
 > `flowpath_000.STEP`처럼 idx 기준이라(7개를 다 넣으면 경로가 너무 길어짐),

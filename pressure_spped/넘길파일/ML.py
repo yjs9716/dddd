@@ -17,12 +17,11 @@ import pandas as pd
 from scipy.stats import qmc
 
 from OLHD import generate_olhd, PARAM_NAMES, LO, HI, N_DIM, to_dict
-
-# 새 캠페인 → V1 결과와 분리
-RESULTS_PATH = r"E:\Thermal_Anlaysis\results_v2.csv"
-# 리빌드 실패 등으로 해석까지 못 간 실험점 기록 (7변수에서는 기하학적으로
-# 성립 불가한 조합이 나올 수 있음 → 같은 점을 무한 재시도하지 않기 위해 필요)
-FAILED_PATH  = r"E:\Thermal_Anlaysis\failed_v2.csv"
+from paths import RESULTS_PATH, FAILED_PATH
+# RESULTS_PATH: 실험 결과 + 예측값 (V1 results.csv와 분리된 새 캠페인)
+# FAILED_PATH : 리빌드 실패 등으로 해석까지 못 간 실험점 기록
+#   (7변수에서는 기하학적으로 성립 불가한 조합이 나올 수 있음
+#    → 같은 점을 무한 재시도하지 않기 위해 필요)
 
 # ── 실험 설정 ────────────────────────────────────────────────
 N_DOE         = 70     # 초기 DOE 샘플 수 (10 x 변수수 경험칙: 10 x 7 = 70)

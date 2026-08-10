@@ -11,8 +11,7 @@ import os
 import pandas as pd
 
 from OLHD import PARAM_NAMES
-
-SUMMARY_PATH = r"E:\Thermal_Anlaysis\summary_v2.csv"
+from paths import SUMMARY_PATH
 
 _SUMMARY_COLS = (["idx"] + PARAM_NAMES
                  + ["pressure_drop", "vel_cv", "max_temp", "temp_std"])

@@ -1,7 +1,7 @@
 from ansys.aedt.core import Desktop, Icepak
 import os, shutil
 
-PROJ_PATH = r"E:\Thermal_Anlaysis\Aedt\thermal_test"
+from paths import AEDT_PROJ_PATH as PROJ_PATH, ICEPAK_RESULT_DIR
 
 def connect_aedt():
     desktop = Desktop(
@@ -669,8 +669,8 @@ def run_icepak(desktop, ipk, step_file, idx):
     print(f"[{idx}] 측정 시트 30개 생성 완료 (V_inlet_01 ~ V_inlet_30)")
 
     # 결과 CSV 저장 (idx별 동적 경로)
-    result_path = rf"E:\Thermal_Anlaysis\Results\result_{idx:03d}.csv"
-    os.makedirs(r"E:\Thermal_Anlaysis\Results", exist_ok=True)
+    result_path = os.path.join(ICEPAK_RESULT_DIR, f"result_{idx:03d}.csv")
+    os.makedirs(ICEPAK_RESULT_DIR, exist_ok=True)
 
     oModule = oDesign.GetModule("Solutions")
     summary_setting = [
