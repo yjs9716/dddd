@@ -32,16 +32,28 @@ N_CONSECUTIVE = 3      # 연속 만족 횟수 (모든 목적함수가 동시 만
 N_CAND         = 32768   # 매 회차 σ를 평가할 후보점 수 (Sobol 균형성 위해 2^15)
 MIN_DIST_NORM  = 0.05    # 정규화 공간에서 기존 실험점과 이 거리 미만이면 후보 제외
 
-# ── 목적함수 (⚠ 확정 전 — 현재는 V1 캠페인과 동일한 2개로 임시 설정) ──
+# ── 목적함수 (확정 — 4개) ──────────────────────────────────────
 #    이름과 log 변환 여부만 여기서 바꾸면 나머지 코드는 그대로 동작함.
+#    4개 다 GPR이 학습 + 불확실성 계산 + 종료판정에 사용 (아래 record-only와 다름):
+#      - pressure_drop      : 차압
+#      - vel_cv              : 핀뱅크 입구 30레인 속도CV (유량분배 균일도)
+#      - temp_std            : 19채널 온도표준편차 — V2는 하단+상단 2회 통과라
+#                              V1(1회 통과, 무반응)과 달리 반응할 수 있어 재검증 필요
+#      - power_module_temp   : 전원공급모듈(60W, 신규) 온도 — 분기점에서 유량을
+#                              충분히 못 받으면 과열될 수 있어 목적함수로 승격
+#                              (상대비교 스크리닝 목적 — 블럭모델이라 절대값은 안 믿음)
 OBJECTIVES = [
-    ("pressure_drop", True),    # (컬럼명, log변환 여부) — 차압은 스케일이 넓어 log
-    ("vel_cv",        False),
+    ("pressure_drop",      True),    # 차압은 스케일이 넓어 log
+    ("vel_cv",             False),
+    ("temp_std",           False),
+    ("power_module_temp",  False),
 ]
 OBJ_NAMES = [o[0] for o in OBJECTIVES]
 
-# 기록만 하고 학습에는 안 쓰는 컬럼
-RECORD_ONLY = ["max_temp", "temp_std"]
+# 기록만 하고 학습/샘플링/종료판정엔 안 쓰는 컬럼
+#   max_temp: 19채널 전체 최고온도 — 블럭모델 절대값을 믿을 수 없어 정밀 최적화
+#   대상은 아니지만, 혹시 튀는 조합이 있는지 사람이 훑어보는 안전장치로 계속 기록
+RECORD_ONLY = ["max_temp"]
 
 _DOE_SAMPLES = generate_olhd(n_samples=N_DOE, seed=42)
 
@@ -108,14 +120,19 @@ def get_next_params():
     return params
 
 
-def update_ml(params, results, max_temp=np.nan, temp_std=np.nan):
+def update_ml(params, results):
     """
     해석 결과 저장. 적응 단계면 '이번 실험 데이터가 들어가기 전 모델의 예측값'도 함께 기록.
       params  : {변수명: 값} 7개
-      results : {목적함수명: 실측값}
+      results : {값 이름: 실측값} — OBJ_NAMES 4개 + RECORD_ONLY 전부 포함해서 넘길 것
+                (result_parser.extract_and_save가 이미 이 형태로 반환함)
     """
     df  = _load_results()
     idx = len(df)
+
+    missing = [n for n in OBJ_NAMES + RECORD_ONLY if n not in results]
+    if missing:
+        raise KeyError(f"update_ml에 넘긴 results에 다음 값이 없음: {missing}")
 
     preds = {n: np.nan for n in OBJ_NAMES}
     if idx >= N_DOE:
@@ -131,8 +148,7 @@ def update_ml(params, results, max_temp=np.nan, temp_std=np.nan):
     row = {"idx": idx}
     row.update(params)
     row.update({n: results[n] for n in OBJ_NAMES})
-    row["max_temp"] = max_temp
-    row["temp_std"] = temp_std
+    row.update({n: results[n] for n in RECORD_ONLY})
     row.update({f"pred_{n}": preds[n] for n in OBJ_NAMES})
 
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)

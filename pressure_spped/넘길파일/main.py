@@ -39,9 +39,9 @@ while not is_done():
         continue
 
     consecutive_fail = 0
-    update_ml(params, results,
-              max_temp=results["max_temp"], temp_std=results["temp_std"])
-    print(f"[{idx}] 차압:{results['pressure_drop']} 속도CV:{results['vel_cv']:.4f}%")
+    update_ml(params, results)   # results에 목적함수 4개 + 기록용(max_temp) 전부 들어있음
+    print(f"[{idx}] 차압:{results['pressure_drop']}  속도CV:{results['vel_cv']:.4f}%  "
+          f"온도std:{results['temp_std']:.4f}  전원모듈온도:{results['power_module_temp']:.2f}")
 
 print("모든 실험 완료.")
 input("종료하려면 엔터.")

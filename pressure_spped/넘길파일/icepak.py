@@ -230,7 +230,11 @@ def run_icepak(desktop, ipk, step_file, idx):
                 "Transparency:=", 0,
                 "PartCoordinateSystem:=", "Global",
                 "UDMId:=", "",
-                "MaterialValue:=", "\"Al-Extruded\"",
+                # ⚠ V1 재질 오류(Al-Extruded) 수정: 실제 시험 발열체 기준인 FR-4로 통일.
+                #   root README 「형상 오류 수정 이력」에 기록된 버그가 이 pressure_spped
+                #   사본에는 반영 안 돼 있었음. 온도가 이제 목적함수(temp_std)로 들어가므로
+                #   재질이 절대온도뿐 아니라 상대비교 기울기(민감도)에도 영향을 줄 수 있어 중요.
+                "MaterialValue:=", "\"FR-4\"",
                 "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
                 "SolveInside:=", True,
                 "ShellElement:=", False,
@@ -241,6 +245,41 @@ def run_icepak(desktop, ipk, step_file, idx):
                 "UseMaterialAppearance:=", False,
                 "IsLightweight:=", False
             ])
+
+    # ── 전원공급모듈 발열체 (신규, 60W 단일 블록) ──────────────────
+    #   ⚠ 좌표/치수는 플레이스홀더입니다. 실제 V2 형상(분기 후 전원모듈 위치)에
+    #   맞춰 XPosition/YPosition/ZPosition/XSize/YSize/ZSize를 반드시 교체하세요.
+    #   (그림상 분기점 이후, 채널 상단 프롱 옆에 위치 — Solidworks.py의 좌표 정의와
+    #    맞춰서 결정하는 게 안전합니다)
+    oEditor.CreateBox(
+        [
+            "NAME:BoxParameters",
+            "XPosition:=", "0mm",    # TODO: 실제 좌표로 교체
+            "YPosition:=", "0mm",    # TODO: 실제 좌표로 교체
+            "ZPosition:=", "0mm",    # TODO: 실제 좌표로 교체
+            "XSize:=", "20mm",       # TODO: 실제 치수로 교체
+            "YSize:=", "20mm",       # TODO: 실제 치수로 교체
+            "ZSize:=", "3mm",        # TODO: 실제 치수로 교체
+        ],
+        [
+            "NAME:Attributes",
+            "Name:=", "power_module",
+            "Flags:=", "",
+            "Color:=", "(175 143 143)",
+            "Transparency:=", 0,
+            "PartCoordinateSystem:=", "Global",
+            "UDMId:=", "",
+            "MaterialValue:=", "\"FR-4\"",
+            "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
+            "SolveInside:=", True,
+            "ShellElement:=", False,
+            "ShellElementThickness:=", "0mm",
+            "ReferenceTemperature:=", "20cel",
+            "IsMaterialEditable:=", True,
+            "IsSurfaceMaterialEditable:=", True,
+            "UseMaterialAppearance:=", False,
+            "IsLightweight:=", False
+        ])
 
     # Fan/Opening face 동적 탐지
     box1         = ipk.modeler["PAO_Separate1"]
@@ -370,6 +409,15 @@ def run_icepak(desktop, ipk, step_file, idx):
             "Use External Conditions:=", False,
             "Use Total Power:=", True,
             "Total Power:=", "46.871W"
+        ])
+    oModule.AssignBlockBoundary(
+        [
+            "NAME:Block_PowerModule",
+            "Objects:=", ["power_module"],
+            "Block Type:=", "Solid",
+            "Use External Conditions:=", False,
+            "Use Total Power:=", True,
+            "Total Power:=", "60W"
         ])
 
     # SubRegion 생성
@@ -703,6 +751,12 @@ def run_icepak(desktop, ipk, step_file, idx):
             "Calculation:=",
             ["Object", "Surface", f"V_inlet_{i+1:02d}", "Speed", "-1.00,0.00,0.00", "Default", "Reduced", "Nominal", True],
         ]
+    # 전원공급모듈 온도 (신규, 목적함수 4번째) — 맨 뒤에 추가해서 기존 행 인덱스
+    # (0~18 source, 19 차압, 20~49 V_inlet)를 안 건드림. result_parser.py에서 행 50으로 읽음.
+    summary_setting += [
+        "Calculation:=",
+        ["Object", "Volume", "power_module", "Temperature", "", "Default", "All", "Nominal", True],
+    ]
     oModule.EditFieldsSummarySetting(summary_setting)
     oModule.ExportFieldsSummary(
         [
