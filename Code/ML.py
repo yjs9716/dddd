@@ -34,31 +34,49 @@ MIN_DIST_NORM  = 0.05    # 정규화 공간에서 기존 실험점과 이 거리
 
 # ── 목적함수 (확정 — 4개) ──────────────────────────────────────
 #    이름과 log 변환 여부만 여기서 바꾸면 나머지 코드는 그대로 동작함.
-#    4개 다 GPR이 학습 + 불확실성 계산 + 종료판정에 사용 (아래 record-only와 다름):
-#      - pressure_drop      : 차압
-#      - vel_cv              : 핀뱅크 입구 30레인 속도CV (유량분배 균일도)
-#      - temp_std            : 19채널 온도표준편차 — V2는 하단+상단 2회 통과라
-#                              V1(1회 통과, 무반응)과 달리 반응할 수 있어 재검증 필요
-#      - power_module_temp   : 전원공급모듈(60W, 신규) 온도 — 분기점에서 유량을
-#                              충분히 못 받으면 과열될 수 있어 목적함수로 승격
-#                              (상대비교 스크리닝 목적 — 블럭모델이라 절대값은 안 믿음)
+#    4개 다 GPR 학습 + 적응샘플링(σ) + 종료판정에 사용:
+#      - pressure_drop : 차압
+#      - vel_cv        : 핀뱅크 레인 속도CV — 1차/2차 통과를 각각 계산해 나쁜 쪽(max)
+#                        (두 통과는 분기 때문에 평균 유속 자체가 달라 합쳐 계산하면 안 됨)
+#      - temp_std      : 8채널 온도표준편차 — 유동방향을 따라가며 물이 데워지는
+#                        예열 효과를 보는 지표. vel_cv(레인 간 = Y축 분배)와는 축이 달라
+#                        서로 중복이 아님
+#      - max_temp      : 8채널 최고온도
 OBJECTIVES = [
     ("pressure_drop",      True),    # 차압은 스케일이 넓어 log
     ("vel_cv",             False),
     ("temp_std",           False),
-    ("power_module_temp",  False),
+    ("max_temp",           False),
 ]
 OBJ_NAMES = [o[0] for o in OBJECTIVES]
 
-# 기록만 하고 학습/샘플링/종료판정엔 안 쓰는 컬럼
-#   max_temp: 19채널 전체 최고온도 — 블럭모델 절대값을 믿을 수 없어 정밀 최적화
-#   대상은 아니지만, 혹시 튀는 조합이 있는지 사람이 훑어보는 안전장치로 계속 기록
-RECORD_ONLY = ["max_temp"]
+# ── 제약조건용 지표 ────────────────────────────────────────────
+#    GPR 학습 + 예측(pred_*)까지는 목적함수와 똑같이 하지만,
+#    적응샘플링 방향과 종료판정에는 관여하지 않음.
+#    다목적 최적화(유전알고리즘) 단계에서 "이 조건을 넘는 후보는 제외" 하는
+#    필터로 쓰기 위해 예측값이 필요하기 때문에 학습은 반드시 해야 함.
+#      - power_module_flow : 전원모듈 분기 유량비율 (0~1)
+#      - weight            : 알루미늄 + PAO 총 중량 [kg]
+CONSTRAINTS = [
+    ("power_module_flow",  False),
+    ("weight",             False),
+]
+CONSTRAINT_NAMES = [c[0] for c in CONSTRAINTS]
+
+# GPR을 학습할 전체 대상 (목적함수 + 제약조건)
+MODELED = OBJECTIVES + CONSTRAINTS
+MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
+
+# 종료판정에 쓰는 목적함수.
+#   max_temp는 단일 극값이라 노이즈가 커서 ERR_THRESHOLD를 계속 못 넘길 수 있음.
+#   캠페인이 종료조건을 못 만족하고 계속 돌면 여기서 "max_temp"만 빼면 됨
+#   (빼도 GPR 학습·예측·적응샘플링에는 그대로 참여함).
+TERMINATION_NAMES = list(OBJ_NAMES)
 
 _DOE_SAMPLES = generate_olhd(n_samples=N_DOE, seed=42)
 
-_COLUMNS = (["idx"] + PARAM_NAMES + OBJ_NAMES + RECORD_ONLY
-            + [f"pred_{n}" for n in OBJ_NAMES])
+_COLUMNS = (["idx"] + PARAM_NAMES + MODELED_NAMES
+            + [f"pred_{n}" for n in MODELED_NAMES])
 
 
 def _load_results():
@@ -124,21 +142,21 @@ def update_ml(params, results):
     """
     해석 결과 저장. 적응 단계면 '이번 실험 데이터가 들어가기 전 모델의 예측값'도 함께 기록.
       params  : {변수명: 값} 7개
-      results : {값 이름: 실측값} — OBJ_NAMES 4개 + RECORD_ONLY 전부 포함해서 넘길 것
+      results : {값 이름: 실측값} — 목적함수 4개 + 제약조건 2개 전부 포함해서 넘길 것
                 (result_parser.extract_and_save가 이미 이 형태로 반환함)
     """
     df  = _load_results()
     idx = len(df)
 
-    missing = [n for n in OBJ_NAMES + RECORD_ONLY if n not in results]
+    missing = [n for n in MODELED_NAMES if n not in results]
     if missing:
         raise KeyError(f"update_ml에 넘긴 results에 다음 값이 없음: {missing}")
 
-    preds = {n: np.nan for n in OBJ_NAMES}
+    preds = {n: np.nan for n in MODELED_NAMES}
     if idx >= N_DOE:
         preds = _predict_point(df, params)
         msg = []
-        for name in OBJ_NAMES:
+        for name in TERMINATION_NAMES:
             actual = results[name]
             err = abs(preds[name] - actual) / abs(actual) * 100
             msg.append(f"{name} {err:.2f}%")
@@ -147,9 +165,8 @@ def update_ml(params, results):
 
     row = {"idx": idx}
     row.update(params)
-    row.update({n: results[n] for n in OBJ_NAMES})
-    row.update({n: results[n] for n in RECORD_ONLY})
-    row.update({f"pred_{n}": preds[n] for n in OBJ_NAMES})
+    row.update({n: results[n] for n in MODELED_NAMES})
+    row.update({f"pred_{n}": preds[n] for n in MODELED_NAMES})
 
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     _save_results(df)
@@ -157,7 +174,7 @@ def update_ml(params, results):
 
 
 def is_done():
-    """최근 N_CONSECUTIVE회 연속, 모든 목적함수의 예측오차가 기준 이하면 종료."""
+    """최근 N_CONSECUTIVE회 연속, TERMINATION_NAMES의 예측오차가 전부 기준 이하면 종료."""
     df = _load_results()
     adaptive = df.dropna(subset=[f"pred_{OBJ_NAMES[0]}"])
     if len(adaptive) < N_CONSECUTIVE:
@@ -165,7 +182,7 @@ def is_done():
 
     recent = adaptive.tail(N_CONSECUTIVE)
     ok = np.ones(len(recent), dtype=bool)
-    for name in OBJ_NAMES:
+    for name in TERMINATION_NAMES:
         err = (recent[f"pred_{name}"] - recent[name]).abs() / recent[name].abs() * 100
         ok &= (err <= ERR_THRESHOLD).values
     return bool(ok.all())
@@ -190,10 +207,15 @@ def _fit_gpr(Xs, y):
 
 
 def _fit_models(df):
-    """목적함수별 GPR을 따로 학습 → {이름: (모델, log여부)}"""
+    """목적함수 + 제약조건별 GPR을 따로 학습 → {이름: (모델, log여부)}
+
+    제약조건도 학습하는 이유: 유전알고리즘 단계에서 실측 없이 "이 후보가 조건을
+    만족하는가"를 걸러내려면 제약조건에도 예측값과 불확실성(σ)이 필요하기 때문.
+    (다만 적응샘플링 방향과 종료판정에는 목적함수만 관여 — _gpr_suggest / is_done 참고)
+    """
     Xs = _normalize(df[PARAM_NAMES].values)
     models = {}
-    for name, use_log in OBJECTIVES:
+    for name, use_log in MODELED:
         y = df[name].values.astype(float)
         models[name] = (_fit_gpr(Xs, np.log(y) if use_log else y), use_log)
     return models
@@ -239,8 +261,11 @@ def _gpr_suggest(df):
     cand_norm = cand_norm[keep]
 
     # 목적함수별 σ 정규화 후 합산 → 여러 지도가 고르게 정확해지도록
+    #   제약조건(CONSTRAINT_NAMES)은 σ 합산에서 제외 — 실험 예산을 어디에 쓸지는
+    #   목적함수만 결정하고, 제약조건 지도는 그 샘플에 딸려 같이 학습됨
     score = np.zeros(len(cand_norm))
-    for name, (gpr, _use_log) in models.items():
+    for name in OBJ_NAMES:
+        gpr, _use_log = models[name]
         _, sig = gpr.predict(cand_norm, return_std=True)
         score += sig / (sig.max() + 1e-12)
 

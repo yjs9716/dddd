@@ -9,7 +9,7 @@ V1 대비 변경점
   - ML의 private 함수(_load_results) 대신 public current_idx() 사용
 """
 from Solidworks import connect_sw, update_sw, export_step
-from icepak import connect_aedt, run_icepak
+from icepak2 import connect_aedt, run_icepak   # ← 최종본을 icepak.py로 바꾸면 여기도 함께 수정
 from ML import get_next_params, update_ml, is_done, log_failure, current_idx
 from result_parser import extract_and_save
 
@@ -25,10 +25,12 @@ while not is_done():
     idx    = current_idx()
 
     try:
-        update_sw(app, errors, warnings, params)
+        aluminum_mass_kg = update_sw(app, errors, warnings, params)
         step_file = export_step(app, errors, idx)
-        ipk, result_path = run_icepak(desktop, ipk, step_file, idx)
-        results = extract_and_save(idx, params, result_path)
+        # params 전달: 전원모듈 입구 측정면 높이가 power_input_thick에 따라 바뀜
+        ipk, result_path, pao_volume_mm3 = run_icepak(desktop, ipk, step_file, idx, params)
+        results = extract_and_save(idx, params, result_path,
+                                   pao_volume_mm3, aluminum_mass_kg)
     except Exception as e:
         # 형상 미성립 / 리빌드 실패 / 해석 실패 → 기록하고 다음 점으로
         log_failure(params, e)
@@ -39,9 +41,7 @@ while not is_done():
         continue
 
     consecutive_fail = 0
-    update_ml(params, results)   # results에 목적함수 4개 + 기록용(max_temp) 전부 들어있음
-    print(f"[{idx}] 차압:{results['pressure_drop']}  속도CV:{results['vel_cv']:.4f}%  "
-          f"온도std:{results['temp_std']:.4f}  전원모듈온도:{results['power_module_temp']:.2f}")
+    update_ml(params, results)   # results에 목적함수 4개 + 제약조건 2개 전부 들어있음
 
 print("모든 실험 완료.")
 input("종료하려면 엔터.")

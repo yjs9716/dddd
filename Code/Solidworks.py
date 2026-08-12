@@ -34,6 +34,10 @@ def update_sw(app, errors, warnings, params):
     """
     글로벌 변수 7개 업데이트 및 리빌드.
       params : {변수명: 값} — 키는 SolidWorks 글로벌 변수명과 정확히 일치해야 함
+
+    반환: aluminum_mass_kg — 리빌드된 형상의 알루미늄 질량 [kg]
+      유로(빈 공간)를 채운 PAO 질량은 여기서 알 수 없음(형상에 없는 개념).
+      Icepak이 만든 PAO 부피와 합쳐서 총 중량을 내는 건 main.py 흐름 참고.
     """
     part  = app.ActivateDoc3(PART_PATH, False, 0, errors)
     eqMgr = part.GetEquationMgr
@@ -65,6 +69,12 @@ def update_sw(app, errors, warnings, params):
     asm.ForceRebuild3(False)
     asm.Save3(1, errors, warnings)
     print("SW 업데이트 완료: " + "  ".join(f"{k}={v}" for k, v in params.items()))
+
+    # 질량 특성 — 리빌드 직후 값이라 이번 params에 대응하는 형상의 질량임
+    mass_prop = asm.Extension.CreateMassProperty()
+    aluminum_mass_kg = float(mass_prop.Mass)   # SolidWorks API는 SI(kg) 반환
+    print(f"  알루미늄 질량: {aluminum_mass_kg:.4f} kg")
+    return aluminum_mass_kg
 
 
 def export_step(app, errors, idx):

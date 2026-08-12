@@ -1,12 +1,22 @@
 """
 V2 유로 7변수 — Icepak 결과 CSV 파싱
 
-V1 대비 변경점
-  - summary 컬럼: angle/thickness 2개 → 7개 파라미터
-  - 반환값: 튜플 → dict (목적함수 후보를 늘려도 호출부가 안 깨지도록)
-  - 전원공급모듈 온도(행 50) 신규 파싱 — icepak.py의 Fields Summary 맨 뒤에 추가한 항목
-  - temp_std가 이제 목적함수로 승격 (ML.py OBJECTIVES 참고) — 여기서는 값 계산까지만,
-    OBJECTIVES/RECORD_ONLY 분류는 ML.py 쪽 책임
+icepak2.py(스크립트 리코더 완성본) 기준으로 재작성.
+  - 발열채널 19개 → 8개 (source01~08)
+  - 핀뱅크 레인: 1차 통과(V_inlet_01~07) + 2차 통과(V_inlet2_01~07) = 14개
+    · 두 통과는 분기 때문에 평균 유속 자체가 다르므로 14개를 한 덩어리로 묶어
+      CV를 내면 "레인 분배 불균일"과 "통과별 유량 수준 차이"가 뒤섞임
+      → 각 통과별로 따로 CV를 내고 나쁜 쪽(max)을 목적함수로 사용
+  - 전원모듈 분기 유량: Icepak의 VolumeFlowRate가 값을 못 내서(면적만 반환),
+    법선방향 Speed 면적가중평균 x 면적 으로 환산 (수학적으로 동일한 값)
+  - 중량: SolidWorks 알루미늄 중량 + PAO 중량(= Icepak PAO 부피 x 밀도)
+
+CSV 한 장 구조 (skiprows=5, 열 인덱스는 Min=7 / Max=8 / Mean=9 / Stdev=10)
+  행 0~7   : source01~08 온도
+  행 8     : Fan1_Passage 차압
+  행 9~15  : V_inlet_01~07  (1차 통과, +X) 속도
+  행 16~22 : V_inlet2_01~07 (2차 통과) 속도
+  행 23    : Rectangle1 (전원모듈 분기 입구) 법선방향 속도
 """
 import os
 
@@ -14,53 +24,97 @@ import pandas as pd
 
 from OLHD import PARAM_NAMES
 from paths import SUMMARY_PATH
+from icepak2 import PM_INLET_WIDTH_MM, PAO_DENSITY
+
+# ── CSV 행/열 위치 (icepak2.py의 Calculation 추가 순서와 반드시 일치) ──
+N_SOURCE   = 8     # 발열채널 수
+N_LANE     = 7     # 통과 1회당 핀뱅크 레인 수
+ROW_SOURCE = 0                              # 0~7
+ROW_DP     = ROW_SOURCE + N_SOURCE          # 8
+ROW_LANE1  = ROW_DP + 1                     # 9~15
+ROW_LANE2  = ROW_LANE1 + N_LANE             # 16~22
+ROW_PMFLOW = ROW_LANE2 + N_LANE             # 23
+N_ROWS     = ROW_PMFLOW + 1                 # 24
+
+COL_MAX  = 8
+COL_MEAN = 9
+
+# Fan1의 FixedVolumetric 설정값 (icepak2.py "Volumetric:=" 4ltr_per_min)
+TOTAL_FLOW_LPM = 4.0
 
 _SUMMARY_COLS = (["idx"] + PARAM_NAMES
-                 + ["pressure_drop", "vel_cv", "temp_std", "power_module_temp", "max_temp"])
+                 + ["pressure_drop", "vel_cv", "temp_std", "max_temp",
+                    "power_module_flow", "weight",
+                    "vel_cv_pass1", "vel_cv_pass2", "power_module_flow_lpm"])
 
 
-def extract_and_save(idx, params, result_path):
+def _cv(series):
+    """모집단 표준편차 기준 변동계수 [%] (엑셀 STDEV.P 기준).
+
+    2차 통과는 유동 방향이 반대라 법선성분 평균이 음수로 잡힐 수 있어 절대값 사용
+    (부호가 CV의 부호를 뒤집으면 max 비교가 무의미해지므로).
     """
-    CSV 한 장 구조 (skiprows=5 이후):
-      행 0~18  : source1~19 온도 (I열=최대, J열=평균)
-      행 19    : Fan1_Passage 차압 (J열)
-      행 20~49 : V_inlet_01~30 입구 속도 (J열, -X방향 성분 Reduced)
-      행 50    : power_module 온도 (I열=최대, 단일 블록이라 I열 그대로 사용) — 신규
+    mean = abs(float(series.mean()))
+    if mean < 1e-12:
+        raise ValueError("레인 평균속도가 0에 가까움 — 측정면 위치/방향벡터 확인 필요")
+    return float(series.std(ddof=0) / mean * 100)
 
-    반환: {"pressure_drop":…, "vel_cv":…, "temp_std":…, "power_module_temp":…, "max_temp":…}
+
+def extract_and_save(idx, params, result_path, pao_volume_mm3, aluminum_mass_kg):
+    """
+    반환 dict:
+      pressure_drop      : 차압                              (목적함수)
+      temp_std           : 8채널 온도표준편차                  (목적함수)
+      vel_cv             : max(1차통과 CV, 2차통과 CV)         (목적함수)
+      max_temp           : 8채널 최고온도                      (목적함수)
+      power_module_flow  : 전원모듈 분기 유량비율 [0~1]         (제약조건용)
+      weight             : 알루미늄 + PAO 총 중량 [kg]         (제약조건용)
     """
     df = pd.read_csv(result_path, header=None, skiprows=5, on_bad_lines="skip")
 
-    temp_rows  = df.iloc[0:19]
-    max_temps  = temp_rows[8].astype(float).tolist()
-    mean_temps = temp_rows[9].astype(float).tolist()
-    pressure_drop = float(df.iloc[19, 9])
-
-    overall_max_temp = max(max_temps)
-    temp_std         = float(pd.Series(mean_temps).std())
-
-    # 레인별 속도 30개 → CV (모집단 std / 평균 × 100, 엑셀 STDEV.P 기준)
-    speeds = df.iloc[20:50, 9].astype(float)
-    if len(speeds) != 30:
-        raise ValueError(f"레인 속도 30개 기대, {len(speeds)}개 파싱됨 — CSV 행 구조 확인 필요")
-    vel_cv = float(speeds.std(ddof=0) / speeds.mean() * 100)
-
-    if len(df) <= 50:
+    if len(df) < N_ROWS:
         raise ValueError(
-            "전원모듈 온도(행 50)가 없음 — icepak.py의 summary_setting에 "
-            "power_module Calculation이 빠졌거나 순서가 바뀌었는지 확인"
+            f"CSV 행이 {len(df)}개뿐 — {N_ROWS}개 기대.\n"
+            "  icepak2.py의 Calculation 개수/순서가 바뀌었거나 "
+            "Fan1_Passage 같은 항목이 계산되지 않았는지 확인할 것"
         )
-    power_module_temp = float(df.iloc[50, 8])   # 단일 블록 → 최대(I열) = 대표값
+
+    # ── 온도 (8채널) ──
+    temp_rows = df.iloc[ROW_SOURCE:ROW_SOURCE + N_SOURCE]
+    max_temp  = float(temp_rows[COL_MAX].astype(float).max())
+    temp_std  = float(temp_rows[COL_MEAN].astype(float).std(ddof=0))
+
+    # ── 차압 ──
+    pressure_drop = float(df.iloc[ROW_DP, COL_MEAN])
+
+    # ── 핀뱅크 레인 속도 CV (통과별로 따로 → 나쁜 쪽 채택) ──
+    lane1 = df.iloc[ROW_LANE1:ROW_LANE1 + N_LANE, COL_MEAN].astype(float)
+    lane2 = df.iloc[ROW_LANE2:ROW_LANE2 + N_LANE, COL_MEAN].astype(float)
+    cv1, cv2 = _cv(lane1), _cv(lane2)
+    vel_cv = max(cv1, cv2)
+
+    # ── 전원모듈 분기 유량 ──
+    #   Q[m^3/s] = 법선방향 속도 면적가중평균 x 단면적
+    #   면적가중평균의 정의상 (적분/면적)이므로, 다시 면적을 곱하면 적분값이 그대로 복원됨
+    pm_speed = abs(float(df.iloc[ROW_PMFLOW, COL_MEAN]))
+    pm_area  = (PM_INLET_WIDTH_MM / 1000.0) * (params["power_input_thick"] / 1000.0)
+    pm_lpm   = pm_speed * pm_area * 60000.0          # m^3/s → L/min
+    power_module_flow = pm_lpm / TOTAL_FLOW_LPM      # 총유량 대비 비율 (0~1)
+
+    # ── 중량 (알루미늄 + 유로를 채운 PAO) ──
+    pao_mass_kg = pao_volume_mm3 * 1e-9 * PAO_DENSITY
+    weight = float(aluminum_mass_kg) + pao_mass_kg
 
     results = {
         "pressure_drop":     pressure_drop,
-        "vel_cv":            vel_cv,
         "temp_std":          temp_std,
-        "power_module_temp": power_module_temp,
-        "max_temp":          overall_max_temp,   # 기록용 (스크리닝) — 목적함수 아님
+        "vel_cv":            vel_cv,
+        "max_temp":          max_temp,
+        "power_module_flow": power_module_flow,
+        "weight":            weight,
     }
 
-    # ── summary 누적 저장 ──
+    # ── summary 누적 저장 (사람이 훑어보는 용도 — 통과별 CV 등 원시값도 같이) ──
     if os.path.exists(SUMMARY_PATH):
         try:
             df_summary = pd.read_csv(SUMMARY_PATH)
@@ -75,10 +129,15 @@ def extract_and_save(idx, params, result_path):
     row = {"idx": idx}
     row.update(params)
     row.update(results)
+    row["vel_cv_pass1"] = cv1
+    row["vel_cv_pass2"] = cv2
+    row["power_module_flow_lpm"] = pm_lpm
     df_summary = pd.concat([df_summary, pd.DataFrame([row])], ignore_index=True)
+    os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
     df_summary.to_csv(SUMMARY_PATH, index=False)
 
-    print(f"[{idx}] 차압:{pressure_drop}  속도CV:{vel_cv:.4f}%  "
-          f"온도std:{temp_std:.4f}  전원모듈온도:{power_module_temp:.2f}  "
-          f"(기록용 최고온도:{overall_max_temp})")
+    print(f"[{idx}] 차압:{pressure_drop:.4f}  속도CV:{vel_cv:.4f}% "
+          f"(1차 {cv1:.3f} / 2차 {cv2:.3f})  온도std:{temp_std:.4f}  "
+          f"최고온도:{max_temp:.2f}  전원모듈유량:{pm_lpm:.3f}LPM "
+          f"({power_module_flow*100:.1f}%)  중량:{weight:.3f}kg")
     return results

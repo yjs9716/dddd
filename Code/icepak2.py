@@ -3,6 +3,15 @@ import os, shutil
 
 from paths import AEDT_PROJ_PATH as PROJ_PATH, ICEPAK_RESULT_DIR
 
+# 전원모듈 입구 측정 사각형(Rectangle1)의 폭 [mm].
+#   높이는 power_input_thick(설계변수)로 매번 바뀌므로, 유량 환산에 쓰는 면적은
+#   result_parser에서 PM_INLET_WIDTH_MM x power_input_thick 로 계산함.
+#   → 이 값을 바꾸면 result_parser.py의 면적 계산도 같이 따라감 (import해서 씀)
+PM_INLET_WIDTH_MM = 8.0
+
+# PAO 밀도 [kg/m^3] — AddMaterial의 mass_density와 동일해야 함
+PAO_DENSITY = 794.0
+
 def connect_aedt():
     desktop = Desktop(
         version="2025.1",
@@ -13,7 +22,13 @@ def connect_aedt():
     print("AEDT 켜짐")
     return desktop, None
 
-def run_icepak(desktop, ipk, step_file, idx):
+def run_icepak(desktop, ipk, step_file, idx, params):
+    """
+    반환: (ipk, result_path, pao_volume_mm3)
+      result_path     : 이번 idx의 Fields Summary CSV 경로
+      pao_volume_mm3  : 유로를 채운 PAO 부피 [mm^3] — 중량 계산용
+                        (SolidWorks 알루미늄 중량 + PAO 중량 = 총 중량)
+    """
     # 기존 프로젝트 닫기 (AEDT는 유지)
     if ipk is not None:
         oDesktop = ipk.odesktop
@@ -698,9 +713,9 @@ def run_icepak(desktop, ipk, step_file, idx):
             "XStart:="		, "-195mm",
             "YStart:="		, "5.250000017mm",
             "ZStart:="		, "7.999999983mm",
-            "Width:="		, "-8mm",
-            #"Height:=", f"{params['power_input_thick']}mm",   # 40mm 대신 동적으로
-            "Height:="		, "5mm",
+            "Width:="		, f"-{PM_INLET_WIDTH_MM}mm",
+            # 전원모듈 입구 폭은 형상 변수에 따라 바뀌므로 동적 할당
+            "Height:="		, f"{params['power_input_thick']}mm",
             "WhichAxis:="		, "y"
         ], 
         [
@@ -847,6 +862,13 @@ def run_icepak(desktop, ipk, step_file, idx):
 
 
     # %%
+    # ── 결과 CSV 경로 (idx별) ──
+    result_path = os.path.join(ICEPAK_RESULT_DIR, f"result_{idx:03d}.csv")
+    os.makedirs(ICEPAK_RESULT_DIR, exist_ok=True)
+
+    # Fields Summary는 "Solutions" 모듈 소속.
+    #   위에서 oModule이 AnalysisSetup으로 덮여 있으므로 반드시 다시 잡아야 함.
+    oModule = oDesign.GetModule("Solutions")
     oModule.EditFieldsSummarySetting(
         [
             "SolutionName:="	, "Setup1 : SteadyState",
@@ -859,6 +881,9 @@ def run_icepak(desktop, ipk, step_file, idx):
             "Calculation:="		, ["Object","Surface","source06","Temperature","","Default","Reduced","Nominal",True],
             "Calculation:="		, ["Object","Surface","source07","Temperature","","Default","Reduced","Nominal",True],
             "Calculation:="		, ["Object","Surface","source08","Temperature","","Default","Reduced","Nominal",True],
+            # 행 8: 차압 (목적함수) — 스크립트 리코더본에 빠져 있어 V1 설정 그대로 복원함.
+            #       Fan1_Passage는 Fan1 삽입 시 자동 생성되는 면 이름 (첫 실행에서 존재 확인 필요)
+            "Calculation:="		, ["Object","Surface","Fan1_Passage","Pressure","0.00,0.00,1.00","Default","Reduced","Nominal",False],
             "Calculation:="		, ["Object","Surface","V_inlet_01","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
             "Calculation:="		, ["Object","Surface","V_inlet_02","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
             "Calculation:="		, ["Object","Surface","V_inlet_03","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
@@ -879,7 +904,17 @@ def run_icepak(desktop, ipk, step_file, idx):
         [
             "SolutionName:="	, "Setup1 : SteadyState",
             "DesignVariationKey:="	, "Nominal",
-            "ExportFileName:="	, "E:\Thermal_Anlaysis\Liquid_plate\260810\Result\CSV\summaryReport.csv",
+            "ExportFileName:="	, result_path,
             "IntrinsicValue:="	, ""
         ])
+    print(f"[{idx}] CSV 저장 완료: {result_path}")
+
+    # ── 중량 계산용 PAO 부피 ──
+    #   유로(빈 공간)를 채운 PAO 부피. SolidWorks는 알루미늄 형상만 알고 있어
+    #   이 값이 있어야 "알루미늄 + PAO" 총 중량을 낼 수 있음.
+    pao_volume_mm3 = float(ipk.modeler["PAO_Separate1"].volume)
+    print(f"[{idx}] PAO 부피: {pao_volume_mm3:.1f} mm^3 "
+          f"(≈ {pao_volume_mm3 * 1e-9 * PAO_DENSITY:.4f} kg)")
+
+    return ipk, result_path, pao_volume_mm3
 
