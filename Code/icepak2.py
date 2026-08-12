@@ -622,7 +622,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         ])
 
     # %%
-    x_pos = 160
+    x_pos = 159          # 유로 안쪽으로 이동 — 경계면에 걸치면 벽면 셀까지 면적에 잡힘
     y_start = -101.25
     z_start = 7.999999983
     width = -7.357142857
@@ -664,7 +664,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         )
 
     # %%
-    x_pos2 = -159.6
+    x_pos2 = -159        # 유로 안쪽으로 이동 (V_inlet과 같은 이유)
     y_start2 = -4.749999983
     z_start2 = 7.999999983
     width2 = -7.357142857
@@ -711,7 +711,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
             "NAME:RectangleParameters",
             "IsCovered:="		, True,
             "XStart:="		, "-195mm",
-            "YStart:="		, "5.250000017mm",
+            "YStart:="		, "6mm",   # 분기 안쪽으로 이동 — PAO 경계면 공유 회피
             "ZStart:="		, "7.999999983mm",
             "Width:="		, f"-{PM_INLET_WIDTH_MM}mm",
             # 전원모듈 입구 폭은 형상 변수에 따라 바뀌므로 동적 할당
