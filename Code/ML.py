@@ -74,7 +74,7 @@ MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
 #   (빼도 GPR 학습·예측·적응샘플링에는 그대로 참여함).
 TERMINATION_NAMES = list(OBJ_NAMES)
 
-_DOE_SAMPLES = generate_olhd(n_samples=N_DOE, seed=42)
+_DOE_SAMPLES = generate_olhd(n_samples=N_DOE, seed=100000)
 
 # 지표별로 [예측값, 실측값, 오차]를 나란히 묶어서 CSV 훑어보기 편하게 정렬
 _METRIC_COLS = [c for n in MODELED_NAMES for c in (f"pred_{n}", n, f"err_{n}")]

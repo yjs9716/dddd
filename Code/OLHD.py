@@ -33,7 +33,7 @@ N_DIM = len(PARAM_SPEC)
 DEFAULT_N_DOE = 10 * N_DIM
 
 
-def generate_olhd(n_samples=DEFAULT_N_DOE, seed=42):
+def generate_olhd(n_samples=DEFAULT_N_DOE, seed=100000):
     """
     Optimal Latin Hypercube Design (8변수)
     반환: (n_samples, N_DIM) numpy array — 실제 설계값, 소수점 첫째자리 반올림
@@ -66,7 +66,7 @@ def to_dict(row):
 
 
 if __name__ == "__main__":
-    samples = generate_olhd(seed=42)
+    samples = generate_olhd(seed=100000)
     print(f"OLHD 샘플 {len(samples)}점 ({N_DIM}변수)")
     print("  " + "  ".join(f"{n:>18s}" for n in PARAM_NAMES))
     for i, row in enumerate(samples):
