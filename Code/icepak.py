@@ -22,7 +22,7 @@ N_LANE   = 7   # 통과 1회당 핀뱅크 레인(V_inlet / V_inlet2) 개수
 #   실제 캠페인 돌릴 땐 다시 촘촘하게(예: 기존 X=2,Y/Z=1 / X=2,Y=2,Z=2) 낮춰야 함 —
 #   거칠게 하면 얇은 두께(예: power_input_thick 5mm) 구간에서 메시 스냅으로 면적/유량이
 #   틀어질 수 있음 (README 4-(3) 참고)
-MESH_REGION_X = 2.0
+MESH_REGION_X = 1.0
 MESH_REGION_Y = 1.0
 MESH_REGION_Z = 1.0
 
