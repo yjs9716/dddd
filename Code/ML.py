@@ -93,7 +93,13 @@ def _load_results():
 
 def _save_results(df):
     os.makedirs(os.path.dirname(RESULTS_PATH), exist_ok=True)
-    df.to_csv(RESULTS_PATH, index=False)
+    # 컬럼 순서를 _COLUMNS 기준으로 고정 — 기존 CSV를 이어받아 재개하는 경우에도
+    # [pred_x, x, err_x] 묶음 배치가 유지되도록.
+    #   _COLUMNS에 없는 예전 스키마 컬럼(예: 지금은 안 쓰는 지표)은 뒤에 그대로 붙여
+    #   데이터가 사라지지 않게 함
+    ordered = [c for c in _COLUMNS if c in df.columns]
+    extras  = [c for c in df.columns if c not in _COLUMNS]
+    df[ordered + extras].to_csv(RESULTS_PATH, index=False)
 
 
 def _load_failed():
