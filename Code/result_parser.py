@@ -47,6 +47,8 @@ N_ROWS     = ROW_PMFLOW + 1                 # 24
 
 COL_MAX  = 8
 COL_MEAN = 9
+COL_AREA = 11   # Area/Volume 열 — 모든 Calculation이 Object/Surface라 항상 면적(m^2).
+                #   "5.51786e-05 m^2"처럼 단위 문자열이 붙어 나오므로 숫자만 떼어 씀
 
 # Fan1의 FixedVolumetric 설정값 (icepak2.py "Volumetric:=" 4ltr_per_min)
 TOTAL_FLOW_LPM = 4.0
@@ -57,16 +59,32 @@ _SUMMARY_COLS = (["idx"] + PARAM_NAMES
                     "vel_cv_pass1", "vel_cv_pass2", "power_module_flow_lpm"])
 
 
-def _cv(series):
-    """모집단 표준편차 기준 변동계수 [%] (엑셀 STDEV.P 기준).
+def _area_m2(cell):
+    """Area/Volume 열 파싱 — "5.51786e-05 m^2" → 5.51786e-05"""
+    return float(str(cell).strip().split()[0])
 
-    2차 통과는 유동 방향이 반대라 법선성분 평균이 음수로 잡힐 수 있어 절대값 사용
+
+def _lane_flow_cv(df, row0):
+    """레인 N_LANE개의 '유량' 기준 변동계수 [%] (모집단 std, 엑셀 STDEV.P 기준).
+
+    속도 Mean이 아니라 Mean x Area(= 레인별 유량)로 계산하는 이유:
+      Fields Summary는 CAD 면이 아니라 메시에 투영된 면에서 값을 뽑기 때문에,
+      측정면이 셀 경계에 딱 안 맞으면 벽면(속도≈0) 셀까지 면적에 포함되는 경우가 있음.
+      이때 Mean은 그 0에 가까운 영역까지 평균에 섞여 희석되지만(레인마다 다르게 왜곡됨),
+      Mean x Area = ∫v·dA 는 속도 0인 영역이 0을 기여하므로 값이 그대로 보존됨.
+      실측에서도 이 방식이 특정 레인만 튀는 현상을 상당 부분 없애는 걸 확인함.
+
+    2차 통과는 유동 방향이 반대라 법선성분이 음수로 잡힐 수 있어 절대값 사용
     (부호가 CV의 부호를 뒤집으면 max 비교가 무의미해지므로).
     """
-    mean = abs(float(series.mean()))
-    if mean < 1e-12:
-        raise ValueError("레인 평균속도가 0에 가까움 — 측정면 위치/방향벡터 확인 필요")
-    return float(series.std(ddof=0) / mean * 100)
+    speeds = df.iloc[row0:row0 + N_LANE, COL_MEAN].astype(float).abs()
+    areas  = df.iloc[row0:row0 + N_LANE, COL_AREA].map(_area_m2)
+    flows  = (speeds.values * areas.values)
+
+    mean = float(flows.mean())
+    if mean < 1e-15:
+        raise ValueError("레인 유량이 0에 가까움 — 측정면 위치/방향벡터 확인 필요")
+    return float(flows.std(ddof=0) / mean * 100)
 
 
 def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3):
@@ -96,10 +114,9 @@ def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume
     # ── 차압 ──
     pressure_drop = float(df.iloc[ROW_DP, COL_MEAN])
 
-    # ── 핀뱅크 레인 속도 CV (통과별로 따로 → 나쁜 쪽 채택) ──
-    lane1 = df.iloc[ROW_LANE1:ROW_LANE1 + N_LANE, COL_MEAN].astype(float)
-    lane2 = df.iloc[ROW_LANE2:ROW_LANE2 + N_LANE, COL_MEAN].astype(float)
-    cv1, cv2 = _cv(lane1), _cv(lane2)
+    # ── 핀뱅크 레인 유량 CV (통과별로 따로 → 나쁜 쪽 채택) ──
+    cv1 = _lane_flow_cv(df, ROW_LANE1)
+    cv2 = _lane_flow_cv(df, ROW_LANE2)
     vel_cv = max(cv1, cv2)
 
     # ── 전원모듈 분기 유량 ──
