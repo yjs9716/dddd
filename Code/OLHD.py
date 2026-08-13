@@ -18,6 +18,7 @@ PARAM_SPEC = [
     ("power_output_thick", 15.0, 40.0),   # mm
     ("mid_thick",          15.0, 35.0),   # mm
     ("mid_angle",          90.0, 140.0),  # deg
+    ("mid_input_thick",    15.0, 35.0),   # mm — 신규
     ("output_thick",       15.0, 35.0),   # mm
 ]
 
