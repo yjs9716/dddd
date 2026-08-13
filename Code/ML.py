@@ -24,7 +24,7 @@ from paths import RESULTS_PATH, FAILED_PATH
 #    → 같은 점을 무한 재시도하지 않기 위해 필요)
 
 # ── 실험 설정 ────────────────────────────────────────────────
-N_DOE         = 70     # 초기 DOE 샘플 수 (10 x 변수수 경험칙: 10 x 7 = 70)
+N_DOE         = 80     # 초기 DOE 샘플 수 (10 x 변수수 경험칙: 10 x 8 = 80, mid_input_thick 추가로 7→8)
 ERR_THRESHOLD = 0.5    # 종료 기준: 예측오차 [%]
 N_CONSECUTIVE = 3      # 연속 만족 횟수 (모든 목적함수가 동시 만족해야 종료)
 
