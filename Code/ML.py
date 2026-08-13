@@ -76,9 +76,9 @@ TERMINATION_NAMES = list(OBJ_NAMES)
 
 _DOE_SAMPLES = generate_olhd(n_samples=N_DOE, seed=42)
 
-_COLUMNS = (["idx"] + PARAM_NAMES + MODELED_NAMES
-            + [f"pred_{n}" for n in MODELED_NAMES]
-            + [f"err_{n}" for n in MODELED_NAMES])
+# 지표별로 [예측값, 실측값, 오차]를 나란히 묶어서 CSV 훑어보기 편하게 정렬
+_METRIC_COLS = [c for n in MODELED_NAMES for c in (f"pred_{n}", n, f"err_{n}")]
+_COLUMNS = ["idx"] + PARAM_NAMES + _METRIC_COLS
 
 
 def _load_results():
