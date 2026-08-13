@@ -12,6 +12,20 @@ PM_INLET_WIDTH_MM = 8.0
 # PAO 밀도 [kg/m^3] — AddMaterial의 mass_density와 동일해야 함
 PAO_DENSITY = 794.0
 
+# ── 메시 크기 [mm] — 코드 흐름 검증용으로 크게 잡고 싶을 때 여기만 바꾸면 됨 ──
+#   MESH_REGION_*  : SubRegion(유체 도메인)에 거는 로컬 메시
+#   GLOBAL_MESH_*  : 전체 Region에 거는 글로벌 메시
+#   실제 캠페인 돌릴 땐 다시 촘촘하게(예: 기존 X=2,Y/Z=1 / X=2,Y=2,Z=2) 낮춰야 함 —
+#   거칠게 하면 얇은 두께(예: power_input_thick 5mm) 구간에서 메시 스냅으로 면적/유량이
+#   틀어질 수 있음 (README 4-(3) 참고)
+MESH_REGION_X = 2.0
+MESH_REGION_Y = 1.0
+MESH_REGION_Z = 1.0
+
+GLOBAL_MESH_X = 2.0
+GLOBAL_MESH_Y = 2.0
+GLOBAL_MESH_Z = 2.0
+
 def connect_aedt():
     desktop = Desktop(
         version="2025.1",
@@ -524,9 +538,9 @@ def run_icepak(desktop, ipk, step_file, idx, params):
             "Enable:="		, True,
             "MeshMethod:="		, "MesherHD",
             "UserSpecifiedSettings:=", True,
-            "MaxElementSizeX:="	, "2mm",
-            "MaxElementSizeY:="	, "1mm",
-            "MaxElementSizeZ:="	, "1mm",
+            "MaxElementSizeX:="	, f"{MESH_REGION_X}mm",
+            "MaxElementSizeY:="	, f"{MESH_REGION_Y}mm",
+            "MaxElementSizeZ:="	, f"{MESH_REGION_Z}mm",
             "MinElementsInGap:="	, "3",
             "MinElementsOnEdge:="	, "2",
             "MaxSizeRatio:="	, "2",
@@ -571,9 +585,9 @@ def run_icepak(desktop, ipk, step_file, idx, params):
             "MeshMethod:="		, "MesherHD",
             "UserSpecifiedSettings:=", True,
             "ComputeGap:="		, True,
-            "MaxElementSizeX:="	, "2mm",
-            "MaxElementSizeY:="	, "2mm",
-            "MaxElementSizeZ:="	, "2mm",
+            "MaxElementSizeX:="	, f"{GLOBAL_MESH_X}mm",
+            "MaxElementSizeY:="	, f"{GLOBAL_MESH_Y}mm",
+            "MaxElementSizeZ:="	, f"{GLOBAL_MESH_Z}mm",
             "MinElementsInGap:="	, "3",
             "MinElementsOnEdge:="	, "2",
             "MaxSizeRatio:="	, "2",
