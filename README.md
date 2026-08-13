@@ -1,11 +1,11 @@
-# 냉각판 V2 — 유로 7변수 최적화 (내부망 반입용)
+# 냉각판 V2 — 유로 8변수 최적화 (내부망 반입용)
 
-V1(각도·유로두께 2변수) 캠페인 코드를 **유로 7변수**로 재작성한 버전.
+V1(각도·유로두께 2변수) 캠페인 코드를 **유로 8변수**로 재작성한 버전.
 이 폴더 전체를 내부망으로 복사해서 사용.
 
 ---
 
-## 1. 설계변수 (7개)
+## 1. 설계변수 (8개)
 
 | # | 변수명 (SolidWorks 글로벌 변수명과 동일해야 함) | 범위 | 단위 |
 |---|---|---|---|
@@ -15,7 +15,8 @@ V1(각도·유로두께 2변수) 캠페인 코드를 **유로 7변수**로 재�
 | 4 | `power_output_thick` | 15 ~ 40 | mm |
 | 5 | `mid_thick` | 15 ~ 35 | mm |
 | 6 | `mid_angle` | 90 ~ 140 | deg |
-| 7 | `output_thick` | 15 ~ 35 | mm |
+| 7 | `mid_input_thick` | 15 ~ 35 | mm |
+| 8 | `output_thick` | 15 ~ 35 | mm |
 
 정의 위치: `OLHD.py`의 `PARAM_SPEC` **한 곳뿐**. 범위를 바꾸려면 여기만 수정하면
 OLHD / ML / SolidWorks / result_parser가 전부 따라감.
@@ -56,7 +57,7 @@ V1은 설계공간을 0.1단위 격자(301×251 = 75,551점)로 **전부 나열*
 
 ### (3) 형상 미성립(리빌드 실패) 방어 ★ 신규
 
-7변수 조합에서는 기하학적으로 성립 불가한 형상이 나올 수 있음.
+8변수 조합에서는 기하학적으로 성립 불가한 형상이 나올 수 있음.
 V1에는 이 처리가 없어서 실패하면 캠페인 전체가 죽음.
 
 → 실패 시 `failed_v2.csv`에 기록하고 다음 점으로 진행.
@@ -72,20 +73,20 @@ V1의 `set_value`는 해당 이름의 수식을 못 찾아도 **조용히 넘어
 
 ### (5) 인터페이스 정리
 
-- 파라미터를 7개 위치인자 대신 `dict`로 전달
+- 파라미터를 8개 위치인자 대신 `dict`로 전달
 - `result_parser.extract_and_save`가 튜플 대신 `dict` 반환 (목적함수 늘려도 호출부 안 깨짐)
 - ML에 `current_idx()` 공개 함수 추가 (V1은 main에서 private `_load_results()`를 씀)
 
 ### (6) GPR 커널
 
-- `length_scale` 7차원 ARD
-- 상한 5.0 → **50.0**: 7변수 중 영향 없는 변수는 length_scale이 커지는 형태로
+- `length_scale` 8차원 ARD
+- 상한 5.0 → **50.0**: 8변수 중 영향 없는 변수는 length_scale이 커지는 형태로
   드러나는데, 상한에 걸리면 "무관한 변수"를 식별할 수 없기 때문
 
 ### (7) 신규 진단 기능: `python ML.py`
 
 학습된 ARD length_scale을 뽑아 **어떤 변수가 실제로 영향을 주는지** 출력.
-7개 중 몇 개가 실제로 의미 있는지 보고, 다음 캠페인에서 변수를 줄일 근거로 사용.
+8개 중 몇 개가 실제로 의미 있는지 보고, 다음 캠페인에서 변수를 줄일 근거로 사용.
 
 ```
 === 변수 영향도 (데이터 40점 기준) ===
@@ -100,9 +101,9 @@ V1의 `set_value`는 해당 이름의 수식을 못 찾아도 **조용히 넘어
 
 | 파일 | V1 대비 | 설명 |
 |---|---|---|
-| `OLHD.py` | 재작성 | 7변수 LHD + 변수 정의(PARAM_SPEC) 단일 출처 |
+| `OLHD.py` | 재작성 | 8변수 LHD + 변수 정의(PARAM_SPEC) 단일 출처 |
 | `ML.py` | 재작성 | GPR + Sobol 적응샘플링 + 자동종료 + 실패기록 + 영향도진단 |
-| `Solidworks.py` | 재작성 | 글로벌 변수 7개 일괄 set + 변수명 검증 |
+| `Solidworks.py` | 재작성 | 글로벌 변수 8개 일괄 set + 변수명 검증 |
 | `result_parser.py` | 재작성 | 8채널 / 통과별 7레인 파싱, 유량·중량 환산, dict 반환 |
 | `main.py` | 재작성 | dict 전달 + 실패 시 skip 로직 + 중량·PAO부피 배선 |
 | `icepak2.py` | **사용자 작성 + 보완** | 스크립트 리코더로 뽑은 실제 자동화본. 모듈로 쓸 수 있게 시그니처/CSV 경로/반환값만 보완함. **최종 확정되면 `icepak.py`로 파일명 변경 + `main.py`의 import 한 줄 수정** |
@@ -122,7 +123,8 @@ def run_icepak(desktop, ipk, step_file, idx, params):
     ...
     return ipk, result_path, pao_volume_mm3
     #   result_path    : 이번 idx의 CSV 저장 경로
-    #   pao_volume_mm3 : PAO_Separate1.volume — 중량 계산용
+    #   pao_volume_mm3 : PAO_Separate1.volume — 중량 계산엔 안 쓰고 교차검증 로그용
+    #                    (실제 중량은 SolidWorks 값만으로 계산 — 4-(6)절 참고)
 ```
 
 `params`를 받는 이유: 전원모듈 입구 측정면(`Rectangle1`)의 Height가 설계변수
@@ -175,7 +177,7 @@ CV 계산 시 부호가 뒤집히면 `max()` 비교가 무의미해지므로 `re
 > `Code` 폴더는 이 `.py` 파일들을 두는 곳 — 경로 상수는 아니고 실행 위치.
 
 > ⚠ **`results_v2.csv` 삭제 금지.** STEP 파일명이 V1처럼 파라미터값이 아니라
-> `flowpath_000.STEP`처럼 idx 기준이라(7개를 다 넣으면 경로가 너무 길어짐),
+> `flowpath_000.STEP`처럼 idx 기준이라(8개를 다 넣으면 경로가 너무 길어짐),
 > **형상 ↔ 파라미터 대응은 이 CSV가 유일한 기록**임.
 
 ---
@@ -207,8 +209,8 @@ V1은 한글(`각도`, `유로두께`)이었는데 V2는 영문명으로 작성�
 > `PM_INLET_WIDTH_MM`(=8.0)은 `Rectangle1`의 Width와 반드시 같아야 함.
 > 유량 환산 면적이 이 상수로 계산되므로, Width를 바꾸면 `icepak2.py`의 상수도 같이 바꿀 것.
 
-### (4) 초기 DOE 점 수 = 70
-`10 × 변수수` 경험칙 기준. 실행 1회당 SolidWorks 리빌드 + Icepak 풀 해석이므로
+### (4) 초기 DOE 점 수 = 80
+`10 × 변수수` 경험칙 기준(8변수). 실행 1회당 SolidWorks 리빌드 + Icepak 풀 해석이므로
 **시간 예산 확인 필요**. 줄이려면 `ML.py`의 `N_DOE` 수정.
 
 ### (5) 목적함수 — 확정 (4개)
@@ -240,19 +242,29 @@ V1은 한글(`각도`, `유로두께`)이었는데 V2는 영문명으로 작성�
 
 ### (6) 중량 계산 방식
 
-SolidWorks는 알루미늄 형상만 알고 있고, 유로를 채운 PAO는 형상에 없는 개념이라
-두 곳에서 따로 받아 합침:
+Icepak 없이 **SolidWorks 값만으로** 계산함 (PAO를 채우는 박스가 고정 크기라
+"고정 부피 − 알루미늄 부피 = PAO 부피"가 항상 성립하기 때문):
 
 ```
-weight = SolidWorks Mass Properties 질량(알루미늄)
-       + PAO_Separate1.volume x 794 kg/m^3 (Icepak)
+PAO 부피 = FULL_SOLID_VOLUME_MM3(2341073.1, 채널 없이 완전히 채워진 형상 부피, 상수)
+           − 알루미늄 부피(SolidWorks, 매 idx 리빌드된 실제 형상)
+weight  = 알루미늄 질량 + PAO 부피 x 794 kg/m^3
 ```
 
-- `Solidworks.update_sw`가 리빌드 직후 질량을 반환 → `main.py`가 `result_parser`로 전달
-- PAO 부피는 `icepak2.run_icepak`이 반환
-- 참고: PAO를 만드는 박스(`CreateBox`)가 고정 크기라
-  `PAO 부피 = 고정박스부피 − 알루미늄 부피`가 성립함. 즉 Icepak 없이 SolidWorks만으로도
-  PAO 부피를 낼 수 있으나(검증 완료), 지금 코드는 Icepak 값을 직접 쓰고 있음
+- `Solidworks.update_sw`가 리빌드 직후 `(알루미늄 질량, 알루미늄 부피)`를 반환
+  → `main.py`가 그대로 `result_parser.extract_and_save`로 전달
+- `icepak2.run_icepak`이 반환하는 `pao_volume_mm3`(Icepak `PAO_Separate1.volume`)는
+  중량 계산엔 안 쓰고, 위 상수 기반 계산과 크게 어긋나는지 보는 **교차검증 로그**로만 사용
+- ⚠ `FULL_SOLID_VOLUME_MM3`은 plate/plate_base **바깥 둘레 치수가 고정**이라는 전제의 상수.
+  8개 설계변수는 전부 내부 유로만 바꾸므로 영향 없음 — 만약 바깥 윤곽 자체를 바꾸는
+  변수가 추가되면 이 상수도 다시 재야 함
+
+**질량/부피를 뽑는 SolidWorks API**: `asm.Extension.CreateMassProperty()`(최신 방식)는
+이 환경에서 `Extension`이 깨진 COM 프록시로 반환되어(win32com dynamic dispatch 한계로 추정)
+동작하지 않았음. 대신 구버전 API인 `asm.GetMassProperties`(괄호 없이 속성으로 접근)를 쓰는데,
+반환되는 12개 튜플의 순서가 문서화되어 있지 않아 SolidWorks GUI의 Mass Properties 패널
+값과 하나씩 대조해서 확정함: `[0:3]`=무게중심(m), **`[3]`=부피(m³)**, `[4]`=표면적(m²),
+**`[5]`=질량(kg)**, `[6:12]`=관성모멘트 Lxx,Lyy,Lzz,Lxy,Lxz,Lyz(kg·m²).
 
 ---
 
@@ -284,7 +296,7 @@ weight = SolidWorks Mass Properties 질량(알루미늄)
 
 ```bash
 python main.py        # 캠페인 실행 (종료조건 만족까지 자동 반복)
-python OLHD.py        # DOE 70점 미리보기
+python OLHD.py        # DOE 80점 미리보기
 python ML.py          # 변수 영향도 진단 (데이터 쌓인 후)
 ```
 
@@ -294,7 +306,7 @@ python ML.py          # 변수 영향도 진단 (데이터 쌓인 후)
 
 Windows COM(SolidWorks/Icepak) 없이 **ML 로직만 가짜 해석으로 검증 완료**:
 
-- OLHD 70점: shape/범위/각 변수 10분위 분포 확인
+- OLHD 80점: shape/범위/각 변수 10분위 분포 확인
 - 전체 루프: DOE → 적응샘플링 진입 → 예측값 기록 → 자동종료 동작 확인
 - 실패점 처리: 3점 실패시켜도 DOE가 밀리지 않고 중복 제안 없음 확인
 - **8채널/14레인 구조 재검증** (가짜 CSV 24행으로):
