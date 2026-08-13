@@ -73,9 +73,14 @@ def update_sw(app, errors, warnings, params):
     print("SW 업데이트 완료: " + "  ".join(f"{k}={v}" for k, v in params.items()))
 
     # 질량 특성 — 리빌드 직후 값이라 이번 params에 대응하는 형상의 질량/부피임
-    mass_prop = asm.Extension.CreateMassProperty()
-    aluminum_mass_kg    = float(mass_prop.Mass)             # SolidWorks API는 SI(kg) 반환
-    aluminum_volume_mm3 = float(mass_prop.Volume) * 1e9     # SI(m^3) → mm^3
+    #   asm.Extension.CreateMassProperty()는 이 환경에서 Extension 객체가 깨진 프록시로
+    #   반환되어(COM 마샬링 문제로 추정) 동작하지 않음 — GetMassProperties(구버전 API,
+    #   괄호 없이 접근)로 대체. 반환 튜플 순서는 GUI Mass Properties 패널 값과
+    #   전부 대조 검증함: [0:3]=무게중심(m) [3]=부피(m^3) [4]=표면적(m^2) [5]=질량(kg)
+    #   [6:12]=관성모멘트 Lxx,Lyy,Lzz,Lxy,Lxz,Lyz(kg·m^2)
+    mp = asm.GetMassProperties
+    aluminum_volume_mm3 = float(mp[3]) * 1e9   # m^3 → mm^3
+    aluminum_mass_kg    = float(mp[5])         # kg
     print(f"  알루미늄 질량: {aluminum_mass_kg:.4f} kg  (부피: {aluminum_volume_mm3:.1f} mm^3)")
     return aluminum_mass_kg, aluminum_volume_mm3
 
