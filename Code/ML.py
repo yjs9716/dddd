@@ -77,7 +77,8 @@ TERMINATION_NAMES = list(OBJ_NAMES)
 _DOE_SAMPLES = generate_olhd(n_samples=N_DOE, seed=42)
 
 _COLUMNS = (["idx"] + PARAM_NAMES + MODELED_NAMES
-            + [f"pred_{n}" for n in MODELED_NAMES])
+            + [f"pred_{n}" for n in MODELED_NAMES]
+            + [f"err_{n}" for n in MODELED_NAMES])
 
 
 def _load_results():
@@ -154,13 +155,12 @@ def update_ml(params, results):
         raise KeyError(f"update_ml에 넘긴 results에 다음 값이 없음: {missing}")
 
     preds = {n: np.nan for n in MODELED_NAMES}
+    errs  = {n: np.nan for n in MODELED_NAMES}
     if idx >= N_DOE:
         preds = _predict_point(df, params)
-        msg = []
-        for name in TERMINATION_NAMES:
-            actual = results[name]
-            err = abs(preds[name] - actual) / abs(actual) * 100
-            msg.append(f"{name} {err:.2f}%")
+        for name in MODELED_NAMES:
+            errs[name] = abs(preds[name] - results[name]) / abs(results[name]) * 100
+        msg = [f"{name} {errs[name]:.2f}%" for name in TERMINATION_NAMES]
         print(f"[{idx}] 예측오차: " + "  ".join(msg)
               + f"  (종료기준: 전부 {ERR_THRESHOLD}% 이하 {N_CONSECUTIVE}회 연속)")
 
@@ -168,6 +168,7 @@ def update_ml(params, results):
     row.update(params)
     row.update({n: results[n] for n in MODELED_NAMES})
     row.update({f"pred_{n}": preds[n] for n in MODELED_NAMES})
+    row.update({f"err_{n}": errs[n] for n in MODELED_NAMES})
 
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     _save_results(df)
