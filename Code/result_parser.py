@@ -98,7 +98,10 @@ def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume
       power_module_flow  : 전원모듈 분기 유량비율 [0~1]         (제약조건용)
       weight             : 알루미늄 + PAO 총 중량 [kg]         (제약조건용)
     """
-    df = pd.read_csv(result_path, header=None, skiprows=5, on_bad_lines="skip")
+    # sep=None + engine="python": Icepak Fields Summary export가 콤마/탭 중
+    # 어느 쪽으로 나오든 자동 인식 (버전/설정에 따라 다를 수 있어 안전하게 대응)
+    df = pd.read_csv(result_path, header=None, skiprows=5, sep=None, engine="python",
+                      on_bad_lines="skip")
 
     if len(df) < N_ROWS:
         raise ValueError(
