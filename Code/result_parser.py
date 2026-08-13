@@ -1,14 +1,15 @@
 """
-V2 유로 7변수 — Icepak 결과 CSV 파싱
+V2 유로 8변수 — Icepak 결과 CSV 파싱
 
-icepak2.py(스크립트 리코더 완성본) 기준으로 재작성.
+icepak.py(스크립트 리코더 완성본) 기준으로 재작성.
   - 발열채널 19개 → 8개 (source01~08)
   - 핀뱅크 레인: 1차 통과(V_inlet_01~07) + 2차 통과(V_inlet2_01~07) = 14개
     · 두 통과는 분기 때문에 평균 유속 자체가 다르므로 14개를 한 덩어리로 묶어
       CV를 내면 "레인 분배 불균일"과 "통과별 유량 수준 차이"가 뒤섞임
       → 각 통과별로 따로 CV를 내고 나쁜 쪽(max)을 목적함수로 사용
   - 전원모듈 분기 유량: Icepak의 VolumeFlowRate가 값을 못 내서(면적만 반환),
-    법선방향 Speed 면적가중평균 x 면적 으로 환산 (수학적으로 동일한 값)
+    법선방향 Speed 면적가중평균 x 면적 으로 환산 (수학적으로 동일한 값).
+    면적은 CSV의 실측값(Area/Volume 열)을 씀 — 메시 이산화로 도면값과 어긋날 수 있어서
   - 중량: SolidWorks만으로 계산 (Icepak 불필요)
     · PAO 부피 = FULL_SOLID_VOLUME_MM3(채널 없이 완전히 채워진 형상 부피, 상수)
                  − 알루미늄 부피(SolidWorks, 매 idx 리빌드된 실제 형상)
@@ -27,7 +28,7 @@ import pandas as pd
 
 from OLHD import PARAM_NAMES
 from paths import SUMMARY_PATH
-from icepak2 import PM_INLET_WIDTH_MM, PAO_DENSITY
+from icepak import PAO_DENSITY
 
 # 채널이 하나도 안 뚫린, 완전히 채워진 상태의 판재(plate+plate_base) 부피 [mm^3].
 #   SolidWorks에서 실측 확정한 상수 (2025-08 기준 형상). PAO 부피 = 이 값 − 알루미늄 부피.
@@ -35,7 +36,7 @@ from icepak2 import PM_INLET_WIDTH_MM, PAO_DENSITY
 #   (7개 설계변수는 내부 유로만 바꾸므로 이 상수엔 영향 없음)
 FULL_SOLID_VOLUME_MM3 = 2341073.1
 
-# ── CSV 행/열 위치 (icepak2.py의 Calculation 추가 순서와 반드시 일치) ──
+# ── CSV 행/열 위치 (icepak.py의 Calculation 추가 순서와 반드시 일치) ──
 N_SOURCE   = 8     # 발열채널 수
 N_LANE     = 7     # 통과 1회당 핀뱅크 레인 수
 ROW_SOURCE = 0                              # 0~7
@@ -50,7 +51,7 @@ COL_MEAN = 9
 COL_AREA = 11   # Area/Volume 열 — 모든 Calculation이 Object/Surface라 항상 면적(m^2).
                 #   "5.51786e-05 m^2"처럼 단위 문자열이 붙어 나오므로 숫자만 떼어 씀
 
-# Fan1의 FixedVolumetric 설정값 (icepak2.py "Volumetric:=" 4ltr_per_min)
+# Fan1의 FixedVolumetric 설정값 (icepak.py "Volumetric:=" 4ltr_per_min)
 TOTAL_FLOW_LPM = 4.0
 
 _SUMMARY_COLS = (["idx"] + PARAM_NAMES
@@ -102,7 +103,7 @@ def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume
     if len(df) < N_ROWS:
         raise ValueError(
             f"CSV 행이 {len(df)}개뿐 — {N_ROWS}개 기대.\n"
-            "  icepak2.py의 Calculation 개수/순서가 바뀌었거나 "
+            "  icepak.py의 Calculation 개수/순서가 바뀌었거나 "
             "Fan1_Passage 같은 항목이 계산되지 않았는지 확인할 것"
         )
 
@@ -122,8 +123,10 @@ def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume
     # ── 전원모듈 분기 유량 ──
     #   Q[m^3/s] = 법선방향 속도 면적가중평균 x 단면적
     #   면적가중평균의 정의상 (적분/면적)이므로, 다시 면적을 곱하면 적분값이 그대로 복원됨
+    #   면적은 계산(8mm x power_input_thick) 대신 CSV의 실측 면적을 씀 — 메시가 셀
+    #   경계로 이산화하면서 도면값과 어긋나는 경우(특히 얇은 두께에서)가 있었기 때문
     pm_speed = abs(float(df.iloc[ROW_PMFLOW, COL_MEAN]))
-    pm_area  = (PM_INLET_WIDTH_MM / 1000.0) * (params["power_input_thick"] / 1000.0)
+    pm_area  = _area_m2(df.iloc[ROW_PMFLOW, COL_AREA])
     pm_lpm   = pm_speed * pm_area * 60000.0          # m^3/s → L/min
     power_module_flow = pm_lpm / TOTAL_FLOW_LPM      # 총유량 대비 비율 (0~1)
 

@@ -3,6 +3,15 @@ import os, shutil
 
 from paths import AEDT_PROJ_PATH as PROJ_PATH, ICEPAK_RESULT_DIR
 
+# 전원모듈 입구 측정 사각형(Rectangle1)의 폭 [mm].
+#   높이는 power_input_thick(설계변수)로 매번 바뀌므로, 유량 환산에 쓰는 면적은
+#   result_parser에서 PM_INLET_WIDTH_MM x power_input_thick 로 계산함.
+#   → 이 값을 바꾸면 result_parser.py의 면적 계산도 같이 따라감 (import해서 씀)
+PM_INLET_WIDTH_MM = 8.0
+
+# PAO 밀도 [kg/m^3] — AddMaterial의 mass_density와 동일해야 함
+PAO_DENSITY = 794.0
+
 def connect_aedt():
     desktop = Desktop(
         version="2025.1",
@@ -13,7 +22,13 @@ def connect_aedt():
     print("AEDT 켜짐")
     return desktop, None
 
-def run_icepak(desktop, ipk, step_file, idx):
+def run_icepak(desktop, ipk, step_file, idx, params):
+    """
+    반환: (ipk, result_path, pao_volume_mm3)
+      result_path     : 이번 idx의 Fields Summary CSV 경로
+      pao_volume_mm3  : 유로를 채운 PAO 부피 [mm^3] — 중량 계산용
+                        (SolidWorks 알루미늄 중량 + PAO 중량 = 총 중량)
+    """
     # 기존 프로젝트 닫기 (AEDT는 유지)
     if ipk is not None:
         oDesktop = ipk.odesktop
@@ -46,29 +61,48 @@ def run_icepak(desktop, ipk, step_file, idx):
     oDesign  = ipk.odesign
     oEditor  = oDesign.SetActiveEditor("3D Modeler")
 
-    # Region 패딩 0으로
+
+    # %%
     oEditor.ChangeProperty(
         [
             "NAME:AllTabs",
             [
                 "NAME:Geometry3DCmdTab",
                 [
-                    "NAME:PropServers",
+                    "NAME:PropServers", 
                     "Region:CreateRegion:1"
                 ],
                 [
                     "NAME:ChangedProps",
-                    ["NAME:+X Padding Data", "Value:=", "0"],
-                    ["NAME:-X Padding Data", "Value:=", "0"],
-                    ["NAME:+Y Padding Data", "Value:=", "0"],
-                    ["NAME:-Y Padding Data", "Value:=", "0"],
-                    ["NAME:+Z Padding Data", "Value:=", "0"],
-                    ["NAME:-Z Padding Data", "Value:=", "0"]
+                    [
+                        "NAME:+X Padding Data",
+                        "Value:="		, "0"
+                    ],
+                    [
+                        "NAME:-X Padding Data",
+                        "Value:="		, "0"
+                    ],
+                    [
+                        "NAME:+Y Padding Data",
+                        "Value:="		, "0"
+                    ],
+                    [
+                        "NAME:-Y Padding Data",
+                        "Value:="		, "0"
+                    ],
+                    [
+                        "NAME:+Z Padding Data",
+                        "Value:="		, "0"
+                    ],
+                    [
+                        "NAME:-Z Padding Data",
+                        "Value:="		, "0"
+                    ]
                 ]
             ]
         ])
 
-    # Design Settings
+    # %%
     oDesign.SetDesignSettings(
         [
             "NAME:Design Settings Data",
@@ -76,17 +110,16 @@ def run_icepak(desktop, ipk, step_file, idx):
             "Default Fluid Material:=", "air",
             "Default Solid Material:=", "Al-Extruded",
             "Default Surface Material:=", "Steel-oxidised-surface",
-            "AmbientTemperature:=", "25cel",
-            "AmbientPressure:=", "0n_per_meter_sq",
+            "AmbientTemperature:="	, "43cel",
+            "AmbientPressure:="	, "0n_per_meter_sq",
             "AmbientRadiationTemperature:=", "20cel",
             "Gravity Vector CS ID:=", 1,
-            "Gravity Vector Axis:=", "Z",
-            "Positive:=", False,
+            "Gravity Vector Axis:="	, "Z",
+            "Positive:="		, False,
             "ExportOnSimulationComplete:=", False,
-            "ExportDirectory:=", "",
+            "ExportDirectory:="	, "",
             "SherlockExportOnSimulationComplete:=", False,
             "SherlockExportAsFatigue:=", True,
-            "SherlockExportDirectory:=", "E:/Thermal_Anlaysis/Aedt/thermal_test.aedtexport/Icepak_M6C/",
             "AutoLaunchMeshViewer:=", True,
             "MeshCadAsLightWeight:=", True,
             "EnableTransitionTemplate:=", False,
@@ -94,133 +127,169 @@ def run_icepak(desktop, ipk, step_file, idx):
             "EnableMeshByLayerFor2DMLM:=", False,
             "BoundaryBasedMeshRefinement:=", False,
             "EnableAltitudeEffects:=", False,
-            "UpdateFanCurve:=", False,
-            "Altitude:=", "0meter",
-            "EnableIdealGasLaw:=", False,
-            "OperatingPressure:=", "101325n_per_meter_sq",
+            "UpdateFanCurve:="	, False,
+            "Altitude:="		, "0meter",
+            "EnableIdealGasLaw:="	, False,
+            "OperatingPressure:="	, "101325n_per_meter_sq",
             "EnableOperatingDensity:=", False,
-            "OperatingDensity:=", "1.225kg_per_m3",
+            "OperatingDensity:="	, "1.225kg_per_m3",
             "AppendTemplateToFieldsSummaryReport:=", False,
-            "EnableLoadSolution:=", False
-        ],
+            "EnableLoadSolution:="	, False
+        ], 
         [
             "NAME:Model Validation Settings",
-            "EntityCheckLevel:=", "Strict",
+            "EntityCheckLevel:="	, "Strict",
             "IgnoreUnclassifiedObjects:=", False,
             "SkipIntersectionChecks:=", False
         ])
 
-    # PAO 재질 생성
+    # %%
     oDefinitionManager = oProject.GetDefinitionManager()
     if not oDefinitionManager.DoesMaterialExist("PAO"):
-        try:
-            oDefinitionManager.AddMaterial(
-                [
-                    "NAME:PAO",
-                    "CoordinateSystemType:=", "Cartesian",
-                    "BulkOrSurfaceType:=", 1,
-                    ["NAME:PhysicsTypes", "set:=", ["Thermal"]],
-                    "thermal_conductivity:=", "0.142",
-                    "mass_density:=", "794",
-                    "specific_heat:=", "2219",
-                    "thermal_expansion_coefficient:=", "0.00083",
-                    ["NAME:thermal_material_type", "property_type:=", "ChoiceProperty", "Choice:=", "Fluid"],
-                    "diffusivity:=", "1",
-                    "molecular_mass:=", "1",
-                    "viscosity:=", "0.0099",
-                    ["NAME:clarity_type", "property_type:=", "ChoiceProperty", "Choice:=", "Opaque"]
-                ])
-            print("로그: PAO 재질 생성 완료")
-        except:
-            print("로그: PAO 이미 존재, 스킵")
+            try:
+                # 이 코드는 PAO가 없을 땐 생성하고, 있을 땐 에러를 냅니다.
+            
+                oDefinitionManager.AddMaterial(
+                    [
+                        "NAME:PAO",
+                        "CoordinateSystemType:=", "Cartesian",
+                        "BulkOrSurfaceType:="	, 1,
+                        [
+                            "NAME:PhysicsTypes",
+                            "set:="			, ["Thermal"]
+                        ],
+                        "thermal_conductivity:=", "0.142",
+                        "mass_density:="	, "794",
+                        "specific_heat:="	, "2219",
+                        "thermal_expansion_coefficient:=", "0.00083",
+                        [
+                            "NAME:thermal_material_type",
+                            "property_type:="	, "ChoiceProperty",
+                            "Choice:="		, "Fluid"
+                        ],
+                        "diffusivity:="		, "1",
+                        "molecular_mass:="	, "1",
+                        "viscosity:="		, "0.0099",
+                        [
+                            "NAME:clarity_type",
+                            "property_type:="	, "ChoiceProperty",
+                            "Choice:="		, "Opaque"
+                        ]
+                    ])
+                print("로그: PAO 재질이 새로 생성되었습니다.")
+            except:
+                # 재질이 이미 존재하면 위에서 에러가 나는데, 
+                # except가 그 에러를 잡아먹고 그냥 아래로 내려보냅니다.
+                print("로그: PAO가 이미 존재하거나 생성할 수 없어 스킵합니다.")
 
-    # STEP import 후 오브젝트 이름 변경 (부피 기준 정렬)
+
+    # %%
+    # STEP import 후 오브젝트 이름 변경
     objects = [ipk.modeler[name] for name in ipk.modeler.object_names if "ttpkp" in name]
     objects.sort(key=lambda o: o.volume)
-    objects[0].name = "plate"
-    objects[1].name = "plate_base"
+
+    objects[0].name = "plate"       # 작은 것
+    objects[1].name = "plate_base"  # 큰 것
+
     print(f"이름 변경 완료: {[o.name for o in objects]}")
 
-    # 재질 Al-Extruded 할당
+    # %%
+
     oEditor.ChangeProperty(
         [
             "NAME:AllTabs",
             [
                 "NAME:Geometry3DAttributeTab",
-                ["NAME:PropServers", "plate", "plate_base"],
+                [
+                    "NAME:PropServers", 
+                    "plate", 
+                    "plate_base"
+                ],
                 [
                     "NAME:ChangedProps",
-                    ["NAME:Material", "Value:=", "\"Al-Extruded\""]
+                    [
+                        "NAME:Material",
+                        "Value:="		, "\"Al-Extruded\""
+                    ]
                 ]
             ]
         ])
 
-    # PAO 박스 생성 → Subtract → SeparateBody → 불필요한 PAO 삭제
+
+    # %%
     oEditor.CreateBox(
         [
             "NAME:BoxParameters",
-            "XPosition:=", "231.499999983333mm",
-            "YPosition:=", "215mm",
-            "ZPosition:=", "-2.49999998333333mm",
-            "XSize:=", "-462.999999983333mm",
-            "YSize:=", "-430mm",
-            "ZSize:=", "20.9999999666667mm"
-        ],
+            "XPosition:="		, "231.499999983333mm",
+            "YPosition:="		, "215mm",
+            "ZPosition:="		, "-2.49999998333333mm",
+            "XSize:="		, "-462.999999983333mm",
+            "YSize:="		, "-430mm",
+            "ZSize:="		, "20.9999999666667mm"
+        ], 
         [
             "NAME:Attributes",
-            "Name:=", "PAO",
-            "Flags:=", "",
-            "Color:=", "(143 175 143)",
-            "Transparency:=", 0,
+            "Name:="		, "PAO",
+            "Flags:="		, "",
+            "Color:="		, "(143 175 143)",
+            "Transparency:="	, 0,
             "PartCoordinateSystem:=", "Global",
-            "UDMId:=", "",
-            "MaterialValue:=", "\"PAO\"",
+            "UDMId:="		, "",
+            "MaterialValue:="	, "\"PAO\"",
             "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
-            "SolveInside:=", True,
-            "ShellElement:=", False,
+            "SolveInside:="		, True,
+            "ShellElement:="	, False,
             "ShellElementThickness:=", "0mm",
             "ReferenceTemperature:=", "20cel",
-            "IsMaterialEditable:=", True,
+            "IsMaterialEditable:="	, True,
             "IsSurfaceMaterialEditable:=", True,
             "UseMaterialAppearance:=", False,
-            "IsLightweight:=", False
+            "IsLightweight:="	, False
         ])
     oEditor.Subtract(
         [
             "NAME:Selections",
-            "Blank Parts:=", "PAO",
-            "Tool Parts:=", "plate, plate_base"
-        ],
+            "Blank Parts:="		, "PAO",
+            "Tool Parts:="		, "plate,plate_base"
+        ], 
         [
             "NAME:SubtractParameters",
-            "KeepOriginals:=", True,
-            "TurnOnNBodyBoolean:=", True
+            "KeepOriginals:="	, True,
+            "TurnOnNBodyBoolean:="	, True
         ])
     oEditor.SeparateBody(
         [
             "NAME:Selections",
-            "Selections:=", "PAO",
-            "NewPartsModelFlag:=", "Model"
-        ],
-        ["CreateGroupsForNewObjects:=", False])
+            "Selections:="		, "PAO",
+            "NewPartsModelFlag:="	, "Model"
+        ], 
+        [
+            "CreateGroupsForNewObjects:=", False
+        ])
     oEditor.Delete(
-        ["NAME:Selections", "Selections:=", "PAO"])
+        [
+            "NAME:Selections",
+            "Selections:="		, "PAO"
+        ])
 
-    # source 박스 19개 생성
-    base_x = -191.1
-    step   = 20.5
-    for i in range(19):
-        x_pos    = base_x + i * step
-        box_name = f"source{i + 1}"
+    # %%
+    base_x = -152.1
+    step = 20.8*2
+    n_boxes = 8
+
+    for i in range(n_boxes):
+        x_pos = base_x + i * step
+        box_name = f"source{i + 1:02d}"  # source1, source2, ..., source15
+
         oEditor.CreateBox(
             [
                 "NAME:BoxParameters",
                 "XPosition:=", f"{x_pos}mm",
-                "YPosition:=", "29.99999998mm",
+                "YPosition:=", "5.24999998mm",
                 "ZPosition:=", "10.50000002mm",
                 "XSize:=", "13.3mm",
-                "YSize:=", "-167mm",
-                "ZSize:=", "3mm"
+                "YSize:=", "-183mm",
+                "ZSize:=", "8mm"
             ],
             [
                 "NAME:Attributes",
@@ -230,7 +299,7 @@ def run_icepak(desktop, ipk, step_file, idx):
                 "Transparency:=", 0,
                 "PartCoordinateSystem:=", "Global",
                 "UDMId:=", "",
-                "MaterialValue:=", "\"Al-Extruded\"",
+                "MaterialValue:=", "\"FR-4\"",
                 "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
                 "SolveInside:=", True,
                 "ShellElement:=", False,
@@ -242,101 +311,134 @@ def run_icepak(desktop, ipk, step_file, idx):
                 "IsLightweight:=", False
             ])
 
-    # Fan/Opening face 동적 탐지
-    box1         = ipk.modeler["PAO_Separate1"]
+    # %%
+    box1 = ipk.modeler["PAO_Separate1"]
     target_faces = [face for face in box1.faces if abs(face.center[2] - 18.5) < 0.1]
     target_faces.sort(key=lambda face: face.center[0])
-    fan_face     = target_faces[-1]   # x값이 큰 쪽 = Fan
-    opening_face = target_faces[0]    # x값이 작은 쪽 = Opening
+    fan_face     = target_faces[-1]   # x값이 큰 쪽(120.3) = Fan
+    opening_face = target_faces[0]    # x값이 작은 쪽(78.3) = Opening
+
+    # 팬 위치를 동적으로
     fan_x = fan_face.center[0]
     fan_y = fan_face.center[1]
     fan_z = fan_face.center[2]
-
-    # Fan 생성
     oEditor.InsertNativeComponent(
         [
             "NAME:InsertNativeComponentData",
-            "TargetCS:=", "Global",
+            "TargetCS:="		, "Global",
             "SubmodelDefinitionName:=", "Fan1",
-            ["NAME:ComponentPriorityLists"],
-            "NextUniqueID:=", 0,
-            "MoveBackwards:=", False,
-            "DatasetType:=", "ComponentDatasetType",
-            ["NAME:DatasetDefinitions"],
+            [
+                "NAME:ComponentPriorityLists"
+            ],
+            "NextUniqueID:="	, 0,
+            "MoveBackwards:="	, False,
+            "DatasetType:="		, "ComponentDatasetType",
+            [
+                "NAME:DatasetDefinitions"
+            ],
             [
                 "NAME:BasicComponentInfo",
-                "ComponentName:=", "Fan1",
-                "Company:=", "",
-                "Company URL:=", "",
-                "Model Number:=", "",
-                "Help URL:=", "",
-                "Version:=", "1.0",
-                "Notes:=", "",
-                "IconType:=", "Fan"
+                "ComponentName:="	, "Fan1",
+                "Company:="		, "",
+                "Company URL:="		, "",
+                "Model Number:="	, "",
+                "Help URL:="		, "",
+                "Version:="		, "1.0",
+                "Notes:="		, "",
+                "IconType:="		, "Fan"
             ],
-            ["NAME:GeometryDefinitionParameters", ["NAME:VariableOrders"]],
-            ["NAME:DesignDefinitionParameters", ["NAME:VariableOrders"]],
-            ["NAME:MaterialDefinitionParameters", ["NAME:VariableOrders"]],
-            "DefReferenceCSID:=", 1,
+            [
+                "NAME:GeometryDefinitionParameters",
+                [
+                    "NAME:VariableOrders"
+                ]
+            ],
+            [
+                "NAME:DesignDefinitionParameters",
+                [
+                    "NAME:VariableOrders"
+                ]
+            ],
+            [
+                "NAME:MaterialDefinitionParameters",
+                [
+                    "NAME:VariableOrders"
+                ]
+            ],
+            "DefReferenceCSID:="	, 1,
             "MapInstanceParameters:=", "DesignVariable",
             "UniqueDefinitionIdentifier:=", "c0cbeca3-60a5-4c2b-91f5-5871ba115f42",
-            "OriginFilePath:=", "",
-            "IsLocal:=", False,
-            "ChecksumString:=", "",
-            "ChecksumHistory:=", [],
-            "VersionHistory:=", [],
+            "OriginFilePath:="	, "",
+            "IsLocal:="		, False,
+            "ChecksumString:="	, "",
+            "ChecksumHistory:="	, [],
+            "VersionHistory:="	, [],
             [
                 "NAME:NativeComponentDefinitionProvider",
-                "Type:=", "Fan",
-                "Unit:=", "mm",
-                "Version:=", 0,
-                "ModelAs:=", "2D",
-                "Shape:=", "Circular",
-                "MovePlane:=", "XY",
-                "Radius:=", "6mm",
-                "HubRadius:=", "0mm",
-                "CaseSide:=", True,
-                "FlowDirChoice:=", "NormalNegative",
-                "FlowType:=", "FixedVolumetric",
-                "SwirlType:=", "Magnitude",
-                "FailedFan:=", False,
-                ["NAME:DimUnits", "m3_per_s", "n_per_meter_sq"],
-                "X:=", ["0", "0.01"],
-                "Y:=", ["30", "0"],
+                "Type:="		, "Fan",
+                "Unit:="		, "mm",
+                "Version:="		, 0,
+                "ModelAs:="		, "2D",
+                "Shape:="		, "Circular",
+                "MovePlane:="		, "XY",
+                "Radius:="		, "6mm",
+                "HubRadius:="		, "0mm",
+                "CaseSide:="		, True,
+                "FlowDirChoice:="	, "NormalNegative",
+                "FlowType:="		, "FixedVolumetric",
+                "SwirlType:="		, "Magnitude",
+                "FailedFan:="		, False,
+                [
+                    "NAME:DimUnits", 
+                    "m3_per_s", 
+                    "n_per_meter_sq"
+                ],
+                "X:="			, ["0","0.01"],
+                "Y:="			, ["30","0"],
                 [
                     "NAME:Pressure Loss Curve",
-                    ["NAME:DimUnits", "m_per_sec", "n_per_meter_sq"],
-                    "X:=", ["0", "1", "2", "3"],
-                    "Y:=", ["1", "10", "100", "0"]
+                    [
+                        "NAME:DimUnits", 
+                        "m_per_sec", 
+                        "n_per_meter_sq"
+                    ],
+                    "X:="			, ["0","1","2","3"],
+                    "Y:="			, ["1","10","100","0"]
                 ],
-                "IntakeTemp:=", "20cel",
-                "Volumetric:=", "4ltr_per_min",
-                "Swirl:=", "0",
-                "OperatingRPM:=", "0",
-                "LayerName:=", "1"
+                "IntakeTemp:="		, "20cel",
+                "Volumetric:="		, "4ltr_per_min",
+                "Swirl:="		, "0",
+                "OperatingRPM:="	, "0",
+                "LayerName:="		, "1"
             ],
-            ["NAME:InstanceParameters", "GeometryParameters:=", "", "MaterialParameters:=", "", "DesignParameters:=", ""]
+            [
+                "NAME:InstanceParameters",
+                "GeometryParameters:="	, "",
+                "MaterialParameters:="	, "",
+                "DesignParameters:="	, ""
+            ]
         ])
     oEditor = oDesign.SetActiveEditor("3D Modeler")
     oEditor.Move(
         [
             "NAME:Selections",
-            "Selections:=", "Fan1_1",
-            "NewPartsModelFlag:=", "Model"
-        ],
+            "Selections:="		, "Fan1_1",
+            "NewPartsModelFlag:="	, "Model"
+        ], 
         [
             "NAME:TranslateParameters",
-            "TranslateVectorX:=", f"{fan_x}mm",
-            "TranslateVectorY:=", f"{fan_y}mm",
-            "TranslateVectorZ:=", f"{fan_z}mm"
+            "TranslateVectorX:="	, f"{fan_x}mm",
+            "TranslateVectorY:="	, f"{fan_y}mm",
+            "TranslateVectorZ:="	, f"{fan_z}mm"
         ])
 
-    # Opening 경계조건
+
+    # %%
     oModule = oDesign.GetModule("BoundarySetup")
     oModule.AssignOpeningBoundary(
         [
             "NAME:Opening1",
-            "Faces:=", [opening_face.id],
+            "Faces:=", [opening_face.id],   # Circle2 대신 face ID 직접
             "Temperature:=", "AmbientTemp",
             "External Rad. Temperature:=", "AmbientRadTemp",
             "Inlet Type:=", "Pressure",
@@ -344,297 +446,190 @@ def run_icepak(desktop, ipk, step_file, idx):
             "No Reverse Flow:=", False
         ])
 
-    # 발열 경계조건
+    # %%
+    oModule = oDesign.GetModule("BoundarySetup")
     oModule.AssignBlockBoundary(
         [
             "NAME:Block1",
-            "Objects:=", ["source1","source9","source10","source11","source12","source13","source14","source15","source16","source17","source18"],
-            "Block Type:=", "Solid",
+            "Objects:="		, ["source01","source02","source03","source04","source05","source06","source07","source08"],
+            "Block Type:="		, "Solid",
             "Use External Conditions:=", False,
-            "Use Total Power:=", True,
-            "Total Power:=", "22.607W"
-        ])
-    oModule.AssignBlockBoundary(
-        [
-            "NAME:Block2",
-            "Objects:=", ["source2","source3","source4","source5","source6","source7","source19"],
-            "Block Type:=", "Solid",
-            "Use External Conditions:=", False,
-            "Use Total Power:=", True,
-            "Total Power:=", "38.468W"
-        ])
-    oModule.AssignBlockBoundary(
-        [
-            "NAME:Block3",
-            "Objects:=", ["source8"],
-            "Block Type:=", "Solid",
-            "Use External Conditions:=", False,
-            "Use Total Power:=", True,
-            "Total Power:=", "46.871W"
+            "Use Total Power:="	, True,
+            "Total Power:="		, "40W"
         ])
 
-    # SubRegion 생성
+
+    # %%
     oEditor.CreateSubRegion(
         [
             "NAME:SubRegionParameters",
-            "+XPaddingType:=", "Percentage Offset", "+XPadding:=", "0",
-            "-XPaddingType:=", "Percentage Offset", "-XPadding:=", "0",
-            "+YPaddingType:=", "Percentage Offset", "+YPadding:=", "0",
-            "-YPaddingType:=", "Percentage Offset", "-YPadding:=", "0",
-            "+ZPaddingType:=", "Percentage Offset", "+ZPadding:=", "0",
-            "-ZPaddingType:=", "Percentage Offset", "-ZPadding:=", "0",
-            ["NAME:BoxForVirtualObjects", ["NAME:LowPoint", 1, 1, 1], ["NAME:HighPoint", -1, -1, -1]],
-            ["NAME:SubRegionPartNames", "PAO_Separate1"],
-            ["NAME:SubRegionSubmodelNames"]
-        ],
+            "+XPaddingType:="	, "Percentage Offset",
+            "+XPadding:="		, "0",
+            "-XPaddingType:="	, "Percentage Offset",
+            "-XPadding:="		, "0",
+            "+YPaddingType:="	, "Percentage Offset",
+            "+YPadding:="		, "0",
+            "-YPaddingType:="	, "Percentage Offset",
+            "-YPadding:="		, "0",
+            "+ZPaddingType:="	, "Percentage Offset",
+            "+ZPadding:="		, "0",
+            "-ZPaddingType:="	, "Percentage Offset",
+            "-ZPadding:="		, "0",
+            [
+                "NAME:BoxForVirtualObjects",
+                [
+                    "NAME:LowPoint", 
+                    1, 
+                    1, 
+                    1
+                ],
+                [
+                    "NAME:HighPoint", 
+                    -1, 
+                    -1, 
+                    -1
+                ]
+            ],
+            [
+                "NAME:SubRegionPartNames", 
+                "PAO_Separate1"
+            ],
+            [
+                "NAME:SubRegionSubmodelNames"
+            ]
+        ], 
         [
             "NAME:Attributes",
-            "Name:=", "SubRegion",
-            "Flags:=", "NonModel#Wireframe#",
-            "Color:=", "(143 175 143)",
-            "Transparency:=", 0,
+            "Name:="		, "SubRegion",
+            "Flags:="		, "NonModel#Wireframe#",
+            "Color:="		, "(143 175 143)",
+            "Transparency:="	, 0,
             "PartCoordinateSystem:=", "Global",
-            "UDMId:=", "",
-            "MaterialValue:=", "\"air\"",
+            "UDMId:="		, "",
+            "MaterialValue:="	, "\"air\"",
             "SurfaceMaterialValue:=", "\"\"",
-            "SolveInside:=", True,
-            "ShellElement:=", False,
+            "SolveInside:="		, True,
+            "ShellElement:="	, False,
             "ShellElementThickness:=", "nan ",
             "ReferenceTemperature:=", "nan ",
-            "IsMaterialEditable:=", True,
+            "IsMaterialEditable:="	, True,
             "IsSurfaceMaterialEditable:=", True,
             "UseMaterialAppearance:=", False,
-            "IsLightweight:=", False
+            "IsLightweight:="	, False
         ])
-
-    # 메시 설정
     oModule = oDesign.GetModule("MeshRegion")
     oModule.AssignMeshRegion(
         [
             "NAME:MeshRegion1",
-            "Enable:=", True,
-            "MeshMethod:=", "MesherHD",
+            "Enable:="		, True,
+            "MeshMethod:="		, "MesherHD",
             "UserSpecifiedSettings:=", True,
-            "MaxElementSizeX:=", "2mm",
-            "MaxElementSizeY:=", "1mm",
-            "MaxElementSizeZ:=", "1mm",
-            "MinElementsInGap:=", "3",
-            "MinElementsOnEdge:=", "2",
-            "MaxSizeRatio:=", "2",
-            "NoOGrids:=", True,
-            "EnableMLM:=", True,
-            "EnforeMLMType:=", "3D",
-            "MaxLevels:=", "0",
-            "BufferLayers:=", "0",
+            "MaxElementSizeX:="	, "2mm",
+            "MaxElementSizeY:="	, "1mm",
+            "MaxElementSizeZ:="	, "1mm",
+            "MinElementsInGap:="	, "3",
+            "MinElementsOnEdge:="	, "2",
+            "MaxSizeRatio:="	, "2",
+            "NoOGrids:="		, True,
+            "EnableMLM:="		, True,
+            "EnforeMLMType:="	, "3D",
+            "MaxLevels:="		, "0",
+            "BufferLayers:="	, "0",
             "UniformMeshParametersType:=", "XYZ Max Sizes",
-            "StairStepMeshing:=", False,
-            "2DMLMType:=", "2DMLM_None",
-            "MinGapX:=", "0.1mm",
-            "MinGapY:=", "0.1mm",
-            "MinGapZ:=", "0.1mm",
-            "Objects:=", ["SubRegion"],
+            "StairStepMeshing:="	, False,
+            "2DMLMType:="		, "2DMLM_None",
+            "MinGapX:="		, "0.1mm",
+            "MinGapY:="		, "0.1mm",
+            "MinGapZ:="		, "0.1mm",
+            "Objects:="		, ["SubRegion"],
             "ProximitySizeFunction:=", True,
             "CurvatureSizeFunction:=", True,
-            "EnableTransition:=", False,
-            "OptimizePCBMesh:=", True,
-            "Enable2DCutCell:=", False,
+            "EnableTransition:="	, False,
+            "OptimizePCBMesh:="	, True,
+            "Enable2DCutCell:="	, False,
             "EnforceCutCellMeshing:=", False,
             "Enforce2dot5DCutCell:=", False
-        ],
+        ], 
         [
             "NAME:Geometrical Attributes",
-            "MinSlackX:=", "0mm", "MaxSlackX:=", "0mm",
-            "MinSlackY:=", "0mm", "MaxSlackY:=", "0mm",
-            "MinSlackZ:=", "0mm", "MaxSlackZ:=", "0mm",
-            "MinBboxX:=", "0mm", "MaxBboxX:=", "0mm",
-            "MinBboxY:=", "0mm", "MaxBboxY:=", "0mm",
-            "MinBboxZ:=", "0mm", "MaxBboxZ:=", "0mm"
+            "MinSlackX:="		, "0mm",
+            "MaxSlackX:="		, "0mm",
+            "MinSlackY:="		, "0mm",
+            "MaxSlackY:="		, "0mm",
+            "MinSlackZ:="		, "0mm",
+            "MaxSlackZ:="		, "0mm",
+            "MinBboxX:="		, "0mm",
+            "MaxBboxX:="		, "0mm",
+            "MinBboxY:="		, "0mm",
+            "MaxBboxY:="		, "0mm",
+            "MinBboxZ:="		, "0mm",
+            "MaxBboxZ:="		, "0mm"
         ])
     oModule.EditGlobalMeshRegion(
         [
             "NAME:Settings",
-            "MeshMethod:=", "MesherHD",
+            "MeshMethod:="		, "MesherHD",
             "UserSpecifiedSettings:=", True,
-            "ComputeGap:=", True,
-            "MaxElementSizeX:=", "2mm",
-            "MaxElementSizeY:=", "2mm",
-            "MaxElementSizeZ:=", "2mm",
-            "MinElementsInGap:=", "3",
-            "MinElementsOnEdge:=", "2",
-            "MaxSizeRatio:=", "2",
-            "NoOGrids:=", True,
-            "EnableMLM:=", True,
-            "EnforeMLMType:=", "3D",
-            "MaxLevels:=", "0",
-            "BufferLayers:=", "0",
+            "ComputeGap:="		, True,
+            "MaxElementSizeX:="	, "2mm",
+            "MaxElementSizeY:="	, "2mm",
+            "MaxElementSizeZ:="	, "2mm",
+            "MinElementsInGap:="	, "3",
+            "MinElementsOnEdge:="	, "2",
+            "MaxSizeRatio:="	, "2",
+            "NoOGrids:="		, True,
+            "EnableMLM:="		, True,
+            "EnforeMLMType:="	, "3D",
+            "MaxLevels:="		, "0",
+            "BufferLayers:="	, "0",
             "UniformMeshParametersType:=", "XYZ Max Sizes",
-            "StairStepMeshing:=", False,
-            "MinGapX:=", "0.1mm",
-            "MinGapY:=", "0.1mm",
-            "MinGapZ:=", "0.1mm",
-            "Objects:=", ["Region"],
+            "StairStepMeshing:="	, False,
+            "MinGapX:="		, "0.1mm",
+            "MinGapY:="		, "0.1mm",
+            "MinGapZ:="		, "0.1mm",
+            "Objects:="		, ["Region"],
             "StairStepSliderMeshing:=", False,
-            "FacetLevel:=", "3",
+            "FacetLevel:="		, "3",
             "ProximitySizeFunction:=", True,
             "CurvatureSizeFunction:=", True,
-            "EnableTransition:=", False,
-            "OptimizePCBMesh:=", True,
-            "Enable2DCutCell:=", False,
+            "EnableTransition:="	, False,
+            "OptimizePCBMesh:="	, True,
+            "Enable2DCutCell:="	, False,
             "EnforceCutCellMeshing:=", False,
             "Enforce2dot5DCutCell:=", False
         ])
 
-    # Priority List
+
+    # %%
     oEditor.UpdatePriorityList(
         [
             "NAME:UpdatePriorityListData",
             [
                 "NAME:PriorityListParameters",
-                "EntityType:=", "Object",
-                "EntityList:=", "PAO_Separate1",
-                "PriorityNumber:=", 2,
-                "PriorityListType:=", "3D"
+                "EntityType:="		, "Object",
+                "EntityList:="		, "PAO_Separate1",
+                "PriorityNumber:="	, 2,
+                "PriorityListType:="	, "3D"
             ],
             [
                 "NAME:PriorityListParameters",
-                "EntityType:=", "Object",
-                "EntityList:=", "plate, plate_base",
-                "PriorityNumber:=", 3,
-                "PriorityListType:=", "3D"
+                "EntityType:="		, "Object",
+                "EntityList:="		, "plate, plate_base",
+                "PriorityNumber:="	, 3,
+                "PriorityListType:="	, "3D"
             ],
+            
         ])
 
-    # Unite
-    oEditor.Unite(
-        [
-            "NAME:Selections",
-            "Selections:=", "plate, plate_base"
-        ],
-        [
-            "NAME:UniteParameters",
-            "KeepOriginals:=", False,
-            "TurnOnNBodyBoolean:=", True
-        ])
+    # %%
+    x_pos = 159          # 유로 안쪽으로 이동 — 경계면에 걸치면 벽면 셀까지 면적에 잡힘
+    y_start = -101.25
+    z_start = 7.999999983
+    width = -7.357142857
+    height = -7.499999967
 
-    # Solve Setup
-    oModule = oDesign.GetModule("AnalysisSetup")
-    oModule.InsertSetup("IcepakSteadyState",
-        [
-            "NAME:Setup1",
-            "Enabled:=", True,
-            ["NAME:MeshLink", "ImportMesh:=", False],
-            "Flow Regime:=", "Laminar",
-            "Include Temperature:=", True,
-            "Include Flow:=", True,
-            "Include Gravity:=", False,
-            "Include Solar:=", False,
-            "Solution Initialization - X Velocity:=", "0m_per_sec",
-            "Solution Initialization - Y Velocity:=", "0m_per_sec",
-            "Solution Initialization - Z Velocity:=", "0m_per_sec",
-            "Solution Initialization - Temperature:=", "AmbientTemp",
-            "Solution Initialization - Turbulent Kinetic Energy:=", "1m2_per_s2",
-            "Solution Initialization - Turbulent Dissipation Rate:=", "1m2_per_s3",
-            "Solution Initialization - Specific Dissipation Rate:=", "1diss_per_s",
-            "Solution Initialization - Use Model Based Flow Initialization:=", False,
-            "Convergence Criteria - Flow:=", "0.001",
-            "Convergence Criteria - Energy:=", "1e-07",
-            "Convergence Criteria - Turbulent Kinetic Energy:=", "0.001",
-            "Convergence Criteria - Turbulent Dissipation Rate:=", "0.001",
-            "Convergence Criteria - Specific Dissipation Rate:=", "0.001",
-            "Convergence Criteria - Discrete Ordinates:=", "1e-06",
-            "Convergence Criteria - Joule Heating:=", "1e-07",
-            "GPU Convergence Criteria - Flow:=", "0.001",
-            "GPU Convergence Criteria - Energy:=", "1e-05",
-            "GPU Convergence Criteria - Turbulent Kinetic Energy:=", "0.001",
-            "GPU Convergence Criteria - Turbulent Dissipation Rate:=", "0.001",
-            "GPU Convergence Criteria - Specific Dissipation Rate:=", "0.001",
-            "GPU Convergence Criteria - Discrete Ordinates:=", "1e-05",
-            "GPU Convergence Criteria - Joule Heating:=", "1e-07",
-            "IsEnabled:=", False,
-            "Radiation Model:=", "Off",
-            "Solar Radiation Model:=", "Solar Radiation Calculator",
-            "Solar Enable Participating Solids:=", False,
-            "Solar Radiation - Scattering Fraction:=", "0",
-            "Solar Radiation - North X:=", "0",
-            "Solar Radiation - North Y:=", "0",
-            "Solar Radiation - North Z:=", "1",
-            "Solar Radiation - Day:=", 1,
-            "Solar Radiation - Month:=", 1,
-            "Solar Radiation - Hours:=", 0,
-            "Solar Radiation - Minutes:=", 0,
-            "Solar Radiation - GMT:=", "0",
-            "Solar Radiation - Latitude:=", "0",
-            "Solar Radiation - Latitude Direction:=", "North",
-            "Solar Radiation - Longitude:=", "0",
-            "Solar Radiation - Longitude Direction:=", "East",
-            "Solar Radiation - Ground Reflectance:=", "0",
-            "Solar Radiation - Sunshine Fraction:=", "0",
-            "Under-relaxation - Pressure:=", "0.3",
-            "Under-relaxation - Momentum:=", "0.7",
-            "Under-relaxation - Temperature:=", "1",
-            "Under-relaxation - Turbulent Kinetic Energy:=", "0.8",
-            "Under-relaxation - Turbulent Dissipation Rate:=", "0.8",
-            "Under-relaxation - Specific Dissipation Rate:=", "0.8",
-            "Under-relaxation - Joule Heating:=", "1",
-            "Under-relaxation - Body Force:=", "1",
-            "Under-relaxation - Turbulent Viscosity:=", "1",
-            "Discretization Scheme - Pressure:=", "Standard",
-            "Discretization Scheme - Momentum:=", "First",
-            "Discretization Scheme - Temperature:=", "First",
-            "Secondary Gradient:=", False,
-            "Discretization Scheme - Turbulent Kinetic Energy:=", "First",
-            "Discretization Scheme - Turbulent Dissipation Rate:=", "First",
-            "Discretization Scheme - Specific Dissipation Rate:=", "First",
-            "Discretization Scheme - Discrete Ordinates:=", "First",
-            "Linear Solver Type - Pressure:=", "V",
-            "Linear Solver Type - Momentum:=", "flex",
-            "Linear Solver Type - Temperature:=", "F",
-            "Linear Solver Type - Turbulent Kinetic Energy:=", "flex",
-            "Linear Solver Type - Turbulent Dissipation Rate:=", "flex",
-            "Linear Solver Type - Specific Dissipation Rate:=", "flex",
-            "Linear Solver Type - Joule Heating:=", "F",
-            "Linear Solver Termination Criterion - Pressure:=", "0.1",
-            "Linear Solver Termination Criterion - Momentum:=", "0.1",
-            "Linear Solver Termination Criterion - Temperature:=", "0.1",
-            "Linear Solver Termination Criterion - Turbulent Kinetic Energy:=", "0.1",
-            "Linear Solver Termination Criterion - Turbulent Dissipation Rate:=", "0.1",
-            "Linear Solver Termination Criterion - Specific Dissipation Rate:=", "0.1",
-            "Linear Solver Termination Criterion - Joule Heating:=", "1e-09",
-            "Linear Solver Residual Reduction Tolerance - Pressure:=", "0.1",
-            "Linear Solver Residual Reduction Tolerance - Momentum:=", "0.1",
-            "Linear Solver Residual Reduction Tolerance - Temperature:=", "0.1",
-            "Linear Solver Residual Reduction Tolerance - Turbulent Kinetic Energy:=", "0.1",
-            "Linear Solver Residual Reduction Tolerance - Turbulent Dissipation Rate:=", "0.1",
-            "Linear Solver Residual Reduction Tolerance - Specific Dissipation Rate:=", "0.1",
-            "Linear Solver Residual Reduction Tolerance - Joule Heating:=", "1e-09",
-            "Maximum Cycles:=", "30",
-            "Linear Solver Stabilization - Pressure:=", "None",
-            "Linear Solver Stabilization - Temperature:=", "None",
-            "Linear Solver Stabilization - Joule Heating:=", "None",
-            "Coupled pressure-velocity formulation:=", False,
-            "Turn off auto-pairing for grid interface creation:=", False,
-            "2D Profile Interpolation Method:=", "Inverse Distance Weighted",
-            "Frozen Flow Simulation:=", False,
-            "TEC Coupling:=", False,
-            "Sequential Solve of Flow and Energy Equations:=", False,
-            "Convergence Criteria - Max Iterations:=", 1000
-        ])
-
-    # 저장 후 해석 실행
-    oProject.Save()
-    oDesign.AnalyzeAll()
-    print(f"[{idx}] 해석 완료")
-
-    # ── 핀뱅크 입구 레인별 속도 측정 시트 30개 생성 (NonModel, 피치 6.5mm = 틈4 + 핀2.5)
-    #    아래 Fields Summary가 V_inlet 이름을 참조하므로 반드시 export보다 먼저 생성 ──
-    x_pos = -168.499999983333
-    y_start = 19.0000000166667
-    z_start = 0.500000016666667
-    width = -4.00000003333333
-    height = 7.49999996666666
-
-    for i in range(30):
-        y = y_start - (6.5 * i)
+    for i in range(7):
+        y = y_start - (9.857142857 * i)
 
         oEditor.CreateRectangle(
             [
@@ -667,51 +662,259 @@ def run_icepak(desktop, ipk, step_file, idx):
                 "IsLightweight:=", False,
             ],
         )
-    print(f"[{idx}] 측정 시트 30개 생성 완료 (V_inlet_01 ~ V_inlet_30)")
 
-    # 결과 CSV 저장 (idx별 동적 경로)
+    # %%
+    x_pos2 = -159        # 유로 안쪽으로 이동 (V_inlet과 같은 이유)
+    y_start2 = -4.749999983
+    z_start2 = 7.999999983
+    width2 = -7.357142857
+    height2 = -7.499999967
+
+    for i in range(7):
+        y2 = y_start2 - (9.857142857 * i)
+
+        oEditor.CreateRectangle(
+            [
+                "NAME:RectangleParameters",
+                "IsCovered:=", True,
+                "XStart:=", f"{x_pos2}mm",
+                "YStart:=", f"{y2}mm",
+                "ZStart:=", f"{z_start2}mm",
+                "Width:=", f"{width2}mm",
+                "Height:=", f"{height2}mm",
+                "WhichAxis:=", "X",
+            ],
+            [
+                "NAME:Attributes",
+                "Name:=", f"V_inlet2_{i+1:02d}",
+                "Flags:=", "NonModel#",
+                "Color:=", "(143 175 143)",
+                "Transparency:=", 0,
+                "PartCoordinateSystem:=", "Global",
+                "UDMId:=", "",
+                "MaterialValue:=", "\"Al-Extruded\"",
+                "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
+                "SolveInside:=", True,
+                "ShellElement:=", False,
+                "ShellElementThickness:=", "0mm",
+                "ReferenceTemperature:=", "20cel",
+                "IsMaterialEditable:=", True,
+                "IsSurfaceMaterialEditable:=", True,
+                "UseMaterialAppearance:=", False,
+                "IsLightweight:=", False,
+            ],
+        )
+
+    # %%
+    oEditor.CreateRectangle(
+        [
+            "NAME:RectangleParameters",
+            "IsCovered:="		, True,
+            "XStart:="		, "-195mm",
+            "YStart:="		, "6mm",   # 분기 안쪽으로 이동 — PAO 경계면 공유 회피
+            "ZStart:="		, "7.999999983mm",
+            "Width:="		, f"-{PM_INLET_WIDTH_MM}mm",
+            # 전원모듈 입구 폭은 형상 변수에 따라 바뀌므로 동적 할당
+            "Height:="		, f"{params['power_input_thick']}mm",
+            "WhichAxis:="		, "y"
+        ], 
+        [
+            "NAME:Attributes",
+            "Name:="		, "Rectangle1",
+            "Flags:="		, "NonModel#",
+            "Color:="		, "(143 175 143)",
+            "Transparency:="	, 0,
+            "PartCoordinateSystem:=", "Global",
+            "UDMId:="		, "",
+            "MaterialValue:="	, "\"Al-Extruded\"",
+            "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
+            "SolveInside:="		, True,
+            "ShellElement:="	, False,
+            "ShellElementThickness:=", "0mm",
+            "ReferenceTemperature:=", "20cel",
+            "IsMaterialEditable:="	, True,
+            "IsSurfaceMaterialEditable:=", True,
+            "UseMaterialAppearance:=", False,
+            "IsLightweight:="	, False
+        ])
+
+    # %%
+    oEditor.Unite(
+        [
+            "NAME:Selections",
+            "Selections:="		, "plate,plate_base"
+        ], 
+        [
+            "NAME:UniteParameters",
+            "KeepOriginals:="	, False,
+            "TurnOnNBodyBoolean:="	, True
+        ])
+
+    # %%
+    oModule = oDesign.GetModule("AnalysisSetup")
+    oModule.InsertSetup("IcepakSteadyState", 
+        [
+            "NAME:Setup1",
+            "Enabled:="		, True,
+            [
+                "NAME:MeshLink",
+                "ImportMesh:="		, False
+            ],
+            "Flow Regime:="		, "Laminar",
+            "Include Temperature:="	, True,
+            "Include Flow:="	, True,
+            "Include Gravity:="	, False,
+            "Include Solar:="	, False,
+            "Solution Initialization - X Velocity:=", "0m_per_sec",
+            "Solution Initialization - Y Velocity:=", "0m_per_sec",
+            "Solution Initialization - Z Velocity:=", "0m_per_sec",
+            "Solution Initialization - Temperature:=", "AmbientTemp",
+            "Solution Initialization - Turbulent Kinetic Energy:=", "1m2_per_s2",
+            "Solution Initialization - Turbulent Dissipation Rate:=", "1m2_per_s3",
+            "Solution Initialization - Specific Dissipation Rate:=", "1diss_per_s",
+            "Solution Initialization - Use Model Based Flow Initialization:=", False,
+            "Convergence Criteria - Flow:=", "0.001",
+            "Convergence Criteria - Energy:=", "1e-07",
+            "Convergence Criteria - Turbulent Kinetic Energy:=", "0.001",
+            "Convergence Criteria - Turbulent Dissipation Rate:=", "0.001",
+            "Convergence Criteria - Specific Dissipation Rate:=", "0.001",
+            "Convergence Criteria - Discrete Ordinates:=", "1e-06",
+            "Convergence Criteria - Joule Heating:=", "1e-07",
+            "GPU Convergence Criteria - Flow:=", "0.001",
+            "GPU Convergence Criteria - Energy:=", "1e-05",
+            "GPU Convergence Criteria - Turbulent Kinetic Energy:=", "0.001",
+            "GPU Convergence Criteria - Turbulent Dissipation Rate:=", "0.001",
+            "GPU Convergence Criteria - Specific Dissipation Rate:=", "0.001",
+            "GPU Convergence Criteria - Discrete Ordinates:=", "1e-05",
+            "GPU Convergence Criteria - Joule Heating:=", "1e-07",
+            "IsEnabled:="		, False,
+            "Radiation Model:="	, "Off",
+            "Solar Radiation Model:=", "Solar Radiation Calculator",
+            "Solar Enable Participating Solids:=", False,
+            "Solar Radiation - Scattering Fraction:=", "0",
+            "Solar Radiation - North X:=", "0",
+            "Solar Radiation - North Y:=", "0",
+            "Solar Radiation - North Z:=", "1",
+            "Solar Radiation - Day:=", 1,
+            "Solar Radiation - Month:=", 1,
+            "Solar Radiation - Hours:=", 0,
+            "Solar Radiation - Minutes:=", 0,
+            "Solar Radiation - GMT:=", "0",
+            "Solar Radiation - Latitude:=", "0",
+            "Solar Radiation - Latitude Direction:=", "North",
+            "Solar Radiation - Longitude:=", "0",
+            "Solar Radiation - Longitude Direction:=", "East",
+            "Solar Radiation - Ground Reflectance:=", "0",
+            "Solar Radiation - Sunshine Fraction:=", "0",
+            "Under-relaxation - Pressure:=", "0.3",
+            "Under-relaxation - Momentum:=", "0.7",
+            "Under-relaxation - Temperature:=", "1",
+            "Under-relaxation - Turbulent Kinetic Energy:=", "0.8",
+            "Under-relaxation - Turbulent Dissipation Rate:=", "0.8",
+            "Under-relaxation - Specific Dissipation Rate:=", "0.8",
+            "Under-relaxation - Joule Heating:=", "1",
+            "Under-relaxation - Body Force:=", "1",
+            "Under-relaxation - Turbulent Viscosity:=", "1",
+            "Discretization Scheme - Pressure:=", "Standard",
+            "Discretization Scheme - Momentum:=", "First",
+            "Discretization Scheme - Temperature:=", "First",
+            "Secondary Gradient:="	, False,
+            "Discretization Scheme - Turbulent Kinetic Energy:=", "First",
+            "Discretization Scheme - Turbulent Dissipation Rate:=", "First",
+            "Discretization Scheme - Specific Dissipation Rate:=", "First",
+            "Discretization Scheme - Discrete Ordinates:=", "First",
+            "Linear Solver Type - Pressure:=", "V",
+            "Linear Solver Type - Momentum:=", "flex",
+            "Linear Solver Type - Temperature:=", "F",
+            "Linear Solver Type - Turbulent Kinetic Energy:=", "flex",
+            "Linear Solver Type - Turbulent Dissipation Rate:=", "flex",
+            "Linear Solver Type - Specific Dissipation Rate:=", "flex",
+            "Linear Solver Type - Joule Heating:=", "F",
+            "Linear Solver Termination Criterion - Pressure:=", "0.1",
+            "Linear Solver Termination Criterion - Momentum:=", "0.1",
+            "Linear Solver Termination Criterion - Temperature:=", "0.1",
+            "Linear Solver Termination Criterion - Turbulent Kinetic Energy:=", "0.1",
+            "Linear Solver Termination Criterion - Turbulent Dissipation Rate:=", "0.1",
+            "Linear Solver Termination Criterion - Specific Dissipation Rate:=", "0.1",
+            "Linear Solver Termination Criterion - Joule Heating:=", "1e-09",
+            "Linear Solver Residual Reduction Tolerance - Pressure:=", "0.1",
+            "Linear Solver Residual Reduction Tolerance - Momentum:=", "0.1",
+            "Linear Solver Residual Reduction Tolerance - Temperature:=", "0.1",
+            "Linear Solver Residual Reduction Tolerance - Turbulent Kinetic Energy:=", "0.1",
+            "Linear Solver Residual Reduction Tolerance - Turbulent Dissipation Rate:=", "0.1",
+            "Linear Solver Residual Reduction Tolerance - Specific Dissipation Rate:=", "0.1",
+            "Linear Solver Residual Reduction Tolerance - Joule Heating:=", "1e-09",
+            "Maximum Cycles:="	, "30",
+            "Linear Solver Stabilization - Pressure:=", "None",
+            "Linear Solver Stabilization - Temperature:=", "None",
+            "Linear Solver Stabilization - Joule Heating:=", "None",
+            "Coupled pressure-velocity formulation:=", False,
+            "Turn off auto-pairing for grid interface creation:=", False,
+            "2D Profile Interpolation Method:=", "Inverse Distance Weighted",
+            "Frozen Flow Simulation:=", False,
+            "TEC Coupling:="	, False,
+            "Sequential Solve of Flow and Energy Equations:=", False,
+            "Convergence Criteria - Max Iterations:=", 1000
+        ])
+
+    # %%
+    oDesign.AnalyzeAll()
+
+
+    # %%
+    # ── 결과 CSV 경로 (idx별) ──
     result_path = os.path.join(ICEPAK_RESULT_DIR, f"result_{idx:03d}.csv")
     os.makedirs(ICEPAK_RESULT_DIR, exist_ok=True)
 
+    # Fields Summary는 "Solutions" 모듈 소속.
+    #   위에서 oModule이 AnalysisSetup으로 덮여 있으므로 반드시 다시 잡아야 함.
     oModule = oDesign.GetModule("Solutions")
-    summary_setting = [
-            "SolutionName:=", "Setup1 : SteadyState",
-            "Variation:=", "Nominal",
-            "Calculation:=", ["Object","Volume","source1","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source2","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source3","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source4","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source5","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source6","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source7","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source8","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source9","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source10","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source11","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source12","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source13","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source14","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source15","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source16","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source17","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source18","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Volume","source19","Temperature","","Default","All","Nominal",True],
-            "Calculation:=", ["Object","Surface","Fan1_Passage","Pressure","0.00,0.00,1.00","Default","Reduced","Nominal",False],
-    ]
-    # 레인별 입구 속도 30개 이어붙임 (GUI 수동 측정과 동일 설정: -X방향 성분, Reduced)
-    for i in range(30):
-        summary_setting += [
-            "Calculation:=",
-            ["Object", "Surface", f"V_inlet_{i+1:02d}", "Speed", "-1.00,0.00,0.00", "Default", "Reduced", "Nominal", True],
-        ]
-    oModule.EditFieldsSummarySetting(summary_setting)
+    oModule.EditFieldsSummarySetting(
+        [
+            "SolutionName:="	, "Setup1 : SteadyState",
+            "Variation:="		, "Nominal",
+            "Calculation:="		, ["Object","Surface","source01","Temperature","","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","source02","Temperature","","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","source03","Temperature","","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","source04","Temperature","","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","source05","Temperature","","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","source06","Temperature","","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","source07","Temperature","","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","source08","Temperature","","Default","Reduced","Nominal",True],
+            # 행 8: 차압 (목적함수) — 스크립트 리코더본에 빠져 있어 V1 설정 그대로 복원함.
+            #       Fan1_Passage는 Fan1 삽입 시 자동 생성되는 면 이름 (첫 실행에서 존재 확인 필요)
+            "Calculation:="		, ["Object","Surface","Fan1_Passage","Pressure","0.00,0.00,1.00","Default","Reduced","Nominal",False],
+            "Calculation:="		, ["Object","Surface","V_inlet_01","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet_02","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet_03","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet_04","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet_05","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet_06","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet_07","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet2_01","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet2_02","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet2_03","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet2_04","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet2_05","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet2_06","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","V_inlet2_07","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
+            "Calculation:="		, ["Object","Surface","Rectangle1","Speed","0.00,-1.00,0.00","Default","Reduced","Nominal",False]
+        ])
     oModule.ExportFieldsSummary(
         [
-            "SolutionName:=", "Setup1 : SteadyState",
-            "DesignVariationKey:=", "Nominal",
-            "ExportFileName:=", result_path,
-            "IntrinsicValue:=", ""
+            "SolutionName:="	, "Setup1 : SteadyState",
+            "DesignVariationKey:="	, "Nominal",
+            "ExportFileName:="	, result_path,
+            "IntrinsicValue:="	, ""
         ])
     print(f"[{idx}] CSV 저장 완료: {result_path}")
 
-    return ipk, result_path
+    # ── 중량 계산용 PAO 부피 ──
+    #   유로(빈 공간)를 채운 PAO 부피. SolidWorks는 알루미늄 형상만 알고 있어
+    #   이 값이 있어야 "알루미늄 + PAO" 총 중량을 낼 수 있음.
+    pao_volume_mm3 = float(ipk.modeler["PAO_Separate1"].volume)
+    print(f"[{idx}] PAO 부피: {pao_volume_mm3:.1f} mm^3 "
+          f"(≈ {pao_volume_mm3 * 1e-9 * PAO_DENSITY:.4f} kg)")
+
+    return ipk, result_path, pao_volume_mm3
+

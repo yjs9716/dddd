@@ -9,7 +9,7 @@ V1 대비 변경점
   - ML의 private 함수(_load_results) 대신 public current_idx() 사용
 """
 from Solidworks import connect_sw, update_sw, export_step
-from icepak2 import connect_aedt, run_icepak   # ← 최종본을 icepak.py로 바꾸면 여기도 함께 수정
+from icepak import connect_aedt, run_icepak
 from ML import get_next_params, update_ml, is_done, log_failure, current_idx
 from result_parser import extract_and_save
 
@@ -28,7 +28,7 @@ while not is_done():
         aluminum_mass_kg, aluminum_volume_mm3 = update_sw(app, errors, warnings, params)
         step_file = export_step(app, errors, idx)
         # params 전달: 전원모듈 입구 측정면 높이가 power_input_thick에 따라 바뀜
-        # pao_volume_mm3(icepak2 반환값)는 중량 계산엔 안 쓰고 교차검증용 로그로만 사용
+        # pao_volume_mm3(icepak 반환값)는 중량 계산엔 안 쓰고 교차검증용 로그로만 사용
         ipk, result_path, _pao_volume_mm3_icepak = run_icepak(desktop, ipk, step_file, idx, params)
         results = extract_and_save(idx, params, result_path,
                                    aluminum_mass_kg, aluminum_volume_mm3)
