@@ -25,12 +25,13 @@ while not is_done():
     idx    = current_idx()
 
     try:
-        aluminum_mass_kg = update_sw(app, errors, warnings, params)
+        aluminum_mass_kg, aluminum_volume_mm3 = update_sw(app, errors, warnings, params)
         step_file = export_step(app, errors, idx)
         # params 전달: 전원모듈 입구 측정면 높이가 power_input_thick에 따라 바뀜
-        ipk, result_path, pao_volume_mm3 = run_icepak(desktop, ipk, step_file, idx, params)
+        # pao_volume_mm3(icepak2 반환값)는 중량 계산엔 안 쓰고 교차검증용 로그로만 사용
+        ipk, result_path, _pao_volume_mm3_icepak = run_icepak(desktop, ipk, step_file, idx, params)
         results = extract_and_save(idx, params, result_path,
-                                   pao_volume_mm3, aluminum_mass_kg)
+                                   aluminum_mass_kg, aluminum_volume_mm3)
     except Exception as e:
         # 형상 미성립 / 리빌드 실패 / 해석 실패 → 기록하고 다음 점으로
         log_failure(params, e)

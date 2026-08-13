@@ -9,7 +9,10 @@ icepak2.py(스크립트 리코더 완성본) 기준으로 재작성.
       → 각 통과별로 따로 CV를 내고 나쁜 쪽(max)을 목적함수로 사용
   - 전원모듈 분기 유량: Icepak의 VolumeFlowRate가 값을 못 내서(면적만 반환),
     법선방향 Speed 면적가중평균 x 면적 으로 환산 (수학적으로 동일한 값)
-  - 중량: SolidWorks 알루미늄 중량 + PAO 중량(= Icepak PAO 부피 x 밀도)
+  - 중량: SolidWorks만으로 계산 (Icepak 불필요)
+    · PAO 부피 = FULL_SOLID_VOLUME_MM3(채널 없이 완전히 채워진 형상 부피, 상수)
+                 − 알루미늄 부피(SolidWorks, 매 idx 리빌드된 실제 형상)
+    · 중량 = 알루미늄 질량 + PAO 부피 x 밀도
 
 CSV 한 장 구조 (skiprows=5, 열 인덱스는 Min=7 / Max=8 / Mean=9 / Stdev=10)
   행 0~7   : source01~08 온도
@@ -25,6 +28,12 @@ import pandas as pd
 from OLHD import PARAM_NAMES
 from paths import SUMMARY_PATH
 from icepak2 import PM_INLET_WIDTH_MM, PAO_DENSITY
+
+# 채널이 하나도 안 뚫린, 완전히 채워진 상태의 판재(plate+plate_base) 부피 [mm^3].
+#   SolidWorks에서 실측 확정한 상수 (2025-08 기준 형상). PAO 부피 = 이 값 − 알루미늄 부피.
+#   ⚠ plate/plate_base의 바깥 치수(둘레) 자체를 바꾸는 형상 변경이 있으면 이 값도 다시 재야 함
+#   (7개 설계변수는 내부 유로만 바꾸므로 이 상수엔 영향 없음)
+FULL_SOLID_VOLUME_MM3 = 2341073.1
 
 # ── CSV 행/열 위치 (icepak2.py의 Calculation 추가 순서와 반드시 일치) ──
 N_SOURCE   = 8     # 발열채널 수
@@ -60,7 +69,7 @@ def _cv(series):
     return float(series.std(ddof=0) / mean * 100)
 
 
-def extract_and_save(idx, params, result_path, pao_volume_mm3, aluminum_mass_kg):
+def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3):
     """
     반환 dict:
       pressure_drop      : 차압                              (목적함수)
@@ -101,7 +110,13 @@ def extract_and_save(idx, params, result_path, pao_volume_mm3, aluminum_mass_kg)
     pm_lpm   = pm_speed * pm_area * 60000.0          # m^3/s → L/min
     power_module_flow = pm_lpm / TOTAL_FLOW_LPM      # 총유량 대비 비율 (0~1)
 
-    # ── 중량 (알루미늄 + 유로를 채운 PAO) ──
+    # ── 중량 (알루미늄 + 유로를 채운 PAO) — Icepak 없이 SolidWorks 값만으로 계산 ──
+    pao_volume_mm3 = FULL_SOLID_VOLUME_MM3 - float(aluminum_volume_mm3)
+    if pao_volume_mm3 <= 0:
+        raise ValueError(
+            f"PAO 부피가 0 이하({pao_volume_mm3:.1f} mm^3) — "
+            "알루미늄 부피가 FULL_SOLID_VOLUME_MM3보다 큼. 상수가 최신 형상과 안 맞을 수 있음"
+        )
     pao_mass_kg = pao_volume_mm3 * 1e-9 * PAO_DENSITY
     weight = float(aluminum_mass_kg) + pao_mass_kg
 
