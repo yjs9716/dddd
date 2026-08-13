@@ -1,34 +1,35 @@
 """
-V2 유로 7변수 — GPR 대체모델 + 불확실성 우선 적응 샘플링 + 예측오차 기반 자동종료
+V2 유로 8변수 — GPR 대체모델 + 불확실성 우선 적응 샘플링 + 예측오차 기반 자동종료
 
 V1(2변수) 대비 핵심 변경점
   1) 설계공간 격자 전수탐색 → 랜덤(Sobol) 후보 샘플링
      V1은 0.1단위 격자 75,551점을 전부 나열해 σ를 평가했지만,
-     7차원에서 같은 해상도면 후보 수가 천문학적이라 열거 자체가 불가능.
+     8차원에서 같은 해상도면 후보 수가 천문학적이라 열거 자체가 불가능.
      → 매 회차 N_CAND개 후보를 Sobol로 뽑아 그 중 σ 최대점을 고름.
   2) 중복 제외 방식 변경
      V1은 격자점 정수 매칭으로 기존 실험점을 제외했으나, 연속 후보에서는
      정확히 일치하는 일이 없음 → 기존 점과의 최소거리(MIN_DIST_NORM) 미만이면 제외.
-  3) 목적함수는 아직 확정 전 (아래 OBJECTIVES 참고)
+  3) 목적함수 4개 + 제약조건 2개 구조 (아래 OBJECTIVES / CONSTRAINTS 참고)
 """
 import os
 import numpy as np
 import pandas as pd
 from scipy.stats import qmc
 
-from OLHD import generate_olhd, PARAM_NAMES, LO, HI, N_DIM, to_dict
+from OLHD import generate_olhd, PARAM_NAMES, LO, HI, N_DIM, DEFAULT_N_DOE, to_dict
 from paths import RESULTS_PATH, FAILED_PATH
 # RESULTS_PATH: 실험 결과 + 예측값 (V1 results.csv와 분리된 새 캠페인)
 # FAILED_PATH : 리빌드 실패 등으로 해석까지 못 간 실험점 기록
-#   (7변수에서는 기하학적으로 성립 불가한 조합이 나올 수 있음
+#   (8변수에서는 기하학적으로 성립 불가한 조합이 나올 수 있음
 #    → 같은 점을 무한 재시도하지 않기 위해 필요)
 
 # ── 실험 설정 ────────────────────────────────────────────────
-N_DOE         = 80     # 초기 DOE 샘플 수 (10 x 변수수 경험칙: 10 x 8 = 80, mid_input_thick 추가로 7→8)
+N_DOE         = DEFAULT_N_DOE   # 초기 DOE 샘플 수 = 10 x 변수수 (현재 8변수 → 80).
+                                #   줄이고 싶으면 여기에 숫자를 직접 넣으면 됨 (예: 50)
 ERR_THRESHOLD = 0.5    # 종료 기준: 예측오차 [%]
 N_CONSECUTIVE = 3      # 연속 만족 횟수 (모든 목적함수가 동시 만족해야 종료)
 
-# ── 적응 샘플링 설정 (7차원 대응) ──────────────────────────────
+# ── 적응 샘플링 설정 (8차원 대응) ──────────────────────────────
 N_CAND         = 32768   # 매 회차 σ를 평가할 후보점 수 (Sobol 균형성 위해 2^15)
 MIN_DIST_NORM  = 0.05    # 정규화 공간에서 기존 실험점과 이 거리 미만이면 후보 제외
 
@@ -122,7 +123,7 @@ def current_idx():
 
 # ================== 외부 인터페이스 ==================
 def get_next_params():
-    """다음 실험할 파라미터 dict 반환 — {변수명: 값} 7개."""
+    """다음 실험할 파라미터 dict 반환 — {변수명: 값} 8개."""
     df       = _load_results()
     n_failed = len(_load_failed())
     # DOE 단계에서는 '시도한 횟수' 기준으로 진행해야 실패점에서 무한루프에 빠지지 않음
@@ -141,7 +142,7 @@ def get_next_params():
 def update_ml(params, results):
     """
     해석 결과 저장. 적응 단계면 '이번 실험 데이터가 들어가기 전 모델의 예측값'도 함께 기록.
-      params  : {변수명: 값} 7개
+      params  : {변수명: 값} 8개
       results : {값 이름: 실측값} — 목적함수 4개 + 제약조건 2개 전부 포함해서 넘길 것
                 (result_parser.extract_and_save가 이미 이 형태로 반환함)
     """
@@ -196,7 +197,7 @@ def _fit_gpr(Xs, y):
     kernel = (
         ConstantKernel(1.0, (1e-3, 1e3))
         # ARD: 변수별 length_scale을 따로 학습 → 어떤 변수가 영향 큰지도 사후 확인 가능
-        #   상한을 V1(5.0)보다 크게 둠: 7변수 중 영향 없는 변수는 length_scale이 매우 커지는
+        #   상한을 V1(5.0)보다 크게 둠: 8변수 중 영향 없는 변수는 length_scale이 매우 커지는
         #   형태로 드러나는데, 상한에 걸리면 "무관한 변수"를 식별할 수 없기 때문
         * Matern(nu=2.5, length_scale=[0.3] * N_DIM, length_scale_bounds=(0.05, 50.0))
         + WhiteKernel(noise_level=1e-2, noise_level_bounds=(1e-8, 1.0))  # CFD 노이즈 흡수
@@ -234,7 +235,7 @@ def _predict_point(df, params):
 
 def _gpr_suggest(df):
     """
-    불확실성 우선 탐색 (7차원).
+    불확실성 우선 탐색 (8차원).
     Sobol로 N_CAND개 후보를 뽑아, 목적함수별 정규화 σ의 합이 최대인 점을 제안.
     기존 실험점 근처(MIN_DIST_NORM 이내)는 후보에서 제외.
     """
@@ -283,7 +284,7 @@ def report_relevance():
     """
     학습된 GPR의 ARD length_scale을 뽑아 변수별 영향도를 출력.
     length_scale이 클수록 = 그 변수를 바꿔도 출력이 잘 안 변함 = 영향 작음.
-    7변수 중 실제로 의미 있는 변수가 몇 개인지 판단해서, 다음 캠페인에서
+    8변수 중 실제로 의미 있는 변수가 몇 개인지 판단해서, 다음 캠페인에서
     변수를 줄일지 결정하는 근거로 사용.
     """
     df = _load_results()

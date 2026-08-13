@@ -1,11 +1,11 @@
 """
-V2 유로 7변수 — SolidWorks COM 자동화 (글로벌 변수 제어 + STEP 저장)
+V2 유로 8변수 — SolidWorks COM 자동화 (글로벌 변수 제어 + STEP 저장)
 
 V1 대비 변경점
-  - 글로벌 변수 2개(각도/유로두께) → 7개, params dict로 일괄 처리
+  - 글로벌 변수 2개(각도/유로두께) → 8개, params dict로 일괄 처리
   - set_value 실패(해당 이름의 수식이 없음)를 감지해서 예외 발생
     · V1은 이름이 안 맞아도 조용히 넘어가서, 형상이 안 바뀐 채 해석이 도는 사고가 가능했음
-  - STEP 파일명: 파라미터 7개를 다 넣으면 경로가 너무 길어져 idx 기준으로 변경
+  - STEP 파일명: 파라미터 8개를 다 넣으면 경로가 너무 길어져 idx 기준으로 변경
     · 형상↔파라미터 대응은 results_v2.csv가 유일한 기록 → ⚠ 이 파일 삭제 금지
 """
 import os
@@ -32,7 +32,7 @@ def connect_sw():
 
 def update_sw(app, errors, warnings, params):
     """
-    글로벌 변수 7개 업데이트 및 리빌드.
+    글로벌 변수 8개 업데이트 및 리빌드.
       params : {변수명: 값} — 키는 SolidWorks 글로벌 변수명과 정확히 일치해야 함
 
     반환: (aluminum_mass_kg, aluminum_volume_mm3)

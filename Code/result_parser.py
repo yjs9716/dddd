@@ -28,17 +28,16 @@ import pandas as pd
 
 from OLHD import PARAM_NAMES
 from paths import SUMMARY_PATH
-from icepak import PAO_DENSITY
+from icepak import PAO_DENSITY, N_SOURCE, N_LANE
 
 # 채널이 하나도 안 뚫린, 완전히 채워진 상태의 판재(plate+plate_base) 부피 [mm^3].
 #   SolidWorks에서 실측 확정한 상수 (2025-08 기준 형상). PAO 부피 = 이 값 − 알루미늄 부피.
 #   ⚠ plate/plate_base의 바깥 치수(둘레) 자체를 바꾸는 형상 변경이 있으면 이 값도 다시 재야 함
-#   (7개 설계변수는 내부 유로만 바꾸므로 이 상수엔 영향 없음)
+#   (8개 설계변수는 내부 유로만 바꾸므로 이 상수엔 영향 없음)
 FULL_SOLID_VOLUME_MM3 = 2341073.1
 
-# ── CSV 행/열 위치 (icepak.py의 Calculation 추가 순서와 반드시 일치) ──
-N_SOURCE   = 8     # 발열채널 수
-N_LANE     = 7     # 통과 1회당 핀뱅크 레인 수
+# ── CSV 행 위치 — icepak.py의 Calculation 추가 순서와 1:1 대응 ──
+#   개수(N_SOURCE / N_LANE)는 icepak.py에서 import해서 씀 → 거기만 바꾸면 여기가 따라감
 ROW_SOURCE = 0                              # 0~7
 ROW_DP     = ROW_SOURCE + N_SOURCE          # 8
 ROW_LANE1  = ROW_DP + 1                     # 9~15

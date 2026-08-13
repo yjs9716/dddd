@@ -1,11 +1,11 @@
 """
-V2 유로 7변수 — 메인 루프 (SW → Icepak → ML 순차 실행)
+V2 유로 8변수 — 메인 루프 (SW → Icepak → ML 순차 실행)
 
 V1 대비 변경점
-  - 파라미터를 dict로 일괄 전달 (7개를 위치인자로 넘기지 않음)
+  - 파라미터를 dict로 일괄 전달 (8개를 위치인자로 넘기지 않음)
   - 형상 리빌드/해석 실패 시 캠페인 전체가 죽지 않고 해당 점을 failed_v2.csv에
     기록한 뒤 다음 점으로 진행
-    · 7변수에서는 조합에 따라 형상이 성립하지 않을 수 있어 필요한 방어장치
+    · 8변수에서는 조합에 따라 형상이 성립하지 않을 수 있어 필요한 방어장치
   - ML의 private 함수(_load_results) 대신 public current_idx() 사용
 """
 from Solidworks import connect_sw, update_sw, export_step

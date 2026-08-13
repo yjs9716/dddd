@@ -3,14 +3,18 @@ import os, shutil
 
 from paths import AEDT_PROJ_PATH as PROJ_PATH, ICEPAK_RESULT_DIR
 
-# 전원모듈 입구 측정 사각형(Rectangle1)의 폭 [mm].
-#   높이는 power_input_thick(설계변수)로 매번 바뀌므로, 유량 환산에 쓰는 면적은
-#   result_parser에서 PM_INLET_WIDTH_MM x power_input_thick 로 계산함.
-#   → 이 값을 바꾸면 result_parser.py의 면적 계산도 같이 따라감 (import해서 씀)
+# 전원모듈 입구 측정 사각형(Rectangle1)의 폭 [mm]. 높이는 power_input_thick(설계변수).
+#   유량 환산 면적은 CSV의 Area/Volume 열 실측값을 쓰므로(메시 이산화로 도면값과
+#   어긋날 수 있어서) 이 상수는 사각형 생성에만 쓰임 — result_parser는 참조하지 않음
 PM_INLET_WIDTH_MM = 8.0
 
 # PAO 밀도 [kg/m^3] — AddMaterial의 mass_density와 동일해야 함
 PAO_DENSITY = 794.0
+
+# ── 측정 대상 개수 — CSV 행 구조를 결정하므로 result_parser가 이 값을 import해서 씀 ──
+#   여기를 바꾸면 파싱 쪽 행 인덱스가 자동으로 따라감 (두 파일이 어긋날 일 없게)
+N_SOURCE = 8   # 발열채널(source01~) 개수
+N_LANE   = 7   # 통과 1회당 핀뱅크 레인(V_inlet / V_inlet2) 개수
 
 # ── 메시 크기 [mm] — 코드 흐름 검증용으로 크게 잡고 싶을 때 여기만 바꾸면 됨 ──
 #   MESH_REGION_*  : SubRegion(유체 도메인)에 거는 로컬 메시
@@ -289,11 +293,9 @@ def run_icepak(desktop, ipk, step_file, idx, params):
     # %%
     base_x = -152.1
     step = 20.8*2
-    n_boxes = 8
-
-    for i in range(n_boxes):
+    for i in range(N_SOURCE):
         x_pos = base_x + i * step
-        box_name = f"source{i + 1:02d}"  # source1, source2, ..., source15
+        box_name = f"source{i + 1:02d}"   # source01 ~ source08
 
         oEditor.CreateBox(
             [
@@ -642,7 +644,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
     width = -7.357142857
     height = -7.499999967
 
-    for i in range(7):
+    for i in range(N_LANE):
         y = y_start - (9.857142857 * i)
 
         oEditor.CreateRectangle(
@@ -684,7 +686,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
     width2 = -7.357142857
     height2 = -7.499999967
 
-    for i in range(7):
+    for i in range(N_LANE):
         y2 = y_start2 - (9.857142857 * i)
 
         oEditor.CreateRectangle(
@@ -923,9 +925,10 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         ])
     print(f"[{idx}] CSV 저장 완료: {result_path}")
 
-    # ── 중량 계산용 PAO 부피 ──
-    #   유로(빈 공간)를 채운 PAO 부피. SolidWorks는 알루미늄 형상만 알고 있어
-    #   이 값이 있어야 "알루미늄 + PAO" 총 중량을 낼 수 있음.
+    # ── PAO 부피 (교차검증용 로그) ──
+    #   중량은 SolidWorks 값만으로 계산함(result_parser.FULL_SOLID_VOLUME_MM3 참고).
+    #   이 값은 그 상수가 현재 형상과 맞는지 확인하는 용도로만 출력 —
+    #   '알루미늄 부피 + 이 값'이 FULL_SOLID_VOLUME_MM3와 크게 다르면 상수를 다시 재야 함.
     pao_volume_mm3 = float(ipk.modeler["PAO_Separate1"].volume)
     print(f"[{idx}] PAO 부피: {pao_volume_mm3:.1f} mm^3 "
           f"(≈ {pao_volume_mm3 * 1e-9 * PAO_DENSITY:.4f} kg)")

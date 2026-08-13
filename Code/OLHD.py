@@ -1,8 +1,8 @@
 """
-V2 유로 7변수 Optimal Latin Hypercube Design
+V2 유로 8변수 Optimal Latin Hypercube Design
 
 V1(2변수) 대비 변경점
-  - d=2 → d=7
+  - d=2 → d=8
   - 변수 범위를 PARAM_SPEC 한 곳에서만 정의 (ML.py가 이걸 import해서 씀)
   - maxmin 후보 탐색 횟수 100 → 200 (차원이 늘어 한 번에 좋은 배치가 잘 안 나옴)
 """
@@ -27,11 +27,16 @@ LO = np.array([p[1] for p in PARAM_SPEC], dtype=float)
 HI = np.array([p[2] for p in PARAM_SPEC], dtype=float)
 N_DIM = len(PARAM_SPEC)
 
+# 기본 DOE 점 수 — "10 x 변수수" 경험칙. 변수를 추가/삭제하면 자동으로 따라감.
+#   ML.py의 N_DOE가 이 값을 import해서 씀 (두 곳이 어긋나면 미리보기와 실제 캠페인이
+#   서로 다른 DOE를 쓰게 되므로 단일 출처로 유지)
+DEFAULT_N_DOE = 10 * N_DIM
 
-def generate_olhd(n_samples=70, seed=42):
+
+def generate_olhd(n_samples=DEFAULT_N_DOE, seed=42):
     """
-    Optimal Latin Hypercube Design (7변수)
-    반환: (n_samples, 7) numpy array — 실제 설계값, 소수점 첫째자리 반올림
+    Optimal Latin Hypercube Design (8변수)
+    반환: (n_samples, N_DIM) numpy array — 실제 설계값, 소수점 첫째자리 반올림
     """
     sampler = qmc.LatinHypercube(d=N_DIM, seed=seed)
     best_sample  = sampler.random(n=n_samples)
@@ -61,7 +66,7 @@ def to_dict(row):
 
 
 if __name__ == "__main__":
-    samples = generate_olhd(n_samples=70, seed=42)
+    samples = generate_olhd(seed=42)
     print(f"OLHD 샘플 {len(samples)}점 ({N_DIM}변수)")
     print("  " + "  ".join(f"{n:>18s}" for n in PARAM_NAMES))
     for i, row in enumerate(samples):
