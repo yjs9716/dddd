@@ -33,7 +33,7 @@ N_DIM = len(PARAM_SPEC)
 DEFAULT_N_DOE = 10 * N_DIM
 
 
-def generate_olhd(n_samples=DEFAULT_N_DOE, seed=100000):
+def generate_olhd(n_samples=DEFAULT_N_DOE, seed=42):
     """
     Optimal Latin Hypercube Design (8변수)
     반환: (n_samples, N_DIM) numpy array — 실제 설계값, 소수점 첫째자리 반올림
@@ -42,8 +42,10 @@ def generate_olhd(n_samples=DEFAULT_N_DOE, seed=100000):
     best_sample  = sampler.random(n=n_samples)
     best_mindist = _min_dist(best_sample)
 
-    # maxmin 최적화: 여러 seed 중 최소거리 최대인 배치 선택
-    for s in range(200):
+    # maxmin 최적화: seed+1 ~ seed+100000, 총 10만 개 후보 중 최소거리 최대인 배치 선택
+    #   (seed 자체를 확정하는 게 아니라, 이 시작점부터 10만 개를 뒤져서 제일 고르게
+    #    퍼진 배치를 고르는 것 — 결과는 결정론적이라 매번 똑같은 배치가 나옴)
+    for s in range(100000):
         candidate = qmc.LatinHypercube(d=N_DIM, seed=seed + s + 1).random(n=n_samples)
         md = _min_dist(candidate)
         if md > best_mindist:
@@ -66,7 +68,7 @@ def to_dict(row):
 
 
 if __name__ == "__main__":
-    samples = generate_olhd(seed=100000)
+    samples = generate_olhd(seed=42)
     print(f"OLHD 샘플 {len(samples)}점 ({N_DIM}변수)")
     print("  " + "  ".join(f"{n:>18s}" for n in PARAM_NAMES))
     for i, row in enumerate(samples):

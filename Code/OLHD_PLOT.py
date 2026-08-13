@@ -19,7 +19,7 @@ plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
 
 # %%
-samples = generate_olhd(seed=100000)   # 기본 DEFAULT_N_DOE(=10 x N_DIM)개
+samples = generate_olhd(seed=42)   # 기본 DEFAULT_N_DOE(=10 x N_DIM)개
 n = len(samples)
 
 print(f"OLHD 샘플 {n}개 ({N_DIM}변수)")
