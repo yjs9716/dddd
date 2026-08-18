@@ -92,7 +92,18 @@ MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
 # 종료판정에 쓰는 목적함수 — 지금은 4개 다 사용
 TERMINATION_NAMES = list(OBJ_NAMES)
 
-_DOE_SAMPLES = generate_olhd(n_samples=N_DOE, seed=42)
+_DOE_SAMPLES = None   # 실제로 DOE 단계를 밟을 때만 계산 (lazy) — 아래 _get_doe_samples() 참고
+
+
+def _get_doe_samples():
+    """generate_olhd()는 10만 개 후보를 뒤지는 계산이라(수 초 소요),
+    seed_from_v2.py로 DOE 80개를 이미 이어받아 doe_cursor가 처음부터
+    N_DOE 이상인 경우(V3의 실제 사용 시나리오)에는 이 함수가 아예 호출되지
+    않아 그 계산을 건너뛴다. 시딩 없이 처음부터 돌리는 경우에만 실제로 계산됨."""
+    global _DOE_SAMPLES
+    if _DOE_SAMPLES is None:
+        _DOE_SAMPLES = generate_olhd(n_samples=N_DOE, seed=42)
+    return _DOE_SAMPLES
 
 # 지표별로 [예측값, 실측값, 오차]를 나란히 묶어서 CSV 훑어보기 편하게 정렬
 _METRIC_COLS = [c for n in MODELED_NAMES for c in (f"pred_{n}", n, f"err_{n}")]
@@ -155,7 +166,7 @@ def get_next_params():
     doe_cursor = len(df) + n_failed
 
     if doe_cursor < N_DOE:
-        params = to_dict(_DOE_SAMPLES[doe_cursor])
+        params = to_dict(_get_doe_samples()[doe_cursor])
         print(f"[DOE {doe_cursor+1}/{N_DOE}] " + _fmt(params))
     else:
         params = _gpr_suggest(df)
