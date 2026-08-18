@@ -638,7 +638,9 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         ])
 
     # %%
-    x_pos = 159          # 유로 안쪽으로 이동 — 경계면에 걸치면 벽면 셀까지 면적에 잡힘
+    # x_pos: 1차통과 핀뱅크 시작위치(input_thick + 140)에서 1mm 안쪽 — 형상 변수에 따라 동적 계산
+    # (기존엔 159 고정값이라 input_thick이 바뀌면 측정면이 핀뱅크 시작점과 어긋났음)
+    x_pos = params['input_thick'] + 139
     y_start = -101.25
     z_start = 7.999999983
     width = -7.357142857
@@ -680,7 +682,9 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         )
 
     # %%
-    x_pos2 = -159        # 유로 안쪽으로 이동 (V_inlet과 같은 이유)
+    # x_pos2: 2차통과 핀뱅크 시작위치(mid_input_thick - 195)에서 1mm 안쪽 — 형상 변수에 따라 동적 계산
+    # (기존엔 -159 고정값이라 mid_input_thick이 바뀌면 측정면이 핀뱅크 시작점과 어긋났음)
+    x_pos2 = params['mid_input_thick'] - 194
     y_start2 = -4.749999983
     z_start2 = 7.999999983
     width2 = -7.357142857
