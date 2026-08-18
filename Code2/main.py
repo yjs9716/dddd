@@ -4,9 +4,11 @@ V3 유로 8변수 — 메인 루프 (SW → Icepak → ML 순차 실행)
 V2(Code/main.py) 대비 변경점
   - 로직 자체는 V2와 동일 — 바뀐 건 ML.py의 목적함수 정의(vel_cv_pass1/pass2 분리,
     max_temp 제외, 종료기준 3%)뿐이라 main.py는 손댈 이유가 없었음
-  - 실행 전 seed_from_v2.py를 한 번 돌려서 results_v3.csv에 V2의 364개 결과를
-    이어받아두면, current_idx()가 364부터 시작해 곧바로 적응샘플링으로 진입함
-    (DOE를 다시 밟지 않음 — SolidWorks/Icepak 새 해석 없이 기존 데이터 재사용)
+  - 실행 전 seed_from_v2.py를 한 번 돌려서 results_v3.csv에 V2의 DOE 80개만
+    이어받아두면, current_idx()가 80부터 시작해 곧바로 적응샘플링으로 진입함
+    (DOE를 다시 밟지 않음 — SolidWorks/Icepak 새 해석 없이 기존 DOE 데이터 재사용).
+    V2의 적응샘플링 284개(idx 80~363)는 옛 목적함수 기준으로 골라진 경로라
+    일부러 이어받지 않음 — cv1/cv2 기준 불확실성탐색을 idx=80부터 새로 시작함
 
 V1 대비 변경점(V2에서 이어짐)
   - 파라미터를 dict로 일괄 전달 (8개를 위치인자로 넘기지 않음)
