@@ -40,7 +40,7 @@ from paths import RESULTS_PATH, FAILED_PATH
 N_DOE         = DEFAULT_N_DOE   # 초기 DOE 샘플 수 = 10 x 변수수 (현재 8변수 → 80).
                                 #   seed_from_v2.py로 기존 데이터를 이어받으므로
                                 #   실제로는 이 단계를 다시 밟지 않고 바로 적응샘플링으로 진입함
-ERR_THRESHOLD = 3.0    # 종료 기준: 예측오차 [%] — V2의 0.5%에서 완화 (근거는 상단 docstring)
+ERR_THRESHOLD = 1.0    # 종료 기준: 예측오차 [%]
 N_CONSECUTIVE = 3      # 연속 만족 횟수 (모든 목적함수가 동시 만족해야 종료)
 
 # ── 적응 샘플링 설정 (8차원 대응) ──────────────────────────────
