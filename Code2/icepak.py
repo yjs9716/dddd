@@ -638,9 +638,9 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         ])
 
     # %%
-    # x_pos: 1차통과 핀뱅크 시작위치(input_thick + 140)에서 1mm 안쪽 — 형상 변수에 따라 동적 계산
+    # x_pos: 1차통과 측정위치 — 형상 변수에 따라 동적 계산 (19/20/21mm 실측 기준 기울기 -1 확인)
     # (기존엔 159 고정값이라 input_thick이 바뀌면 측정면이 핀뱅크 시작점과 어긋났음)
-    x_pos = params['input_thick'] + 139
+    x_pos = 194 - params['input_thick']
     y_start = -101.25
     z_start = 7.999999983
     width = -7.357142857
