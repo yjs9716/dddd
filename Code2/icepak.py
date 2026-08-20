@@ -62,13 +62,13 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         shutil.rmtree(PROJ_PATH + ".aedtresults")
 
     # 새 프로젝트 생성
-    # designname을 안 주면 PyAEDT가 매번 랜덤 접미사로 디자인 이름을 자동 생성함
+    # design을 안 주면 PyAEDT가 매번 랜덤 접미사로 디자인 이름을 자동 생성함
     # (Icepak_ZZ0, Icepak_IC3 등) — 그 자동 생성 로직 내부(_insert_design ->
     # active_design)에서 이따금 크래시가 나서(active_design이 None 반환), 아예
     # 직접 고정 이름을 줘서 그 경로를 타지 않게 함
     ipk = Icepak(
         project=PROJ_PATH,
-        designname=f"IcepakDesign_{idx:03d}",
+        design=f"IcepakDesign_{idx:03d}",
         new_desktop=False,
         close_on_exit=False,
     )
