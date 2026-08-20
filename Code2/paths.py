@@ -46,7 +46,6 @@ AEDT_PROJ_PATH = os.path.join(AEDT_DIR, "thermal_test")   # .aedt 확장자 제�
 # ── Result (V3 전용 산출물, 260818 밑) ──
 ICEPAK_RESULT_DIR = RESULT_DIR_V3                                   # result_080.csv 등 (V3 전용, idx=80부터)
 RESULTS_PATH      = os.path.join(RESULT_DIR_V3, "results_v3.csv")   # ML.py 관리, 실험 결과+예측값
-SUMMARY_PATH      = os.path.join(RESULT_DIR_V3, "summary_v3.csv")   # result_parser.py 관리, 요약
 FAILED_PATH       = os.path.join(RESULT_DIR_V3, "failed_v3.csv")    # ML.py 관리, 실패점
 
 # ── V2 결과 (seed_from_v2.py가 DOE 80개만 초기 데이터로 읽어올 때만 참조, 260810) ──
