@@ -93,7 +93,7 @@ CONSTRAINT_NAMES = [c[0] for c in CONSTRAINTS]
 MODELED = OBJECTIVES + CONSTRAINTS
 MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
 
-# 종료판정에 쓰는 목적함수 — 지금은 4개 다 사용
+# 종료판정에 쓰는 목적함수 — 지금은 5개 다 사용
 TERMINATION_NAMES = list(OBJ_NAMES)
 
 _DOE_SAMPLES = None   # 실제로 DOE 단계를 밟을 때만 계산 (lazy) — 아래 _get_doe_samples() 참고
