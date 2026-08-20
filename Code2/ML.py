@@ -229,6 +229,26 @@ def is_done():
     return bool(ok.all())
 
 
+def _converged_objectives(df):
+    """최근 N_CONSECUTIVE회 연속 예측오차가 기준 이하인 목적함수 이름 집합.
+
+    이미 수렴한 목적함수는 _gpr_suggest()의 σ 합산에서 빼서, 남은 실험 예산이
+    아직 안 맞는 목적함수 쪽으로 자연스럽게 쏠리게 함 (사람이 어떤 지표가
+    문제인지 미리 지정하는 게 아니라, 매 회차 데이터로 스스로 판단).
+    """
+    adaptive = df.dropna(subset=[f"pred_{OBJ_NAMES[0]}"])
+    if len(adaptive) < N_CONSECUTIVE:
+        return set()
+
+    recent = adaptive.tail(N_CONSECUTIVE)
+    converged = set()
+    for name in OBJ_NAMES:
+        err = (recent[f"pred_{name}"] - recent[name]).abs() / recent[name].abs() * 100
+        if (err <= ERR_THRESHOLD).all():
+            converged.add(name)
+    return converged
+
+
 # ================== GPR ==================
 def _fit_gpr(Xs, y):
     from sklearn.gaussian_process import GaussianProcessRegressor
@@ -276,8 +296,17 @@ def _predict_point(df, params):
 def _gpr_suggest(df):
     """
     불확실성 우선 탐색 (8차원).
-    Sobol로 N_CAND개 후보를 뽑아, 목적함수별 정규화 σ의 합이 최대인 점을 제안.
+    Sobol로 N_CAND개 후보를 뽑아, "아직 안 맞는 목적함수들의 정규화 σ 합" x
+    "실제 데이터 밀도가 낮은 정도"가 최대인 점을 제안.
     기존 실험점 근처(MIN_DIST_NORM 이내)는 후보에서 제외.
+
+    σ만으로 고르면 고차원(8D)에서 구조적으로 코너(경계)가 과대평가되는 문제가
+    있음 — 고차원일수록 부피가 경계 쪽에 쏠려서, 훈련점이 고르게 있어도 GPR의
+    거리 기반 σ는 코너를 "덜 둘러싸인" 것으로 오판함. 그래서 σ 순위만 따라가면
+    이미 촘촘히 찍힌 코너를 계속 반복 방문하고, 정작 비어있는 안쪽 영역은
+    방치되는 현상이 생길 수 있음(실제로 idx 80~131 구간에서 이 패턴을 확인함).
+    이를 보정하기 위해 "실제 최근접 훈련점까지의 거리(sparsity)"를 σ에 곱해서,
+    "모델이 불확실하다고 말하는 곳" 중에서도 "진짜로 데이터가 적은 곳"만 남김.
     """
     models = _fit_models(df)
 
@@ -301,14 +330,34 @@ def _gpr_suggest(df):
         keep = np.ones(len(cand_norm), dtype=bool)
     cand_norm = cand_norm[keep]
 
+    # 이미 수렴한 목적함수는 σ 합산에서 제외 — 남은 예산이 안 맞는 지표로 쏠리게 함.
+    #   전부 수렴해서(is_done()이 아직 False인 애매한 경계 상황 등) 대상이 하나도
+    #   안 남으면 안전하게 전체로 되돌림
+    converged = _converged_objectives(df)
+    active_objs = [n for n in OBJ_NAMES if n not in converged]
+    if not active_objs:
+        active_objs = list(OBJ_NAMES)
+    if converged:
+        print(f"  (수렴 판단되어 다음 실험점 선정에서 제외: {sorted(converged)})")
+
     # 목적함수별 σ 정규화 후 합산 → 여러 지도가 고르게 정확해지도록
     #   제약조건(CONSTRAINT_NAMES)은 σ 합산에서 제외 — 실험 예산을 어디에 쓸지는
     #   목적함수만 결정하고, 제약조건 지도는 그 샘플에 딸려 같이 학습됨
     score = np.zeros(len(cand_norm))
-    for name in OBJ_NAMES:
+    for name in active_objs:
         gpr, _use_log = models[name]
         _, sig = gpr.predict(cand_norm, return_std=True)
         score += sig / (sig.max() + 1e-12)
+
+    # 실제 데이터 밀도로 보정 — 후보 근처 최근접 K개 훈련점까지의 평균거리가
+    # 멀수록(=그 근처에 데이터가 적을수록) 가산점을 줌. 코너처럼 σ는 높지만
+    # 실제로는 데이터가 몰려있는 곳은 이 보정으로 점수가 깎임.
+    from scipy.spatial import cKDTree
+    tree = cKDTree(done_norm)
+    k = min(5, len(done_norm))
+    knn_dist, _ = tree.query(cand_norm, k=k)
+    sparsity = knn_dist.mean(axis=1) if k > 1 else knn_dist.reshape(-1)
+    score *= sparsity / (sparsity.max() + 1e-12)
 
     best = cand_norm[int(np.argmax(score))]
     real = np.round(best * (HI - LO) + LO, 1)
