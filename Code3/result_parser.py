@@ -40,13 +40,10 @@ CSV 한 장 구조 (skiprows=5, 열 인덱스는 Min=7 / Max=8 / Mean=9 / Stdev=
   행 16~22 : V_inlet2_01~07 (2차 통과) 속도
   행 23    : Rectangle1 (전원모듈 분기 입구) 법선방향 속도
 """
-import os
-
 import numpy as np
 import pandas as pd
 
 from OLHD import PARAM_NAMES
-from paths import SUMMARY_PATH
 from icepak import PAO_DENSITY, N_SOURCE, N_LANE
 
 # 채널이 하나도 안 뚫린, 완전히 채워진 상태의 판재(plate+plate_base) 부피 [mm^3].
@@ -74,12 +71,6 @@ TOTAL_FLOW_LPM = 4.0
 LANE1_NAMES = [f"lane1_{i+1:02d}" for i in range(N_LANE)]   # 1차 통과 7개
 LANE2_NAMES = [f"lane2_{i+1:02d}" for i in range(N_LANE)]   # 2차 통과 7개
 LANE_NAMES  = LANE1_NAMES + LANE2_NAMES                     # 총 14개
-
-_SUMMARY_COLS = (["idx"] + PARAM_NAMES
-                 + ["pressure_drop", "temp_std", "max_temp",
-                    "power_module_flow", "weight",
-                    "vel_cv_pass1", "vel_cv_pass2", "vel_cv", "power_module_flow_lpm"]
-                 + LANE_NAMES)
 
 
 def _area_m2(cell):
@@ -202,26 +193,6 @@ def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume
     }
     results.update({n: float(v) for n, v in zip(LANE1_NAMES, flows1)})
     results.update({n: float(v) for n, v in zip(LANE2_NAMES, flows2)})
-
-    # ── summary 누적 저장 (사람이 훑어보는 용도) ──
-    if os.path.exists(SUMMARY_PATH):
-        try:
-            df_summary = pd.read_csv(SUMMARY_PATH)
-        except Exception as e:
-            # 기존 파일 손상 — results_v4.csv(ML.py 관리)가 같은 데이터를 보관 중이라
-            # 요약본은 새로 시작해도 데이터 손실 없음
-            print(f"[{idx}] summary_v4.csv 손상 감지({e}) — 새로 시작합니다")
-            df_summary = pd.DataFrame(columns=_SUMMARY_COLS)
-    else:
-        df_summary = pd.DataFrame(columns=_SUMMARY_COLS)
-
-    row = {"idx": idx}
-    row.update(params)
-    row.update(results)
-    row["power_module_flow_lpm"] = pm_lpm
-    df_summary = pd.concat([df_summary, pd.DataFrame([row])], ignore_index=True)
-    os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
-    df_summary.to_csv(SUMMARY_PATH, index=False)
 
     print(f"[{idx}] 차압:{pressure_drop:.4f}  1차CV:{cv1:.4f}%  2차CV:{cv2:.4f}%  "
           f"온도std:{temp_std:.4f}  최고온도:{max_temp:.2f}  "

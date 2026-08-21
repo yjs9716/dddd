@@ -41,9 +41,10 @@ STEP_DIR  = os.path.join(SOLIDWORKS_DIR, "Step")
 AEDT_PROJ_PATH = os.path.join(AEDT_DIR, "thermal_test")   # .aedt 확장자 제외
 
 # ── Result (V4 전용 산출물) ──
+#   summary_v4.csv는 안 만든다 — results_v4.csv(ML.py 관리)에 설계변수, 레인 14개,
+#   차압/온도/CV/중량, 예측값·오차까지 전부 들어있어 요약본이 완전히 중복이었음
 ICEPAK_RESULT_DIR = RESULT_DIR_V4                                   # result_000.csv 등 (신규는 080부터)
 RESULTS_PATH      = os.path.join(RESULT_DIR_V4, "results_v4.csv")   # ML.py 관리, 실험 결과+예측값
-SUMMARY_PATH      = os.path.join(RESULT_DIR_V4, "summary_v4.csv")   # result_parser.py 관리, 요약
 FAILED_PATH       = os.path.join(RESULT_DIR_V4, "failed_v4.csv")    # ML.py 관리, 실패점
 
 # ── V3 결과 (seed_from_raw.py가 레인값 복원할 때만 참조) ──
