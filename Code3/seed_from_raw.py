@@ -8,9 +8,12 @@ V3의 Icepak 원본 CSV에서 레인별 유량을 복원해 results_v4.csv를 �
   그대로 들어있다 — icepak.py가 처음부터 전부 export하고 있었고,
   V3의 result_parser.py가 그걸 읽어서 CV로 압축한 뒤 버렸을 뿐이다.
 
-  따라서 그 원본 CSV들이 260818\\Result 에 아직 남아있다면, CFD를 다시 돌리지 않고
-  레인별 유량을 복원해 V4의 학습 데이터로 쓸 수 있다. (설계변수 8개와 중량은
-  results_v3.csv에서 가져온다 — 중량은 SolidWorks 값이라 원본 CSV에 없음)
+  따라서 그 원본 CSV들이 남아있다면, CFD를 다시 돌리지 않고 레인별 유량을
+  복원해 V4의 학습 데이터로 쓸 수 있다. (설계변수 8개와 중량은 results_v3.csv에서
+  가져온다 — 중량은 SolidWorks 값이라 원본 CSV에 없음)
+
+  DOE 80개(result_000.csv~079.csv)와 results_v3.csv는 260821\\Result로 옮겨진
+  상태 — paths.py의 V3_RESULT_DIR/V3_RESULTS_PATH가 그 위치를 가리킨다.
 
 사용법
   python seed_from_raw.py            # 무엇이 복원 가능한지 확인만 (파일 안 씀)
