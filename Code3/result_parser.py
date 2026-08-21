@@ -154,7 +154,7 @@ def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume
 
     # 역류 진단: 2차 통과에서 부호가 섞이면 abs()가 실제 분배를 가릴 수 있음
     signed2 = _lane_flows_signed(df, ROW_LANE2)
-    if np.sign(signed2).ptp() > 1 and np.abs(signed2).min() > 1e-6:
+    if np.ptp(np.sign(signed2)) > 1 and np.abs(signed2).min() > 1e-6:
         print(f"  ⚠ [{idx}] 2차 통과 레인 부호가 섞임(일부 역류 의심): "
               f"{np.round(signed2, 4).tolist()}")
 
