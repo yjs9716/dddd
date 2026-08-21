@@ -55,6 +55,13 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         oDesktop.CloseProject(proj_name)
         print("기존 프로젝트 닫음")
 
+    # 프로젝트를 저장할 폴더가 없으면 미리 만들어 둔다.
+    #   폴더가 없으면 AEDT가 저장 단계에서 GUI에 모달 에러 팝업을 띄우는데,
+    #   그 팝업이 COM 호출을 막아버려서 Icepak() 생성자가 영원히 반환되지 않는다
+    #   ("Project ... has been created"까지 찍히고 그 뒤로 아무것도 안 나오는 증상).
+    #   작업폴더를 새로 팠을 때 AEDT 하위폴더를 안 만들어두면 바로 이 상태가 됨.
+    os.makedirs(os.path.dirname(PROJ_PATH), exist_ok=True)
+
     # 디스크 파일 삭제
     if os.path.exists(PROJ_PATH + ".aedt"):
         os.remove(PROJ_PATH + ".aedt")
