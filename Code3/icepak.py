@@ -54,6 +54,25 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         ipk = None
         oDesktop.CloseProject(proj_name)
         print("기존 프로젝트 닫음")
+    else:
+        # ipk가 None인 경우 = 스크립트를 새로 시작한 첫 회차.
+        #   이때 AEDT는 이전 실행에서 켜진 채 남아있을 수 있고(PyAEDT가
+        #   new_desktop=True여도 기존 세션을 재사용함), 그 세션이 같은 이름의
+        #   프로젝트를 열어둔 상태다. 위 분기를 못 타서 그걸 안 닫으면,
+        #   아래에서 같은 이름으로 새 프로젝트를 만들 때 이미 열린 프로젝트와
+        #   충돌해 AEDT가 응답하지 않는다("Project ... has been created"까지만
+        #   찍히고 디자인이 생성되지 않는 증상).
+        #   → 디스크 파일을 지우기 전에, 열려 있는 동명 프로젝트를 먼저 닫는다.
+        # os.path.basename은 실행 OS의 구분자만 인식하므로 \와 / 둘 다 직접 처리
+        want = PROJ_PATH.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        try:
+            od = desktop.odesktop
+            for name in list(od.GetProjectList()):
+                if str(name) == want:
+                    od.CloseProject(name)
+                    print(f"이전 실행에서 열린 채 남은 프로젝트 닫음: {name}")
+        except Exception as e:
+            print(f"  ⚠ 남은 프로젝트 정리 실패(계속 진행): {e}")
 
     # 프로젝트를 저장할 폴더가 없으면 미리 만들어 둔다.
     #   폴더가 없으면 AEDT가 저장 단계에서 GUI에 모달 에러 팝업을 띄우는데,
