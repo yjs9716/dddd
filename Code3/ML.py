@@ -137,19 +137,6 @@ def _save_results(df):
     df[ordered + extras].to_csv(RESULTS_PATH, index=False)
 
 
-def _append_row(df, row):
-    """df에 한 행 추가. df가 비어있으면 concat 대신 새로 만듦.
-
-    pandas 2.x에서 '비어있거나 전부 NA인 프레임'을 concat하면 FutureWarning이 뜨고,
-    앞으로는 dtype 결정 방식이 바뀐다고 예고돼 있다. 실제로 컬럼이 object로 굳어버리면
-    나중에 숫자 비교(is_done 등)에서 조용히 잘못된 결과가 날 수 있어 미리 피함.
-    """
-    new = pd.DataFrame([row])
-    if df is None or len(df) == 0:
-        return new
-    return pd.concat([df, new], ignore_index=True)
-
-
 def _load_failed():
     if os.path.exists(FAILED_PATH):
         return pd.read_csv(FAILED_PATH)
@@ -161,7 +148,7 @@ def log_failure(params, reason):
     df = _load_failed()
     row = dict(params)
     row["reason"] = str(reason)[:300]
-    df = _append_row(df, row)
+    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     os.makedirs(os.path.dirname(FAILED_PATH), exist_ok=True)
     df.to_csv(FAILED_PATH, index=False)
     print(f"  ⚠ 실패 기록 ({len(df)}건 누적): {reason}")
@@ -214,39 +201,21 @@ def update_ml(params, results):
     if idx >= N_DOE:
         preds = _predict_point(df, params)
         for name in MODELED_NAMES:
-            # 실측이 0에 가까우면(레인이 막힌 형상 등) 상대오차가 정의되지 않음.
-            #   여기서 ZeroDivisionError로 죽으면 캠페인 전체가 멈추므로 NaN 처리하고 진행.
-            #   NaN은 _group_errors()에서 자동으로 빠지고, 그 그룹에 성한 값이 하나도
-            #   없으면 그룹 오차가 NaN → is_done()의 비교가 False가 되어 종료되지 않음(안전)
-            denom = abs(results[name])
-            errs[name] = (abs(preds[name] - results[name]) / denom * 100
-                          if denom > 1e-12 else np.nan)
+            errs[name] = abs(preds[name] - results[name]) / abs(results[name]) * 100
 
         # 예측된 레인 유량으로부터 CV를 계산 — 실측 CV와 같은 식(_cv_from_flows)을 씀
-        #   GPR이 (외삽 등으로) 평균 0에 가까운 레인 유량을 뱉으면 _cv_from_flows가
-        #   ValueError를 던지는데, CV는 참고용 기록일 뿐이라 이것 때문에 해석 결과를
-        #   통째로 잃으면 안 됨 → 실패해도 NaN으로 두고 계속 진행
-        for pass_no, lane_names in ((1, LANE1_NAMES), (2, LANE2_NAMES)):
-            try:
-                cv_pred[f"pred_vel_cv_pass{pass_no}"] = _cv_from_flows(
-                    [preds[n] for n in lane_names])
-            except Exception as e:
-                print(f"  ⚠ [{idx}] 예측 레인유량으로 {pass_no}차 CV 계산 실패(참고값이라 무시): {e}")
-                cv_pred[f"pred_vel_cv_pass{pass_no}"] = np.nan
+        cv_pred["pred_vel_cv_pass1"] = _cv_from_flows([preds[n] for n in LANE1_NAMES])
+        cv_pred["pred_vel_cv_pass2"] = _cv_from_flows([preds[n] for n in LANE2_NAMES])
 
         g = _group_errors(errs)
-        # NaN(위에서 분모 0 등으로 계산 못 한 경우)이 섞여도 출력에서 죽지 않도록
-        msg = [f"{k} {'--' if not np.isfinite(g[k]) else format(g[k], '.2f') + '%'}"
-               for k in GROUP_NAMES]
+        msg = [f"{k} {g[k]:.2f}%" for k in GROUP_NAMES]
         print(f"[{idx}] 예측오차: " + "  ".join(msg)
               + f"  (종료기준: 전부 {ERR_THRESHOLD}% 이하 {N_CONSECUTIVE}회 연속)")
         if "vel_cv_pass1" in results:
-            def _f(v):
-                return "--" if not np.isfinite(v) else f"{v:.2f}%"
-            print(f"      CV 참고 — 1차 예측 {_f(cv_pred['pred_vel_cv_pass1'])} / "
-                  f"실측 {_f(results['vel_cv_pass1'])},  "
-                  f"2차 예측 {_f(cv_pred['pred_vel_cv_pass2'])} / "
-                  f"실측 {_f(results['vel_cv_pass2'])}")
+            print(f"      CV 참고 — 1차 예측 {cv_pred['pred_vel_cv_pass1']:.2f}% / "
+                  f"실측 {results['vel_cv_pass1']:.2f}%,  "
+                  f"2차 예측 {cv_pred['pred_vel_cv_pass2']:.2f}% / "
+                  f"실측 {results['vel_cv_pass2']:.2f}%")
 
     row = {"idx": idx}
     row.update(params)
@@ -265,7 +234,7 @@ def update_ml(params, results):
             if np.isfinite(pred) and np.isfinite(meas) and abs(meas) > 1e-12 else np.nan
         )
 
-    df = _append_row(df, row)
+    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     _save_results(df)
     print(f"[{idx}] 결과 저장 완료")
 
