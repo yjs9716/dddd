@@ -1,0 +1,171 @@
+(base) E:\Thermal_Anlaysis\Liquid_plate\260821\Code>
+
+(base) E:\Thermal_Anlaysis\Liquid_plate\260821\Code>
+(base) E:\Thermal_Anlaysis\Liquid_plate\260821\Code> e: && cd e:\Thermal_Anlaysis\Liquid_plate\260821\Code && cmd /C "c:\ProgramData\anaconda3\python.exe c:\Users\74979.LIGDNA\.vscode\extensions\ms-python.debugpy-2025.19.2026011501\bundled\libs\debugpy\launcher 52108 -- E:\Thermal_Anlaysis\Liquid_plate\260821\Code\main.py "
+SW 연결 완료: flowpath
+PyAEDT INFO: Python version 3.13.9 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 19:09:58) [MSC v.1929 64 bit (AMD64)].
+PyAEDT INFO: PyAEDT version 1.1.0.
+PyAEDT INFO: Initializing new Desktop session.
+PyAEDT INFO: AEDT version 2025.1.
+PyAEDT INFO: New AEDT session is starting on gRPC port 52119.
+PyAEDT INFO: Starting new AEDT gRPC session on port 52119.
+PyAEDT INFO: Launching AEDT server with gRPC transport mode: TransportMode.WNUA
+PyAEDT INFO: Electronics Desktop started on gRPC port 52119 after 8.8 seconds.
+PyAEDT INFO: AEDT installation Path C:\Program Files\ANSYS Inc\v251\AnsysEM
+PyAEDT INFO: Connected to AEDT gRPC session on port 52119.
+PyAEDT WARNING: Service Pack is not detected. PyAEDT is currently connecting in Insecure Mode.
+PyAEDT WARNING: Please download and install latest Service Pack to use connect to AEDT in Secure Mode.
+AEDT 켜짐
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 3 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 5 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 7 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 1 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 3 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 3 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 5 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 7 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 3 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 5 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 3 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 4 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 5 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 2 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 3 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 4 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 3 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 4 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 7 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 3 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 4 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 7 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 0 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 1 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 0 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 1 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 0 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 1 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 0 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 1 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 0 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 1 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 7 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 0 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 1 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 5 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 7 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 0 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 5 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 7 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 0 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 1 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 7 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 2 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 3 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 6 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:450: ConvergenceWarning: The optimal value found for dimension 7 of parameter k1__k2__length_scale is close to 
+the specified upper bound 50.0. Increasing the bound and calling fit again may find a better value.
+  warnings.warn(
+c:\ProgramData\anaconda3\Lib\site-packages\sklearn\gaussian_process\kernels.py:440: ConvergenceWarning: The optimal value found for dimension 0 of parameter k2__noise_level is close to the specified lower bound 1e-08. Decreasing the bound and calling fit again may find a better value.
+  warnings.warn(
+  (수렴 판단되어 다음 실험점 선정에서 제외: ['max_temp'])
+[적응샘플링 4회차] input_thick=29.0  input_angle=122.4  power_input_thick=17.3  power_output_thick=31.4  mid_thick=18.8  mid_angle=138.0  mid_input_thick=34.8  output_thick=22.0
+SW 업데이트 완료: input_thick=29.0  input_angle=122.4  power_input_thick=17.3  power_output_thick=31.4  mid_thick=18.8  mid_angle=138.0  mid_input_thick=34.8  output_thick=22.0
+  알루미늄 질량: 4.4672 kg  (부피: 1654527.4 mm^3)
+STEP 저장 완료: E:\Thermal_Anlaysis\Liquid_plate\260821\Solidworks\Step\flowpath_083.STEP
+[A] Icepak 생성 직전
+PyAEDT INFO: Python version 3.13.9 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 19:09:58) [MSC v.1929 64 bit (AMD64)].
+PyAEDT INFO: PyAEDT version 1.1.0.
+PyAEDT INFO: Returning found Desktop session with PID 74544!
+PyAEDT INFO: Project thermal_test has been created.
