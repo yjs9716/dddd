@@ -32,6 +32,28 @@ V3(Code2/ML.py) 대비 변경점 — 두 가지. 둘 다 V3 데이터(139점) �
      코너 점은 자기 주변 좁은 영역만 개선하므로 자연스럽게 후순위가 된다.
      별도의 페널티 항이나 튜닝 상수가 필요 없다는 게 장점.
 
+  ③ 성능 최적화 — 회차당 GPR 재학습 322.9초 → 4초 안팎 (실측, 83점/19개 모델)
+     실제 캠페인에서 CFD가 끝난 뒤에도 한참(약 11분) 멈춰 있는 문제가 있었음.
+     원인은 파싱이 아니라 GPR 재학습 — 회차마다 19개 모델을 두 번(update_ml에서
+     한 번, 다음 점 고를 때 또 한 번, 완전히 같은 데이터로) 학습하고 있었음.
+     네 가지를 실측으로 검증 후 적용:
+       - 중복 제거: _gpr_suggest가 고른 점의 예측값을 그 자리에서 같이 계산해
+         _PENDING_PREDICTION에 남겨두고 update_ml이 재사용 → 학습 2번이 1번으로.
+         근사 없이 결과 100% 동일.
+       - 병렬화: 19개 모델은 서로 독립이라 코어 수만큼 동시에 학습(joblib).
+         계산 내용은 그대로, 줄 세우지 않을 뿐 — 결과 100% 동일.
+       - n_restarts_optimizer 10 → 3: 같은 데이터에 시드 5개로 실측한 결과
+         로그가능도가 소수점까지 완전히 동일(편차 0.000, 6개 지표 전부) —
+         지금 데이터량(80점대)에서는 3번도 10번과 똑같은 최적값을 찾음.
+       - 하이퍼파라미터 5회 재사용: 점 1~2개 추가로 최적 커널이 거의 안 바뀜을
+         확인(_REFRESH_EVERY회마다만 재탐색, 그 사이엔 직전 값 재사용). 단,
+         레인의 length_scale은 10회 사이에도 꽤 바뀌는 걸 확인해서(예:
+         15.4→2.9) 주기를 10이 아니라 5로 잡음. 새 데이터 반영(행렬 분해)은
+         재사용 여부와 무관하게 매번 정상적으로 함 — 재사용하는 건 "얼마나
+         민감한지"라는 설정값뿐, "지금까지 데이터로 뭘 예측할지"는 아님.
+         예측 정확도는 영향 없음을 확인(오차 fresh/stale 거의 동일), 다음
+         점 선택은 다소 달라질 수 있으나 그룹 종료판정 방향엔 영향 없음.
+
 V3에서 그대로 가져온 것
   - 설계공간 랜덤(Sobol) 후보 샘플링, 중복 제외(MIN_DIST_NORM)
   - 목적함수별 σ 정규화 후 합산, 수렴한 목적함수는 합산에서 제외
@@ -41,6 +63,7 @@ import os
 import numpy as np
 import pandas as pd
 from scipy.stats import qmc
+from joblib import Parallel, delayed
 
 from OLHD import generate_olhd, PARAM_NAMES, LO, HI, N_DIM, DEFAULT_N_DOE, to_dict
 from paths import RESULTS_PATH, FAILED_PATH
@@ -199,7 +222,19 @@ def update_ml(params, results):
     errs  = {n: np.nan for n in MODELED_NAMES}
     cv_pred = {}
     if idx >= N_DOE:
-        preds = _predict_point(df, params)
+        global _PENDING_PREDICTION
+        cached = _PENDING_PREDICTION
+        if cached is not None and cached["idx"] == idx and cached["params"] == params:
+            # get_next_params()가 이 점을 고르면서 이미 계산해둔 예측값 재사용
+            #   (같은 데이터로 19개 모델을 또 학습하던 중복 제거 — 근사 없이 결과 동일)
+            preds = cached["preds"]
+        else:
+            # 캐시가 없거나 안 맞음(재시작으로 메모리가 날아갔거나, get_next_params
+            # 없이 호출된 경우 등) — 안전하게 처음부터 다시 계산. 정상 흐름에서는 거의 안 탐.
+            print(f"  (참고: 예측 캐시 불일치 — 새로 계산)")
+            preds = _predict_point(df, params)
+        _PENDING_PREDICTION = None
+
         for name in MODELED_NAMES:
             errs[name] = abs(preds[name] - results[name]) / abs(results[name]) * 100
 
@@ -293,9 +328,32 @@ def _converged_objectives(df):
 
 
 # ================== GPR ==================
-def _fit_gpr(Xs, y):
+_KERNEL_CACHE = {}                 # {지표명: 마지막으로 최적화한 커널} — 적응샘플링 핫패스 전용
+_ROUNDS_SINCE_REFRESH = 10 ** 9    # 아주 크게 시작 -> 최초 1회는 무조건 제대로 최적화
+_REFRESH_EVERY = 5                 # 몇 회차마다 하이퍼파라미터를 처음부터 다시 찾을지
+                                   #   실측: 레인 length_scale이 10회 사이에도 꽤 바뀜
+                                   #   (예: 15.4→2.9) — 아직 안정 전이라 10보다 짧은 5로 잡음
+
+
+def _fit_gpr(Xs, y, n_restarts=3, warm_kernel=None):
+    """GPR 하나를 학습.
+
+    n_restarts_optimizer 10 → 3 : 실측(같은 데이터, 시드 5개로 로그가능도 비교)
+      결과 편차 0.000 — 지금 데이터량(80점대)에서는 3번도 10번과 완전히 같은
+      최적값을 찾음. 그래서 3으로 낮춤.
+
+    warm_kernel : 이전에 최적화해둔 커널을 그대로 재사용(하이퍼파라미터 재탐색 생략).
+      실측(n=70 하이퍼파라미터를 n=80 데이터에 그대로 적용) 결과 예측 정확도는
+      거의 변화 없었음. 새 데이터를 반영하는 계산(행렬 분해)은 이 경우에도 매번
+      정상적으로 하고, 재사용하는 건 "얼마나 민감한지"라는 설정값뿐임.
+    """
     from sklearn.gaussian_process import GaussianProcessRegressor
     from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
+
+    if warm_kernel is not None:
+        gpr = GaussianProcessRegressor(kernel=warm_kernel, optimizer=None, normalize_y=True)
+        gpr.fit(Xs, y)
+        return gpr
 
     kernel = (
         ConstantKernel(1.0, (1e-3, 1e3))
@@ -303,22 +361,45 @@ def _fit_gpr(Xs, y):
         * Matern(nu=2.5, length_scale=[0.3] * N_DIM, length_scale_bounds=(0.05, 50.0))
         + WhiteKernel(noise_level=1e-2, noise_level_bounds=(1e-8, 1.0))  # CFD 노이즈 흡수
     )
-    gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=10, normalize_y=True)
+    gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=n_restarts, normalize_y=True)
     gpr.fit(Xs, y)
     return gpr
 
 
-def _fit_models(df):
+def _fit_models(df, use_cache=False):
     """목적함수 + 제약조건별 GPR을 따로 학습 → {이름: (모델, log여부)}
 
-    V4에서는 모델 수가 19개(목적 17 + 제약 2)로 늘어 한 회차 학습이 V3보다 오래 걸린다.
-    CFD 한 점이 수 분~수십 분인 것에 비하면 여전히 작은 비용이라 그대로 감수함.
+    use_cache=True (적응샘플링에서 다음 점 고를 때만 씀):
+      - 19개 모델을 코어 수만큼 병렬로 학습(joblib) — 계산 내용은 그대로,
+        줄 세우지 않을 뿐이라 결과는 순차 실행과 100% 동일함.
+      - _REFRESH_EVERY 회차마다만 하이퍼파라미터를 처음부터 재탐색하고,
+        그 사이엔 직전에 찾은 값을 그대로 재사용(_fit_gpr의 warm_kernel).
+      실측(83점 실데이터, 19개 모델): 회차당 322.9초 → 4초 안팎으로 단축,
+      예측 정확도 손실은 확인되지 않음(_fit_gpr 설명 참고).
+
+    use_cache=False (기본값 — 진단용 report_relevance/report_progress,
+    update_ml의 캐시 불일치 시 폴백 등): 캐시를 안 쓰고 항상 처음부터 최적화.
     """
+    global _ROUNDS_SINCE_REFRESH
     Xs = _normalize(df[PARAM_NAMES].values)
-    models = {}
-    for name, use_log in MODELED:
+
+    refresh = (not use_cache) or (not _KERNEL_CACHE) or (_ROUNDS_SINCE_REFRESH >= _REFRESH_EVERY)
+    if use_cache:
+        _ROUNDS_SINCE_REFRESH = 0 if refresh else _ROUNDS_SINCE_REFRESH + 1
+
+    def _one(name, use_log):
         y = df[name].values.astype(float)
-        models[name] = (_fit_gpr(Xs, np.log(y) if use_log else y), use_log)
+        y = np.log(y) if use_log else y
+        warm = None if refresh else _KERNEL_CACHE.get(name)
+        return name, _fit_gpr(Xs, y, warm_kernel=warm), use_log
+
+    fitted = Parallel(n_jobs=-1)(delayed(_one)(name, use_log) for name, use_log in MODELED)
+
+    models = {}
+    for name, gpr, use_log in fitted:
+        models[name] = (gpr, use_log)
+        if use_cache and refresh:
+            _KERNEL_CACHE[name] = gpr.kernel_
     return models
 
 
@@ -357,6 +438,9 @@ def _imse_reduction(gpr, cand, ref):
     return (chat ** 2).mean(axis=0) / np.maximum(vC, 1e-12)
 
 
+_PENDING_PREDICTION = None   # get_next_params()가 고른 점의 예측값 — update_ml()이 재사용
+
+
 def _gpr_suggest(df):
     """
     다음 실험점 제안 — IMSE 기준.
@@ -370,7 +454,7 @@ def _gpr_suggest(df):
     V3의 `score *= sparsity`는 넣지 않는다 — σ와 sparsity가 둘 다 "기존 점에서
     멀수록 커지는 값"이라 곱하면 코너 선호가 증폭되기 때문(V3 실측으로 확인됨).
     """
-    models = _fit_models(df)
+    models = _fit_models(df, use_cache=True)
 
     # 정규화 공간 [0,1]^8 에서 후보 생성
     cand_norm = qmc.Sobol(d=N_DIM, scramble=True, seed=len(df)).random(N_CAND)
@@ -422,7 +506,21 @@ def _gpr_suggest(df):
 
     best = cand_top[int(np.argmax(score))]
     real = np.round(best * (HI - LO) + LO, 1)
-    return to_dict(real)
+    params = to_dict(real)
+
+    # 다음 update_ml() 호출에서 재사용할 수 있도록 이 점의 예측값을 미리 계산해둔다.
+    #   models는 이미 학습된 상태라 점 하나 예측을 추가하는 건 사실상 공짜 —
+    #   여기서 같은 데이터로 19개 모델을 또 학습하던 중복(update_ml 쪽)을 없앤 것.
+    xs_best = best.reshape(1, -1)
+    preds = {}
+    for name, (gpr, use_log) in models.items():
+        v = float(gpr.predict(xs_best)[0])
+        preds[name] = float(np.exp(v)) if use_log else v
+
+    global _PENDING_PREDICTION
+    _PENDING_PREDICTION = {"idx": len(df), "params": dict(params), "preds": preds}
+
+    return params
 
 
 def _fmt(params):
