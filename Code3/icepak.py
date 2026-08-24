@@ -1,5 +1,5 @@
 from ansys.aedt.core import Desktop, Icepak
-import os, shutil
+import os, shutil, time
 
 from paths import AEDT_PROJ_PATH as PROJ_PATH, ICEPAK_RESULT_DIR
 
@@ -47,13 +47,15 @@ def run_icepak(desktop, ipk, step_file, idx, params):
       pao_volume_mm3  : 유로를 채운 PAO 부피 [mm^3] — 중량 계산용
                         (SolidWorks 알루미늄 중량 + PAO 중량 = 총 중량)
     """
+    print(f"[T0] run_icepak 진입: {time.strftime('%H:%M:%S')}")
+
     # 기존 프로젝트 닫기 (AEDT는 유지)
     if ipk is not None:
         oDesktop = ipk.odesktop
         proj_name = ipk.project_name
         ipk = None
         oDesktop.CloseProject(proj_name)
-        print("기존 프로젝트 닫음")
+        print(f"[T1] 기존 프로젝트 닫음: {time.strftime('%H:%M:%S')}")
 
     # 디스크 파일 삭제
     #   .aedt.lock도 같이 지운다 — 스크립트가 중간에 끊기면(F5 재시작, 예외로 죽음 등)
@@ -68,6 +70,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         os.remove(PROJ_PATH + ".aedt.lock")
     if os.path.exists(PROJ_PATH + ".aedtresults"):
         shutil.rmtree(PROJ_PATH + ".aedtresults")
+    print(f"[T2] 파일삭제(rmtree 등) 끝: {time.strftime('%H:%M:%S')}")
 
     # 새 프로젝트 생성
     # design을 안 주면 PyAEDT가 매번 랜덤 접미사로 디자인 이름을 자동 생성함
@@ -80,11 +83,11 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         new_desktop=False,
         close_on_exit=False,
     )
-    print("새 프로젝트 생성:", ipk.project_name)
+    print(f"[T3] 새 프로젝트 생성: {ipk.project_name}  {time.strftime('%H:%M:%S')}")
 
     # STEP import
     ipk.modeler.import_3d_cad(step_file)
-    print("임포트 완료:", step_file)
+    print(f"[T4] STEP 임포트 완료: {step_file}  {time.strftime('%H:%M:%S')}")
 
     # oDesktop/oProject/oDesign/oEditor 매핑
     oDesktop = ipk.odesktop
@@ -891,7 +894,9 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         ])
 
     # %%
+    print(f"[T5] AnalyzeAll 시작(메싱+솔브): {time.strftime('%H:%M:%S')}")
     oDesign.AnalyzeAll()
+    print(f"[T6] AnalyzeAll 끝(메싱+솔브 완료): {time.strftime('%H:%M:%S')}")
 
 
     # %%
@@ -933,6 +938,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
             "Calculation:="		, ["Object","Surface","V_inlet2_07","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
             "Calculation:="		, ["Object","Surface","Rectangle1","Speed","0.00,-1.00,0.00","Default","Reduced","Nominal",False]
         ])
+    print(f"[T7] Fields Summary 설정 끝, export 시작: {time.strftime('%H:%M:%S')}")
     oModule.ExportFieldsSummary(
         [
             "SolutionName:="	, "Setup1 : SteadyState",
@@ -940,6 +946,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
             "ExportFileName:="	, result_path,
             "IntrinsicValue:="	, ""
         ])
+    print(f"[T8] Fields Summary export 끝: {time.strftime('%H:%M:%S')}")
     print(f"[{idx}] CSV 저장 완료: {result_path}")
 
     # ── PAO 부피 (교차검증용 로그) ──

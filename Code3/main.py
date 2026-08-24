@@ -49,13 +49,18 @@ def cleanup_projects(desktop):
         pass   # AEDT 자체가 죽어 정리 못 하는 경우 — 아래에서 재연결로 처리
 
 
+import time
 while not is_done():
+    print(f"[M0] get_next_params 시작: {time.strftime('%H:%M:%S')}")
     params = get_next_params()
     idx    = current_idx()
+    print(f"[M1] get_next_params 끝(다음 SW 리빌드 시작): {time.strftime('%H:%M:%S')}")
 
     try:
         aluminum_mass_kg, aluminum_volume_mm3 = update_sw(app, errors, warnings, params)
+        print(f"[M2] SW 리빌드(update_sw) 끝: {time.strftime('%H:%M:%S')}")
         step_file = export_step(app, errors, idx)
+        print(f"[M3] STEP export 끝: {time.strftime('%H:%M:%S')}")
     except Exception as e:
         # 형상 미성립 / 리빌드 실패 → 이 변수 조합 자체의 문제이므로 포기하고 다음 점으로
         log_failure(params, e)
