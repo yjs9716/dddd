@@ -56,8 +56,16 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         print("기존 프로젝트 닫음")
 
     # 디스크 파일 삭제
+    #   .aedt.lock도 같이 지운다 — 스크립트가 중간에 끊기면(F5 재시작, 예외로 죽음 등)
+    #   AEDT가 프로젝트에 걸어둔 잠금 파일이 안 지워진 채 남는다. 다음 실행이 같은
+    #   이름으로 프로젝트를 새로 만들려 할 때 이 잠금 때문에 AEDT가 GUI 모달 팝업을
+    #   띄우고, 그 팝업이 COM 호출을 막아 Icepak() 생성자가 영원히 반환되지 않는다
+    #   ("Project ... has been created"까지만 찍히고 디자인이 생성되지 않는 증상 —
+    #   실제로 이 잠금 파일을 지우고 나니 해결됨을 확인함).
     if os.path.exists(PROJ_PATH + ".aedt"):
         os.remove(PROJ_PATH + ".aedt")
+    if os.path.exists(PROJ_PATH + ".aedt.lock"):
+        os.remove(PROJ_PATH + ".aedt.lock")
     if os.path.exists(PROJ_PATH + ".aedtresults"):
         shutil.rmtree(PROJ_PATH + ".aedtresults")
 
