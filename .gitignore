@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+
+# OLHD_PLOT.py가 실행될 때마다 다시 만드는 그림 — 저장할 이유 없음
+OLHD_marginal.png
+OLHD_pairwise.png
