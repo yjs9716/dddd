@@ -49,12 +49,15 @@ from fins import max_fin_count, fin_gap, is_feasible, describe
 # ── 자유 설계변수 정의 (이름, 하한, 상한) ────────────────────────
 #    이름은 SolidWorks 글로벌 변수명과 반드시 일치해야 함
 PARAM_SPEC = [
-    ("input_thick",        15.0, 35.0),   # mm
+    ("input_thick",        13.0, 25.0),   # mm — 상한 35→25: 양 끝에 발열채널을 하나씩
+                                           #   추가하면서, 25mm 넘으면 그 자리에 방열핀을
+                                           #   배치할 공간이 안 나옴(성능이 아니라 간섭 제약)
     ("input_angle",        90.0, 150.0),  # deg
     ("power_input_thick",   3.0, 20.0),   # mm — 2mm는 메시 해상도상 보류, 3mm는 로컬 메시로 대응
-    ("mid_thick",          15.0, 35.0),   # mm
+    ("mid_thick",          10.0, 25.0),   # mm — input_thick과 같은 이유(양 끝 발열채널
+                                           #   추가로 인한 방열핀 배치공간 제약)로 범위 조정
     ("mid_angle",          90.0, 140.0),  # deg
-    ("mid_input_thick",    15.0, 35.0),   # mm
+    ("mid_input_thick",    10.0, 25.0),   # mm — 위와 동일한 이유
     ("output_thick",       15.0, 35.0),   # mm
     ("fin_thick",           1.5,  3.0),   # mm — 신규(방열핀 두께)
     ("fin_count",          10.0, 21.0),   # 개 — 신규(방열핀 개수, 정수로 반올림해서 씀)

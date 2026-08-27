@@ -12,12 +12,12 @@ V4(유로 8변수, `Code3`)에 **방열핀 변수화**를 추가한 버전. 설�
 
 | # | 변수명 (SolidWorks 글로벌 변수명과 동일해야 함) | 범위 | 단위 |
 |---|---|---|---|
-| 1 | `input_thick` | 15 ~ 35 | mm |
+| 1 | `input_thick` | 13 ~ 25 | mm |
 | 2 | `input_angle` | 90 ~ 150 | deg |
 | 3 | `power_input_thick` | 3 ~ 20 | mm |
-| 4 | `mid_thick` | 15 ~ 35 | mm |
+| 4 | `mid_thick` | 10 ~ 25 | mm |
 | 5 | `mid_angle` | 90 ~ 140 | deg |
-| 6 | `mid_input_thick` | 15 ~ 35 | mm |
+| 6 | `mid_input_thick` | 10 ~ 25 | mm |
 | 7 | `output_thick` | 15 ~ 35 | mm |
 | 8 | `fin_thick` | 1.5 ~ 3.0 | mm |
 | 9 | `fin_count` | 10 ~ 21 | 개 (정수) |
@@ -31,6 +31,14 @@ V4(유로 8변수, `Code3`)에 **방열핀 변수화**를 추가한 버전. 설�
 
 정의 위치: `OLHD.py`의 `PARAM_SPEC`(자유변수) + `FIXED_PARAMS`(고정값) **두 곳뿐**.
 범위를 바꾸려면 여기만 수정하면 OLHD / ML / SolidWorks / result_parser가 전부 따라감.
+
+> `input_thick`/`mid_thick`/`mid_input_thick`은 V4(15~35mm) 대비 범위가 좁아지고
+> 아래로 내려갔다. 성능 트레이드오프 때문이 아니라 **형상 제약** — 발열채널을
+> 양 끝에 하나씩 추가하면서, 이 값이 25mm를 넘으면 그 자리에 방열핀을 배치할
+> 공간이 안 나온다(간섭). V4 데이터로 partial dependence를 확인해보면 세 변수
+> 다 상한을 넘어선 구간(25~35mm)에서 더 좋은 값이 나오는 경향이 있었지만
+> (`input_thick`은 특히 `pressure_drop`에 8.8%p 영향), 애초에 그 구간이
+> 물리적으로 불가능해졌으므로 선택의 여지가 없다.
 
 > `output_thick`은 고정하지 않고 그대로 자유변수로 남겼다. 방향은 갈리지 않지만(35mm
 > 선호) `pressure_drop` 전체 변동의 14.5%를 담당할 만큼 영향이 크고, 실측에서
