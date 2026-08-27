@@ -31,11 +31,11 @@ V4에서 그대로 유지하는 것
 
 CSV 한 장 구조 (skiprows=5, 열 인덱스는 Min=7 / Max=8 / Mean=9 / Stdev=10)
   n = fin_count + 1 (이번 설계의 유로 개수 — 설계마다 다름)
-  행 0~7            : source01~08 온도
-  행 8              : Fan1_Passage 차압
-  행 9~(9+n-1)      : V_inlet_00~(n-1)   (1차 통과, +X) 속도
-  행 (9+n)~(9+2n-1) : V_inlet2_00~(n-1)  (2차 통과) 속도
-  행 (9+2n)         : Rectangle1 (전원모듈 분기 입구) 법선방향 속도
+  행 0~8             : source01~09 온도
+  행 9               : Fan1_Passage 차압
+  행 10~(10+n-1)     : V_inlet_00~(n-1)   (1차 통과, +X) 속도
+  행 (10+n)~(10+2n-1): V_inlet2_00~(n-1)  (2차 통과) 속도
+  행 (10+2n)         : Rectangle1 (전원모듈 분기 입구) 법선방향 속도
 """
 import numpy as np
 import pandas as pd
@@ -53,9 +53,9 @@ FULL_SOLID_VOLUME_MM3 = 2341073.1
 
 # ── CSV 행 위치 — icepak.py의 Calculation 추가 순서와 1:1 대응 ──
 #   유로 개수(n)가 설계마다 달라지므로 고정 상수가 아니라 함수로 계산한다.
-ROW_SOURCE = 0                                # 0~7
-ROW_DP     = ROW_SOURCE + N_SOURCE            # 8
-ROW_LANE1  = ROW_DP + 1                       # 9 ~ (9+n-1)
+ROW_SOURCE = 0                                # 0~8
+ROW_DP     = ROW_SOURCE + N_SOURCE            # 9
+ROW_LANE1  = ROW_DP + 1                       # 10 ~ (10+n-1)
 
 
 def _row_layout(n_channels):
@@ -125,8 +125,8 @@ def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume
     반환 dict:
       std_pass1/std_pass2 : 통과별 유로 전체 유량의 표준편차 [LPM] (목적함수 — GPR 학습 대상)
       pressure_drop        : 차압                              (목적함수)
-      temp_std             : 8채널 온도표준편차                 (목적함수)
-      max_temp             : 8채널 최고온도                     (목적함수)
+      temp_std             : 9채널 온도표준편차                 (목적함수)
+      max_temp             : 9채널 최고온도                     (목적함수)
       power_module_flow    : 전원모듈 분기 유량비율 [0~1]       (제약조건용)
       weight               : 알루미늄 + PAO 총 중량 [kg]        (제약조건용)
       fin_gap              : 이번 설계의 유로 갭 [mm]           (기록용 — 종속변수)
@@ -147,7 +147,7 @@ def extract_and_save(idx, params, result_path, aluminum_mass_kg, aluminum_volume
             "계산되지 않았는지 확인할 것"
         )
 
-    # ── 온도 (8채널) ──
+    # ── 온도 (9채널) ──
     temp_rows = df.iloc[ROW_SOURCE:ROW_SOURCE + N_SOURCE]
     max_temp  = float(temp_rows[COL_MAX].astype(float).max())
     temp_std  = float(temp_rows[COL_MEAN].astype(float).std(ddof=0))

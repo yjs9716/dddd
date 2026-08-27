@@ -14,7 +14,7 @@ PAO_DENSITY = 794.0
 
 # ── 측정 대상 개수 — CSV 행 구조를 결정하므로 result_parser가 이 값을 import해서 씀 ──
 #   여기를 바꾸면 파싱 쪽 행 인덱스가 자동으로 따라감 (두 파일이 어긋날 일 없게)
-N_SOURCE = 8   # 발열채널(source01~) 개수
+N_SOURCE = 9   # 발열채널(source01~) 개수 — 양 끝에 하나씩 추가되어 8→9
 #   레인 측정 개수는 통과당 유로 전체(fin_count+1)라 설계마다 다르다 — 고정 상수
 #   없음. result_parser가 params["fin_count"]로 매 idx마다 직접 계산한다.
 
@@ -389,11 +389,11 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         ])
 
     # %%
-    base_x = -152.1
+    base_x = -172.9   # 기존 -152.1에서 step의 절반(20.8mm)만큼 이동 — 양 끝 채널 추가분
     step = 20.8*2
     for i in range(N_SOURCE):
         x_pos = base_x + i * step
-        box_name = f"source{i + 1:02d}"   # source01 ~ source08
+        box_name = f"source{i + 1:02d}"   # source01 ~ source09
 
         oEditor.CreateBox(
             [
@@ -565,7 +565,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
     oModule.AssignBlockBoundary(
         [
             "NAME:Block1",
-            "Objects:="		, ["source01","source02","source03","source04","source05","source06","source07","source08"],
+            "Objects:="		, ["source01","source02","source03","source04","source05","source06","source07","source08","source09"],
             "Block Type:="		, "Solid",
             "Use External Conditions:=", False,
             "Use Total Power:="	, True,
@@ -915,11 +915,11 @@ def run_icepak(desktop, ipk, step_file, idx, params):
 
     # Calculation 추가 순서 = CSV 행 순서. result_parser의 ROW_* 인덱스가 이 순서를
     # 그대로 전제하므로, 여기 순서를 바꾸면 파싱이 통째로 어긋난다.
-    #   행 0~7          : source01~08 온도
-    #   행 8            : Fan1_Passage 차압
-    #   행 9~(9+n-1)    : V_inlet_00~(n-1)   (1차 통과, n=fin_count+1, 설계마다 가변)
-    #   행 (9+n)~(9+2n-1): V_inlet2_00~(n-1) (2차 통과)
-    #   행 (9+2n)       : Rectangle1 (전원모듈 분기 입구)
+    #   행 0~8           : source01~09 온도
+    #   행 9             : Fan1_Passage 차압
+    #   행 10~(10+n-1)   : V_inlet_00~(n-1)   (1차 통과, n=fin_count+1, 설계마다 가변)
+    #   행 (10+n)~(10+2n-1): V_inlet2_00~(n-1) (2차 통과)
+    #   행 (10+2n)       : Rectangle1 (전원모듈 분기 입구)
     # V4는 레인 14줄을 손으로 나열했지만, V5는 유로 전체(개수 가변)를 다 재므로
     # 반복문으로 만든다 — result_parser도 같은 개수(params["fin_count"]+1)를 계산해서
     # 행 위치를 맞춘다.
