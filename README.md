@@ -167,7 +167,7 @@ N        = round(N_lo + u · (min(N_hi, N_max(t)) − N_lo))
 | `ML.py` | 재작성 | GPR + IMSE 적응샘플링 + 그룹별(상대/절대 혼재) 종료판정 + 실패기록 + 영향도진단 |
 | `result_parser.py` | 재작성 | 유로 전체 파싱 → std 압축, 유량 검산(`_check_closure`), 유량·중량 환산 |
 | `icepak.py` | 재작성 | 측정 사각형을 유로 전체(N+1개, 개수 가변)에 대해 반복 생성, Fields Summary 항목도 동적 생성 |
-| `Solidworks.py` | 재작성 | 글로벌 변수 11개(자유9+고정2) 일괄 set, `fin_count` 정수 검증, 갭 제약 사전검증 |
+| `Solidworks.py` | 재작성 | 자유변수 9개만 글로벌 변수로 set(고정값 2개는 안 건드림), `fin_count` 정수 검증, 갭 제약 사전검증 |
 | `main.py` | 소폭 수정 | 로직은 V4와 동일(재작성 이유 없음). 회차 소요시간 로그 추가 |
 | `paths.py` | 신규 경로 | 작업폴더 `260827` |
 
@@ -256,10 +256,10 @@ def run_icepak(desktop, ipk, step_file, idx, params):
 
 ### SolidWorks Equation Manager 준비사항 (V5 신규)
 
-전역변수 11개(자유 9 + `power_output_thick`/`fin_height` 고정값)가 전부
-있어야 함. 핀 간격은 변수가 아니라 **수식으로** 걸어둘 것 — 파이썬이 갭을
-직접 써넣지 않고 SolidWorks가 스스로 계산하게 두는 이유는, 두 곳에서 각각
-계산하면 언젠가 반드시 어긋나기 때문:
+**자유변수 9개만** 이름 붙은 전역변수로 존재해야 함(`Solidworks.SW_PARAM_NAMES`) —
+파이썬이 매 회차 이 이름으로 찾아서 값을 써넣는다. 핀 간격은 변수가 아니라
+**수식으로** 걸어둘 것 — 파이썬이 갭을 직접 써넣지 않고 SolidWorks가 스스로
+계산하게 두는 이유는, 두 곳에서 각각 계산하면 언젠가 반드시 어긋나기 때문:
 
 ```
 "fin_gap" = (86.5 - "fin_count" * "fin_thick") / ("fin_count" + 1)
@@ -269,9 +269,14 @@ def run_icepak(desktop, ipk, step_file, idx, params):
 개수 = `"fin_count"`, 첫 핀의 상단벽 오프셋 = `"fin_gap"`으로 묶으면 상단벽↔핀
 / 핀↔핀 / 핀↔하단벽 간격이 전부 자동으로 같아진다.
 
-`fin_height`는 `8.0`으로 고정해 유로 천장까지 정확히 닿게 한다 — PAO가
-solid(핀 포함)를 뺀 나머지로 Boolean 생성되므로, 접촉면 애매함 없이 깔끔하게
-처리된다(별도 여유를 둘 필요 없음).
+⚠ `power_output_thick`(25mm), `fin_height`(8.0mm — 유로 천장까지 정확히 닿아
+우회공간 없음)는 **이름 붙은 전역변수로 만들지 말 것**. 캠페인 내내 안 바뀌는
+값이라 스케치에 직접 숫자로 넣어두면 되고, `Solidworks.py`는 이 두 값을 아예
+찾지도 쓰지도 않는다(처음엔 다른 변수와 똑같이 전역변수로 관리했었는데, 매번
+안 바뀌는 값까지 파이썬이 써넣게 만든 과한 설계였어서 뺐다). PAO는 solid(핀
+포함)를 뺀 나머지로 Boolean 생성되므로, `fin_height`가 유로 천장에 정확히
+닿아도 접촉면 애매함 없이 깔끔하게 처리된다. 실제 제작 시엔 `fin_height`만
+조립공차 위해 `7.5mm`로 수작업으로 낮춰서 최종 1회 재검증한다.
 
 ---
 

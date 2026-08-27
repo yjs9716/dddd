@@ -20,16 +20,20 @@ V4(260821)와 완전히 분리된 새 캠페인.
 
 ⚠ 시작 전 준비
   1) 260827\\Solidworks 에 plate_base.SLDPRT, flowpath.SLDASM 을 복사해 둘 것.
-  2) SolidWorks Equation Manager에 아래 전역변수가 전부 있어야 한다(이름 정확히 일치):
+  2) SolidWorks Equation Manager에 아래 **자유변수 9개**가 전부 있어야 한다
+     (이름 정확히 일치 — 파이썬이 매 회차 이 이름으로 찾아서 값을 써넣는다):
        input_thick, input_angle, power_input_thick, mid_thick, mid_angle,
-       mid_input_thick, output_thick, fin_thick, fin_count  (자유변수 9개)
-       power_output_thick(고정값 25), fin_height(고정값 8.0 — 유로 깊이와 동일,
-       우회공간 없음. 실제 제작 시엔 조립공차 위해 7.5mm로 낮춰 최종 1회만 재검증)
+       mid_input_thick, output_thick, fin_thick, fin_count
      그리고 핀 간격은 변수가 아니라 수식으로 걸어둘 것:
        "fin_gap" = (86.5 - "fin_count" * "fin_thick") / ("fin_count" + 1)
      핀은 선형패턴으로 만들고, 패턴 간격 = "fin_gap" + "fin_thick",
      인스턴스 개수 = "fin_count", 첫 핀의 상단벽 오프셋 = "fin_gap" 으로 묶으면
      상단벽↔핀 / 핀↔핀 / 핀↔하단벽 간격이 전부 자동으로 같아진다.
+  3) power_output_thick(25mm), fin_height(8.0mm — 유로 깊이와 동일, 우회공간
+     없음)는 **이름 붙은 전역변수로 만들지 말고 스케치에 직접 숫자로 넣어둘 것**.
+     캠페인 내내 안 바뀌는 값이라 파이썬이 매 회차 값을 써넣을 필요가 없다
+     (Solidworks.py는 이 두 값을 아예 안 건드림). 실제 제작 시엔 fin_height만
+     조립공차 위해 7.5mm로 수작업으로 낮춰서 최종 1회 재검증한다.
 """
 import os
 

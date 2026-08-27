@@ -2,13 +2,24 @@
 V5 유로+방열핀 9변수 — SolidWorks COM 자동화 (글로벌 변수 제어 + STEP 저장)
 
 V4(Code3) 대비 변경점
-  - 글로벌 변수 8개 → 11개 (자유변수 10 + 고정값 power_output_thick)
+  - 글로벌 변수 8개 → 9개, **자유변수만** SolidWorks 전역변수로 관리
+    (power_output_thick, fin_height는 고정값이라 SolidWorks가 아니라 파이썬
+    쪽 상수(OLHD.FIXED_PARAMS)로만 존재함 — 아래 ⚠ 참고)
   - fin_count는 정수로 써야 함 — 선형패턴 인스턴스 개수라 소수가 들어가면 리빌드가
     실패하거나 조용히 내림 처리된다. OLHD.to_dict()가 이미 int로 만들어 주지만,
     여기서도 한 번 더 확인해서 float가 흘러들어오면 바로 예외를 낸다.
   - 리빌드 후 핀 개수/갭을 로그에 남긴다 — 형상이 의도대로 나왔는지 눈으로 확인하려고.
 
-⚠ SolidWorks 쪽 준비 (Equation Manager)
+⚠ 고정 파라미터는 SolidWorks 전역변수로 만들지 않는다
+  처음엔 고정값(power_output_thick, fin_height)도 다른 자유변수와 똑같이 이름
+  붙은 전역변수로 만들어서 매 회차 파이썬이 값을 써넣게 짰었는데, 이건 과한
+  설계였다 — 캠페인 내내 절대 안 바뀌는 값을 굳이 "매번 값을 써넣는" 방식으로
+  관리할 이유가 없다. 사용자가 이미 해당 치수를 스케치에 직접 숫자로 넣어뒀으므로,
+  그 상태 그대로 두고 파이썬은 이 두 값을 전혀 건드리지 않는다(검증도, 쓰기도 안 함).
+  나중에 최종 후보 검증 단계에서 fin_height를 7.5mm로 바꿔야 할 때는, 그건
+  1회성 수작업이라 SolidWorks에서 직접 스케치 치수를 고치면 된다 — 자동화 불필요.
+
+⚠ SolidWorks 쪽 준비 (Equation Manager) — 자유변수 9개만 해당
   핀 간격은 설계변수가 아니라 두께·개수에서 종속 계산되는 값이다. 파이썬이 갭을
   직접 써넣지 않고, SolidWorks가 수식으로 스스로 계산하게 둔다 — 두 곳에서 각각
   계산하면 언젠가 반드시 어긋나기 때문. paths.py 상단 주석의 수식을 참고할 것.
@@ -18,12 +29,14 @@ import os
 import pythoncom
 import win32com.client
 
-from OLHD import PARAM_NAMES, FIXED_PARAMS, INT_PARAMS
+from OLHD import PARAM_NAMES, INT_PARAMS
 from fins import fin_gap, is_feasible, describe
 from paths import PART_PATH, ASM_PATH, STEP_DIR
 
-# SolidWorks에 실제로 써넣어야 하는 전역변수 전체 (자유변수 + 고정값)
-SW_PARAM_NAMES = list(PARAM_NAMES) + list(FIXED_PARAMS)
+# SolidWorks에 실제로 써넣어야 하는 전역변수 — 자유변수 9개만.
+#   고정값(power_output_thick, fin_height)은 스케치에 직접 숫자로 들어있으므로
+#   여기서 이름으로 찾거나 값을 써넣지 않는다 (위 ⚠ 참고).
+SW_PARAM_NAMES = list(PARAM_NAMES)
 
 
 def connect_sw():
@@ -63,8 +76,9 @@ def _validate(params):
 def update_sw(app, errors, warnings, params):
     """
     글로벌 변수 업데이트 및 리빌드.
-      params : {변수명: 값} — 키는 SolidWorks 글로벌 변수명과 정확히 일치해야 함.
-               자유변수 9개 + 고정값(power_output_thick, fin_height)까지 전부 들어있어야 함.
+      params : {변수명: 값} — 자유변수 9개(SW_PARAM_NAMES)는 키가 SolidWorks
+               전역변수명과 정확히 일치해야 함. 고정값(power_output_thick,
+               fin_height)이 params에 더 들어있어도 무시하고 안 씀(위 ⚠ 참고).
 
     반환: (aluminum_mass_kg, aluminum_volume_mm3)
       유로(빈 공간)를 채운 PAO는 형상에 없는 개념이라 여기선 알 수 없음.
