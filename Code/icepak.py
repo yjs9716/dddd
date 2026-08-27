@@ -1,7 +1,8 @@
 from ansys.aedt.core import Desktop, Icepak
-import os, shutil
+import os, shutil, time
 
 from paths import AEDT_PROJ_PATH as PROJ_PATH, ICEPAK_RESULT_DIR
+from fins import MEASURE_LABELS, N_MEASURE, measure_channels, describe
 
 # 전원모듈 입구 측정 사각형(Rectangle1)의 폭 [mm]. 높이는 power_input_thick(설계변수).
 #   유량 환산 면적은 CSV의 Area/Volume 열 실측값을 쓰므로(메시 이산화로 도면값과
@@ -14,7 +15,29 @@ PAO_DENSITY = 794.0
 # ── 측정 대상 개수 — CSV 행 구조를 결정하므로 result_parser가 이 값을 import해서 씀 ──
 #   여기를 바꾸면 파싱 쪽 행 인덱스가 자동으로 따라감 (두 파일이 어긋날 일 없게)
 N_SOURCE = 8   # 발열채널(source01~) 개수
-N_LANE   = 7   # 통과 1회당 핀뱅크 레인(V_inlet / V_inlet2) 개수
+#   레인 측정 개수(N_MEASURE=3)는 fins.py가 정의한다 — 핀 개수가 설계변수라
+#   "통과당 유로 몇 개"가 설계마다 달라지므로, 개수와 무관한 상대위치 3점만 잰다.
+
+# ── 핀뱅크 측정면 기준 좌표 [mm] ──────────────────────────────
+#   V4에서는 레인 7개의 y좌표를 상수로 박아뒀지만(y_start − 9.857142857·i),
+#   V5는 핀 개수·두께가 변수라 매 설계마다 계산해야 한다. 그래서 "기준점"만
+#   상수로 두고, 각 유로의 위치는 fins.measure_channels()가 계산한 오프셋을 더해 만든다.
+#
+#   ⚠ 확인 필요 — 아래 두 값은 V4 형상에서 역산한 값이다.
+#     V4를 역산하면 핀뱅크 시작 y가 각각 -101.25 / -4.749999983 이고, 핀 6개·t=2.5·
+#     갭 7.357142857(피치 9.857142857)로 총길이 66.5mm였다(fins.py의 폐합식과 정확히 일치).
+#     V5는 핀뱅크 길이를 86.5mm로 전제하므로 형상이 실제로 바뀌었다면 이 시작 y좌표도
+#     달라졌을 수 있다. 첫 실행에서 측정면이 유로 안에 정확히 들어가는지 눈으로 확인할 것.
+FIN_BANK1_Y_START = -101.25          # 1차 통과 핀뱅크 상단벽 y좌표
+FIN_BANK2_Y_START = -4.749999983     # 2차 통과 핀뱅크 상단벽 y좌표
+
+#   측정 사각형의 z 범위 — 유로의 유동 단면 전체를 덮어야 한다.
+#   ⚠ 확인 필요 — fin_height는 6~7.9mm 범위인데 V4의 유로 깊이는 7.5mm였다.
+#     fin_height가 7.5를 넘는 설계가 있으므로 V5의 유로 깊이는 7.9mm 이상이어야 한다.
+#     측정면은 핀 높이가 아니라 '유로 깊이' 전체를 덮어야 함에 주의 — 핀이 유로보다
+#     낮으면 핀 위로도 유체가 지나가는데, 그 우회 유량까지 세어야 레인 유량이 맞다.
+CHANNEL_Z_TOP   = 7.999999983        # 유로 천장 z좌표
+CHANNEL_DEPTH_MM = 7.9               # 유로 깊이 (fin_height 상한 이상이어야 함)
 
 # ── 메시 크기 [mm] — 코드 흐름 검증용으로 크게 잡고 싶을 때 여기만 바꾸면 됨 ──
 #   MESH_REGION_*  : SubRegion(유체 도메인)에 거는 로컬 메시
@@ -40,6 +63,64 @@ def connect_aedt():
     print("AEDT 켜짐")
     return desktop, None
 
+
+def _create_lane_rectangles(oEditor, name_prefix, x_pos, y_bank_start, params):
+    """핀뱅크 측정 사각형 3개(top/mid/bot)를 만든다.
+
+    V4에서는 레인 7개의 y좌표가 상수였지만, V5는 핀 개수·두께가 설계변수라
+    유로 위치가 매 설계마다 달라진다. 그래서 fins.measure_channels()로 이번 설계의
+    유로 오프셋을 계산해서 그 자리에 사각형을 놓는다.
+
+      name_prefix   : "V_inlet" (1차) 또는 "V_inlet2" (2차)
+      x_pos         : 측정 단면의 x좌표 [mm]
+      y_bank_start  : 핀뱅크 상단벽의 y좌표 [mm] — 여기서 아래(-y)로 오프셋을 더해감
+
+    y는 -방향으로 진행하므로 오프셋을 빼고, Width도 음수로 준다(V4와 동일한 규약).
+    Height(z 방향)는 핀 높이가 아니라 유로 깊이 전체 — 핀이 유로보다 낮으면 핀 위로도
+    유체가 지나가므로 그 우회 유량까지 세어야 레인 유량이 맞다.
+    """
+    channels = measure_channels(params["fin_thick"], params["fin_count"])
+
+    for label, offset, gap in channels:
+        y = y_bank_start - offset
+
+        oEditor.CreateRectangle(
+            [
+                "NAME:RectangleParameters",
+                "IsCovered:=", True,
+                "XStart:=", f"{x_pos}mm",
+                "YStart:=", f"{y}mm",
+                "ZStart:=", f"{CHANNEL_Z_TOP}mm",
+                "Width:=", f"{-gap}mm",
+                "Height:=", f"{-CHANNEL_DEPTH_MM}mm",
+                "WhichAxis:=", "X",
+            ],
+            [
+                "NAME:Attributes",
+                "Name:=", f"{name_prefix}_{label}",
+                "Flags:=", "NonModel#",
+                "Color:=", "(143 175 143)",
+                "Transparency:=", 0,
+                "PartCoordinateSystem:=", "Global",
+                "UDMId:=", "",
+                "MaterialValue:=", "\"Al-Extruded\"",
+                "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
+                "SolveInside:=", True,
+                "ShellElement:=", False,
+                "ShellElementThickness:=", "0mm",
+                "ReferenceTemperature:=", "20cel",
+                "IsMaterialEditable:=", True,
+                "IsSurfaceMaterialEditable:=", True,
+                "UseMaterialAppearance:=", False,
+                "IsLightweight:=", False,
+            ],
+        )
+
+    spec = "  ".join(f"{lab}: y {y_bank_start - off:.3f}~{y_bank_start - off - gap:.3f}"
+                     for lab, off, gap in channels)
+    print(f"  측정면 {name_prefix} (x={x_pos:.3f}mm) — {spec}")
+
+
 def run_icepak(desktop, ipk, step_file, idx, params):
     """
     반환: (ipk, result_path, pao_volume_mm3)
@@ -47,31 +128,47 @@ def run_icepak(desktop, ipk, step_file, idx, params):
       pao_volume_mm3  : 유로를 채운 PAO 부피 [mm^3] — 중량 계산용
                         (SolidWorks 알루미늄 중량 + PAO 중량 = 총 중량)
     """
+    print(f"[T0] run_icepak 진입: {time.strftime('%H:%M:%S')}")
+
     # 기존 프로젝트 닫기 (AEDT는 유지)
     if ipk is not None:
         oDesktop = ipk.odesktop
         proj_name = ipk.project_name
         ipk = None
         oDesktop.CloseProject(proj_name)
-        print("기존 프로젝트 닫음")
+        print(f"[T1] 기존 프로젝트 닫음: {time.strftime('%H:%M:%S')}")
 
     # 디스크 파일 삭제
+    #   .aedt.lock도 같이 지운다 — 스크립트가 중간에 끊기면(F5 재시작, 예외로 죽음 등)
+    #   AEDT가 프로젝트에 걸어둔 잠금 파일이 안 지워진 채 남는다. 다음 실행이 같은
+    #   이름으로 프로젝트를 새로 만들려 할 때 이 잠금 때문에 AEDT가 GUI 모달 팝업을
+    #   띄우고, 그 팝업이 COM 호출을 막아 Icepak() 생성자가 영원히 반환되지 않는다
+    #   ("Project ... has been created"까지만 찍히고 디자인이 생성되지 않는 증상 —
+    #   실제로 이 잠금 파일을 지우고 나니 해결됨을 확인함).
     if os.path.exists(PROJ_PATH + ".aedt"):
         os.remove(PROJ_PATH + ".aedt")
+    if os.path.exists(PROJ_PATH + ".aedt.lock"):
+        os.remove(PROJ_PATH + ".aedt.lock")
     if os.path.exists(PROJ_PATH + ".aedtresults"):
         shutil.rmtree(PROJ_PATH + ".aedtresults")
+    print(f"[T2] 파일삭제(rmtree 등) 끝: {time.strftime('%H:%M:%S')}")
 
     # 새 프로젝트 생성
+    # design을 안 주면 PyAEDT가 매번 랜덤 접미사로 디자인 이름을 자동 생성함
+    # (Icepak_ZZ0, Icepak_IC3 등) — 그 자동 생성 로직 내부(_insert_design ->
+    # active_design)에서 이따금 크래시가 나서(active_design이 None 반환), 아예
+    # 직접 고정 이름을 줘서 그 경로를 타지 않게 함
     ipk = Icepak(
         project=PROJ_PATH,
+        design=f"IcepakDesign_{idx:03d}",
         new_desktop=False,
         close_on_exit=False,
     )
-    print("새 프로젝트 생성:", ipk.project_name)
+    print(f"[T3] 새 프로젝트 생성: {ipk.project_name}  {time.strftime('%H:%M:%S')}")
 
     # STEP import
     ipk.modeler.import_3d_cad(step_file)
-    print("임포트 완료:", step_file)
+    print(f"[T4] STEP 임포트 완료: {step_file}  {time.strftime('%H:%M:%S')}")
 
     # oDesktop/oProject/oDesign/oEditor 매핑
     oDesktop = ipk.odesktop
@@ -638,88 +735,15 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         ])
 
     # %%
-    x_pos = 159          # 유로 안쪽으로 이동 — 경계면에 걸치면 벽면 셀까지 면적에 잡힘
-    y_start = -101.25
-    z_start = 7.999999983
-    width = -7.357142857
-    height = -7.499999967
+    # 측정면 x좌표 — 형상 변수에 따라 동적 계산 (V4에서 실측으로 확인한 기울기 그대로)
+    #   1차: 194 − input_thick        (기존 159 고정값이면 input_thick이 바뀔 때 어긋남)
+    #   2차: mid_input_thick − 194    (기존 -159 고정값이면 mid_input_thick에 대해 같은 문제)
+    x_pos  = 194 - params['input_thick']
+    x_pos2 = params['mid_input_thick'] - 194
 
-    for i in range(N_LANE):
-        y = y_start - (9.857142857 * i)
-
-        oEditor.CreateRectangle(
-            [
-                "NAME:RectangleParameters",
-                "IsCovered:=", True,
-                "XStart:=", f"{x_pos}mm",
-                "YStart:=", f"{y}mm",
-                "ZStart:=", f"{z_start}mm",
-                "Width:=", f"{width}mm",
-                "Height:=", f"{height}mm",
-                "WhichAxis:=", "X",
-            ],
-            [
-                "NAME:Attributes",
-                "Name:=", f"V_inlet_{i+1:02d}",
-                "Flags:=", "NonModel#",
-                "Color:=", "(143 175 143)",
-                "Transparency:=", 0,
-                "PartCoordinateSystem:=", "Global",
-                "UDMId:=", "",
-                "MaterialValue:=", "\"Al-Extruded\"",
-                "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
-                "SolveInside:=", True,
-                "ShellElement:=", False,
-                "ShellElementThickness:=", "0mm",
-                "ReferenceTemperature:=", "20cel",
-                "IsMaterialEditable:=", True,
-                "IsSurfaceMaterialEditable:=", True,
-                "UseMaterialAppearance:=", False,
-                "IsLightweight:=", False,
-            ],
-        )
-
-    # %%
-    x_pos2 = -159        # 유로 안쪽으로 이동 (V_inlet과 같은 이유)
-    y_start2 = -4.749999983
-    z_start2 = 7.999999983
-    width2 = -7.357142857
-    height2 = -7.499999967
-
-    for i in range(N_LANE):
-        y2 = y_start2 - (9.857142857 * i)
-
-        oEditor.CreateRectangle(
-            [
-                "NAME:RectangleParameters",
-                "IsCovered:=", True,
-                "XStart:=", f"{x_pos2}mm",
-                "YStart:=", f"{y2}mm",
-                "ZStart:=", f"{z_start2}mm",
-                "Width:=", f"{width2}mm",
-                "Height:=", f"{height2}mm",
-                "WhichAxis:=", "X",
-            ],
-            [
-                "NAME:Attributes",
-                "Name:=", f"V_inlet2_{i+1:02d}",
-                "Flags:=", "NonModel#",
-                "Color:=", "(143 175 143)",
-                "Transparency:=", 0,
-                "PartCoordinateSystem:=", "Global",
-                "UDMId:=", "",
-                "MaterialValue:=", "\"Al-Extruded\"",
-                "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
-                "SolveInside:=", True,
-                "ShellElement:=", False,
-                "ShellElementThickness:=", "0mm",
-                "ReferenceTemperature:=", "20cel",
-                "IsMaterialEditable:=", True,
-                "IsSurfaceMaterialEditable:=", True,
-                "UseMaterialAppearance:=", False,
-                "IsLightweight:=", False,
-            ],
-        )
+    print(f"  {describe(params['fin_thick'], params['fin_count'])}")
+    _create_lane_rectangles(oEditor, "V_inlet",  x_pos,  FIN_BANK1_Y_START, params)
+    _create_lane_rectangles(oEditor, "V_inlet2", x_pos2, FIN_BANK2_Y_START, params)
 
     # %%
     oEditor.CreateRectangle(
@@ -874,7 +898,9 @@ def run_icepak(desktop, ipk, step_file, idx, params):
         ])
 
     # %%
+    print(f"[T5] AnalyzeAll 시작(메싱+솔브): {time.strftime('%H:%M:%S')}")
     oDesign.AnalyzeAll()
+    print(f"[T6] AnalyzeAll 끝(메싱+솔브 완료): {time.strftime('%H:%M:%S')}")
 
 
     # %%
@@ -885,37 +911,41 @@ def run_icepak(desktop, ipk, step_file, idx, params):
     # Fields Summary는 "Solutions" 모듈 소속.
     #   위에서 oModule이 AnalysisSetup으로 덮여 있으므로 반드시 다시 잡아야 함.
     oModule = oDesign.GetModule("Solutions")
-    oModule.EditFieldsSummarySetting(
-        [
-            "SolutionName:="	, "Setup1 : SteadyState",
-            "Variation:="		, "Nominal",
-            "Calculation:="		, ["Object","Surface","source01","Temperature","","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","source02","Temperature","","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","source03","Temperature","","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","source04","Temperature","","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","source05","Temperature","","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","source06","Temperature","","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","source07","Temperature","","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","source08","Temperature","","Default","Reduced","Nominal",True],
-            # 행 8: 차압 (목적함수) — 스크립트 리코더본에 빠져 있어 V1 설정 그대로 복원함.
-            #       Fan1_Passage는 Fan1 삽입 시 자동 생성되는 면 이름 (첫 실행에서 존재 확인 필요)
-            "Calculation:="		, ["Object","Surface","Fan1_Passage","Pressure","0.00,0.00,1.00","Default","Reduced","Nominal",False],
-            "Calculation:="		, ["Object","Surface","V_inlet_01","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet_02","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet_03","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet_04","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet_05","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet_06","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet_07","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet2_01","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet2_02","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet2_03","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet2_04","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet2_05","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet2_06","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","V_inlet2_07","Speed","1.00,-0.00,-0.00","Default","Reduced","Nominal",True],
-            "Calculation:="		, ["Object","Surface","Rectangle1","Speed","0.00,-1.00,0.00","Default","Reduced","Nominal",False]
-        ])
+
+    # Calculation 추가 순서 = CSV 행 순서. result_parser의 ROW_* 인덱스가 이 순서를
+    # 그대로 전제하므로, 여기 순서를 바꾸면 파싱이 통째로 어긋난다.
+    #   행 0~7   : source01~08 온도
+    #   행 8     : Fan1_Passage 차압
+    #   행 9~11  : V_inlet_top/mid/bot   (1차 통과)
+    #   행 12~14 : V_inlet2_top/mid/bot  (2차 통과)
+    #   행 15    : Rectangle1 (전원모듈 분기 입구)
+    # V4에서는 레인 14줄을 손으로 나열했지만, V5는 측정 개수를 fins.py가 정하므로
+    # 반복문으로 만든다 — 개수를 바꿔도 두 파일이 어긋나지 않게.
+    calc_args = ["SolutionName:=", "Setup1 : SteadyState", "Variation:=", "Nominal"]
+
+    for i in range(N_SOURCE):
+        calc_args += ["Calculation:=",
+                      ["Object", "Surface", f"source{i+1:02d}", "Temperature", "",
+                       "Default", "Reduced", "Nominal", True]]
+
+    # 차압 — 스크립트 리코더본에 빠져 있어 V1 설정 그대로 복원한 항목.
+    #   Fan1_Passage는 Fan1 삽입 시 자동 생성되는 면 이름 (첫 실행에서 존재 확인 필요)
+    calc_args += ["Calculation:=",
+                  ["Object", "Surface", "Fan1_Passage", "Pressure", "0.00,0.00,1.00",
+                   "Default", "Reduced", "Nominal", False]]
+
+    for prefix in ("V_inlet", "V_inlet2"):
+        for label in MEASURE_LABELS:
+            calc_args += ["Calculation:=",
+                          ["Object", "Surface", f"{prefix}_{label}", "Speed",
+                           "1.00,-0.00,-0.00", "Default", "Reduced", "Nominal", True]]
+
+    calc_args += ["Calculation:=",
+                  ["Object", "Surface", "Rectangle1", "Speed", "0.00,-1.00,0.00",
+                   "Default", "Reduced", "Nominal", False]]
+
+    oModule.EditFieldsSummarySetting(calc_args)
+    print(f"[T7] Fields Summary 설정 끝, export 시작: {time.strftime('%H:%M:%S')}")
     oModule.ExportFieldsSummary(
         [
             "SolutionName:="	, "Setup1 : SteadyState",
@@ -923,6 +953,7 @@ def run_icepak(desktop, ipk, step_file, idx, params):
             "ExportFileName:="	, result_path,
             "IntrinsicValue:="	, ""
         ])
+    print(f"[T8] Fields Summary export 끝: {time.strftime('%H:%M:%S')}")
     print(f"[{idx}] CSV 저장 완료: {result_path}")
 
     # ── PAO 부피 (교차검증용 로그) ──

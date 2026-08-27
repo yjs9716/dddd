@@ -1,30 +1,50 @@
 """
-V2 공통 경로 설정 — 작업폴더 구조가 바뀌면 이 파일만 고치면 됨.
+V5 경로 설정 — 작업폴더 260827 (신규)
 
-작업폴더: E:\\Thermal_Anlaysis\\Liquid_plate\\260810
-  ├─ AEDT        : 해석 프로그램 파일
-  ├─ Code        : 코드 (이 파일들이 저장되는 곳)
-  ├─ Result      : 매 해석마다 CSV 저장
-  └─ Solidworks  : 형상변경할 모델
+V4(260821)와 완전히 분리된 새 캠페인.
+  · 설계변수가 8개 → 10개로 바뀌었고(power_output_thick 고정, 방열핀 3변수 신규),
+    목적함수의 레인 측정도 14개 → 6개(통과당 top/mid/bot)로 바뀌었다.
+  · 형상 자체가 달라졌으므로(핀뱅크 길이 66.5 → 86.5mm 전제) V4 데이터를 재사용할
+    수 없다 — seed_from_raw 같은 복원 경로 없이 idx=0부터 새로 시작한다.
+
+작업폴더 구조
+  E:\\Thermal_Anlaysis\\Liquid_plate\\260827   (V5 작업폴더, 전부 여기)
+    ├─ AEDT           : V5 전용 AEDT 프로젝트 저장 위치
+    ├─ Code           : 이 코드(이 폴더 내용물)를 옮겨 넣는 위치
+    ├─ Result         : result_000.csv... (Icepak Fields Summary 원본) +
+    │                   results_v5.csv / failed_v5.csv (ML.py가 관리)
+    └─ Solidworks     : 형상 모델 파일
+        └─ Step       : V5 전용 STEP 폴더
+
+⚠ 시작 전 준비
+  1) 260827\\Solidworks 에 plate_base.SLDPRT, flowpath.SLDASM 을 복사해 둘 것.
+  2) SolidWorks Equation Manager에 아래 전역변수가 전부 있어야 한다(이름 정확히 일치):
+       input_thick, input_angle, power_input_thick, mid_thick, mid_angle,
+       mid_input_thick, output_thick, fin_thick, fin_height, fin_count,
+       power_output_thick(고정값 25 — 자유변수는 아니지만 값은 넣어줌)
+     그리고 핀 간격은 변수가 아니라 수식으로 걸어둘 것:
+       "fin_gap" = (86.5 - "fin_count" * "fin_thick") / ("fin_count" + 1)
+     핀은 선형패턴으로 만들고, 패턴 간격 = "fin_gap" + "fin_thick",
+     인스턴스 개수 = "fin_count", 첫 핀의 상단벽 오프셋 = "fin_gap" 으로 묶으면
+     상단벽↔핀 / 핀↔핀 / 핀↔하단벽 간격이 전부 자동으로 같아진다.
 """
 import os
 
-BASE = r"E:\Thermal_Anlaysis\Liquid_plate\260810"
+BASE_V5 = r"E:\Thermal_Anlaysis\Liquid_plate\260827"   # V5 작업폴더 (전부 여기)
 
-AEDT_DIR       = os.path.join(BASE, "AEDT")
-SOLIDWORKS_DIR = os.path.join(BASE, "Solidworks")
-RESULT_DIR     = os.path.join(BASE, "Result")
+AEDT_DIR       = os.path.join(BASE_V5, "AEDT")
+SOLIDWORKS_DIR = os.path.join(BASE_V5, "Solidworks")
+RESULT_DIR_V5  = os.path.join(BASE_V5, "Result")
 
 # ── SolidWorks ──
 PART_PATH = os.path.join(SOLIDWORKS_DIR, "plate_base.SLDPRT")
 ASM_PATH  = os.path.join(SOLIDWORKS_DIR, "flowpath.SLDASM")
-STEP_DIR  = os.path.join(SOLIDWORKS_DIR, "Step")   # 실험점마다 STEP 저장
+STEP_DIR  = os.path.join(SOLIDWORKS_DIR, "Step")
 
 # ── AEDT ──
 AEDT_PROJ_PATH = os.path.join(AEDT_DIR, "thermal_test")   # .aedt 확장자 제외
 
-# ── Result ──
-ICEPAK_RESULT_DIR = RESULT_DIR                              # result_000.csv 등 (Icepak 원본)
-RESULTS_PATH      = os.path.join(RESULT_DIR, "results_v2.csv")   # ML.py 관리, 실험 결과+예측값
-SUMMARY_PATH      = os.path.join(RESULT_DIR, "summary_v2.csv")   # result_parser.py 관리, 요약
-FAILED_PATH       = os.path.join(RESULT_DIR, "failed_v2.csv")    # ML.py 관리, 실패점
+# ── Result (V5 전용 산출물) ──
+ICEPAK_RESULT_DIR = RESULT_DIR_V5                                   # result_000.csv ...
+RESULTS_PATH      = os.path.join(RESULT_DIR_V5, "results_v5.csv")   # ML.py 관리, 실험 결과+예측값
+FAILED_PATH       = os.path.join(RESULT_DIR_V5, "failed_v5.csv")    # ML.py 관리, 실패점
