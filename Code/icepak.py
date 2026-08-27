@@ -2,7 +2,7 @@ from ansys.aedt.core import Desktop, Icepak
 import os, shutil, time
 
 from paths import AEDT_PROJ_PATH as PROJ_PATH, ICEPAK_RESULT_DIR
-from fins import MEASURE_LABELS, N_MEASURE, measure_channels, describe
+from fins import channel_offsets, describe
 
 # 전원모듈 입구 측정 사각형(Rectangle1)의 폭 [mm]. 높이는 power_input_thick(설계변수).
 #   유량 환산 면적은 CSV의 Area/Volume 열 실측값을 쓰므로(메시 이산화로 도면값과
@@ -15,13 +15,13 @@ PAO_DENSITY = 794.0
 # ── 측정 대상 개수 — CSV 행 구조를 결정하므로 result_parser가 이 값을 import해서 씀 ──
 #   여기를 바꾸면 파싱 쪽 행 인덱스가 자동으로 따라감 (두 파일이 어긋날 일 없게)
 N_SOURCE = 8   # 발열채널(source01~) 개수
-#   레인 측정 개수(N_MEASURE=3)는 fins.py가 정의한다 — 핀 개수가 설계변수라
-#   "통과당 유로 몇 개"가 설계마다 달라지므로, 개수와 무관한 상대위치 3점만 잰다.
+#   레인 측정 개수는 통과당 유로 전체(fin_count+1)라 설계마다 다르다 — 고정 상수
+#   없음. result_parser가 params["fin_count"]로 매 idx마다 직접 계산한다.
 
 # ── 핀뱅크 측정면 기준 좌표 [mm] ──────────────────────────────
 #   V4에서는 레인 7개의 y좌표를 상수로 박아뒀지만(y_start − 9.857142857·i),
 #   V5는 핀 개수·두께가 변수라 매 설계마다 계산해야 한다. 그래서 "기준점"만
-#   상수로 두고, 각 유로의 위치는 fins.measure_channels()가 계산한 오프셋을 더해 만든다.
+#   상수로 두고, 각 유로의 위치는 fins.channel_offsets()가 계산한 오프셋을 더해 만든다.
 #
 #   ⚠ 확인 필요 — 아래 두 값은 V4 형상에서 역산한 값이다.
 #     V4를 역산하면 핀뱅크 시작 y가 각각 -101.25 / -4.749999983 이고, 핀 6개·t=2.5·
@@ -32,12 +32,10 @@ FIN_BANK1_Y_START = -101.25          # 1차 통과 핀뱅크 상단벽 y좌표
 FIN_BANK2_Y_START = -4.749999983     # 2차 통과 핀뱅크 상단벽 y좌표
 
 #   측정 사각형의 z 범위 — 유로의 유동 단면 전체를 덮어야 한다.
-#   ⚠ 확인 필요 — fin_height는 6~7.9mm 범위인데 V4의 유로 깊이는 7.5mm였다.
-#     fin_height가 7.5를 넘는 설계가 있으므로 V5의 유로 깊이는 7.9mm 이상이어야 한다.
-#     측정면은 핀 높이가 아니라 '유로 깊이' 전체를 덮어야 함에 주의 — 핀이 유로보다
-#     낮으면 핀 위로도 유체가 지나가는데, 그 우회 유량까지 세어야 레인 유량이 맞다.
-CHANNEL_Z_TOP   = 7.999999983        # 유로 천장 z좌표
-CHANNEL_DEPTH_MM = 7.9               # 유로 깊이 (fin_height 상한 이상이어야 함)
+#   fin_height는 8.0mm(OLHD.FIXED_PARAMS)로 유로 깊이와 정확히 같다 — 우회공간이
+#   없으므로 측정 사각형도 그냥 유로 깊이 그대로 덮으면 된다(핀 높이를 따로 볼 필요 없음).
+CHANNEL_Z_TOP    = 7.999999983       # 유로 천장 z좌표
+CHANNEL_DEPTH_MM = 8.0               # 유로 깊이 = fin_height(고정값, fins.py 상단 주석 참고)
 
 # ── 메시 크기 [mm] — 코드 흐름 검증용으로 크게 잡고 싶을 때 여기만 바꾸면 됨 ──
 #   MESH_REGION_*  : SubRegion(유체 도메인)에 거는 로컬 메시
@@ -65,23 +63,29 @@ def connect_aedt():
 
 
 def _create_lane_rectangles(oEditor, name_prefix, x_pos, y_bank_start, params):
-    """핀뱅크 측정 사각형 3개(top/mid/bot)를 만든다.
+    """핀뱅크의 유로 전체(fin_count+1개)에 측정 사각형을 만든다.
 
-    V4에서는 레인 7개의 y좌표가 상수였지만, V5는 핀 개수·두께가 설계변수라
-    유로 위치가 매 설계마다 달라진다. 그래서 fins.measure_channels()로 이번 설계의
-    유로 오프셋을 계산해서 그 자리에 사각형을 놓는다.
+    핀 개수가 설계변수라 유로 개수(=fin_count+1)도 설계마다 달라진다. 예전처럼
+    상대위치 몇 점만 골라 재면 "몇 번째가 대표점인가"가 애매해지는 문제가 있어서
+    (짝수 유로에서 정중앙 유로가 없는 등), 그냥 전체를 다 재고 result_parser가
+    표준편차로 압축하는 쪽으로 바꿨다. fins.channel_offsets()가 이미 전체 유로의
+    위치를 계산해주므로 여기서는 그 개수만큼 반복 생성만 하면 된다.
 
       name_prefix   : "V_inlet" (1차) 또는 "V_inlet2" (2차)
       x_pos         : 측정 단면의 x좌표 [mm]
       y_bank_start  : 핀뱅크 상단벽의 y좌표 [mm] — 여기서 아래(-y)로 오프셋을 더해감
 
     y는 -방향으로 진행하므로 오프셋을 빼고, Width도 음수로 준다(V4와 동일한 규약).
-    Height(z 방향)는 핀 높이가 아니라 유로 깊이 전체 — 핀이 유로보다 낮으면 핀 위로도
-    유체가 지나가므로 그 우회 유량까지 세어야 레인 유량이 맞다.
-    """
-    channels = measure_channels(params["fin_thick"], params["fin_count"])
+    Height(z 방향)는 유로 깊이 전체(CHANNEL_DEPTH_MM) — fin_height가 고정값(8.0)으로
+    유로 깊이와 같아 우회공간이 없으므로 핀 높이를 따로 신경 쓸 필요는 없다.
 
-    for label, offset, gap in channels:
+    이름은 인덱스 기반(`V_inlet_00`, `V_inlet_01`, ...)이라 fin_count가 몇이든
+    항상 고유하다. result_parser가 이 개수(N=fin_count+1)를 알고 있어야
+    CSV를 올바른 행수로 읽으므로, 이름 규칙이 바뀌면 result_parser도 같이 고칠 것.
+    """
+    channels = channel_offsets(params["fin_thick"], params["fin_count"])
+
+    for k, (offset, gap) in enumerate(channels):
         y = y_bank_start - offset
 
         oEditor.CreateRectangle(
@@ -97,7 +101,7 @@ def _create_lane_rectangles(oEditor, name_prefix, x_pos, y_bank_start, params):
             ],
             [
                 "NAME:Attributes",
-                "Name:=", f"{name_prefix}_{label}",
+                "Name:=", f"{name_prefix}_{k:02d}",
                 "Flags:=", "NonModel#",
                 "Color:=", "(143 175 143)",
                 "Transparency:=", 0,
@@ -116,9 +120,8 @@ def _create_lane_rectangles(oEditor, name_prefix, x_pos, y_bank_start, params):
             ],
         )
 
-    spec = "  ".join(f"{lab}: y {y_bank_start - off:.3f}~{y_bank_start - off - gap:.3f}"
-                     for lab, off, gap in channels)
-    print(f"  측정면 {name_prefix} (x={x_pos:.3f}mm) — {spec}")
+    print(f"  측정면 {name_prefix} (x={x_pos:.3f}mm) — 유로 {len(channels)}개 전부 생성 "
+          f"(y {y_bank_start:.3f} ~ {y_bank_start - channels[-1][0] - channels[-1][1]:.3f})")
 
 
 def run_icepak(desktop, ipk, step_file, idx, params):
@@ -914,13 +917,15 @@ def run_icepak(desktop, ipk, step_file, idx, params):
 
     # Calculation 추가 순서 = CSV 행 순서. result_parser의 ROW_* 인덱스가 이 순서를
     # 그대로 전제하므로, 여기 순서를 바꾸면 파싱이 통째로 어긋난다.
-    #   행 0~7   : source01~08 온도
-    #   행 8     : Fan1_Passage 차압
-    #   행 9~11  : V_inlet_top/mid/bot   (1차 통과)
-    #   행 12~14 : V_inlet2_top/mid/bot  (2차 통과)
-    #   행 15    : Rectangle1 (전원모듈 분기 입구)
-    # V4에서는 레인 14줄을 손으로 나열했지만, V5는 측정 개수를 fins.py가 정하므로
-    # 반복문으로 만든다 — 개수를 바꿔도 두 파일이 어긋나지 않게.
+    #   행 0~7          : source01~08 온도
+    #   행 8            : Fan1_Passage 차압
+    #   행 9~(9+n-1)    : V_inlet_00~(n-1)   (1차 통과, n=fin_count+1, 설계마다 가변)
+    #   행 (9+n)~(9+2n-1): V_inlet2_00~(n-1) (2차 통과)
+    #   행 (9+2n)       : Rectangle1 (전원모듈 분기 입구)
+    # V4는 레인 14줄을 손으로 나열했지만, V5는 유로 전체(개수 가변)를 다 재므로
+    # 반복문으로 만든다 — result_parser도 같은 개수(params["fin_count"]+1)를 계산해서
+    # 행 위치를 맞춘다.
+    n_channels = int(round(params["fin_count"])) + 1
     calc_args = ["SolutionName:=", "Setup1 : SteadyState", "Variation:=", "Nominal"]
 
     for i in range(N_SOURCE):
@@ -935,9 +940,9 @@ def run_icepak(desktop, ipk, step_file, idx, params):
                    "Default", "Reduced", "Nominal", False]]
 
     for prefix in ("V_inlet", "V_inlet2"):
-        for label in MEASURE_LABELS:
+        for k in range(n_channels):
             calc_args += ["Calculation:=",
-                          ["Object", "Surface", f"{prefix}_{label}", "Speed",
+                          ["Object", "Surface", f"{prefix}_{k:02d}", "Speed",
                            "1.00,-0.00,-0.00", "Default", "Reduced", "Nominal", True]]
 
     calc_args += ["Calculation:=",

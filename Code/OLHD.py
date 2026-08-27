@@ -1,5 +1,5 @@
 """
-V5 유로+방열핀 10변수 Optimal Latin Hypercube Design
+V5 유로+방열핀 9변수 Optimal Latin Hypercube Design
 
 V4(Code3) 대비 변경점
   ① power_output_thick 제거 → 25mm 고정 (FIXED_PARAMS)
@@ -16,7 +16,7 @@ V4(Code3) 대비 변경점
        유량이 더 균일해지는(직관과 반대 방향) 거동이 나와 원인이 확정되지 않았다.
        확실치 않은 걸 고정해 버리면 그 구간을 영영 못 보므로 남겨둔다.
 
-  ② 방열핀 3변수 신규 — fin_thick / fin_height / fin_count
+  ② 방열핀 2변수 신규 — fin_thick / fin_count (fin_height는 고정값, 아래 ④)
      핀 배치는 등간격이고, 갭은 두께·개수로부터 종속 계산된다(fins.py).
      fin_count는 정수 변수라 GPR/LHD의 연속 좌표를 정수로 반올림해서 쓴다.
 
@@ -26,6 +26,20 @@ V4(Code3) 대비 변경점
      버리는 방식(rejection)은 그만큼 후보를 낭비하고 LHD의 층화도 깨진다.
      그래서 fin_count를 "그 두께에서 허용되는 범위" 안으로 접어 넣는 중첩
      샘플링(decode 참고)을 쓴다 — 무효점이 원천적으로 안 나온다.
+
+  ④ fin_height도 자유변수가 아니라 8.0mm 고정 (FIXED_PARAMS)
+     원래는 6.0~7.9mm 자유변수였다. 유로 깊이(icepak.CHANNEL_DEPTH_MM)가 8mm로
+     고정이라, fin_height가 8보다 작으면 핀 위에 우회공간(0.1~2mm, 설계마다 가변)이
+     생기는데, 이 얇고 폭이 계속 바뀌는 틈을 DOE 90~100점 전체에서 매번 제대로
+     메싱해야 해서 실패 시 데이터 전체가 조용히 오염될 위험이 크다. 게다가 우회유동은
+     핀 표면에 안 닿고 새는 유량이라 압력강하는 낮추고 열전달은 나쁘게 하는
+     트레이드오프까지 낀다 — 캠페인 목적(설계 간 상대비교)엔 없는 게 더 깨끗하다.
+     그래서 fin_height=8.0(=유로 깊이, 우회공간 0)으로 고정해 이 문제 자체를
+     캠페인에서 제거한다. PAO는 solid를 뺀 나머지로 생성되므로(Boolean) 접촉면
+     애매함 없이 깔끔하게 처리된다.
+     실제 제작 시엔 브레이징 조립공차 때문에 핀이 유로보다 살짝 낮아야 하므로
+     (V4에서 쓰던 값 7.5mm), 최종 후보 확정 후 그 값으로 1회 재해석해서 스펙을
+     여전히 만족하는지 확인한다 — 캠페인 자체에는 반영하지 않는다.
 """
 import numpy as np
 from scipy.stats import qmc
@@ -43,13 +57,13 @@ PARAM_SPEC = [
     ("mid_input_thick",    15.0, 35.0),   # mm
     ("output_thick",       15.0, 35.0),   # mm
     ("fin_thick",           1.5,  3.0),   # mm — 신규(방열핀 두께)
-    ("fin_height",          6.0,  7.9),   # mm — 신규(방열핀 높이)
     ("fin_count",          10.0, 21.0),   # 개 — 신규(방열핀 개수, 정수로 반올림해서 씀)
 ]
 
 # ── 고정 파라미터 (탐색하지 않지만 SolidWorks에는 넣어줘야 하는 값) ──
 FIXED_PARAMS = {
     "power_output_thick": 25.0,   # mm — 위 ① 참고
+    "fin_height":          8.0,   # mm — 위 ④ 참고, 유로 깊이와 동일(우회공간 없음)
 }
 
 PARAM_NAMES = [p[0] for p in PARAM_SPEC]
@@ -64,10 +78,10 @@ I_FIN_THICK = PARAM_NAMES.index("fin_thick")
 I_FIN_COUNT = PARAM_NAMES.index("fin_count")
 
 # 기본 DOE 점 수 — "10 x 변수수" 경험칙. 변수를 추가/삭제하면 자동으로 따라감.
-#   10변수 → 100점. V4(8변수/80점)보다 20점 늘어난다.
+#   9변수 → 90점. V4(8변수/80점)보다 10점 늘어난다.
 DEFAULT_N_DOE = 10 * N_DIM
 
-# maxmin 탐색 후보 LHD 개수 — 차원이 8→10으로 늘어 한 번에 좋은 배치가 잘 안 나옴
+# maxmin 탐색 후보 LHD 개수 — 차원이 8→9로 늘어 한 번에 좋은 배치가 잘 안 나옴
 N_MAXMIN_TRIALS = 20000
 
 
@@ -120,7 +134,7 @@ def normalize(x):
 
 def generate_olhd(n_samples=DEFAULT_N_DOE, seed=42):
     """
-    Optimal Latin Hypercube Design (10변수, 갭 제약 반영)
+    Optimal Latin Hypercube Design (9변수, 갭 제약 반영)
 
     N_MAXMIN_TRIALS개의 LHD 후보를 만들어 그중 "점 사이 최소거리가 가장 큰"
     배치를 고른다. 거리는 decode 후 박스 정규화 공간에서 잰다 — fin_count 접힘과

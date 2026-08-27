@@ -1,5 +1,5 @@
 """
-V5 유로+방열핀 10변수 — 메인 루프 (SW → Icepak → ML 순차 실행)
+V5 유로+방열핀 9변수 — 메인 루프 (SW → Icepak → ML 순차 실행)
 
 V4(Code3) 대비 변경점
   - 루프 로직 자체는 V4와 동일. 바뀐 건 OLHD/ML/result_parser/icepak의 내용물이라

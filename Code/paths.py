@@ -2,8 +2,10 @@
 V5 경로 설정 — 작업폴더 260827 (신규)
 
 V4(260821)와 완전히 분리된 새 캠페인.
-  · 설계변수가 8개 → 10개로 바뀌었고(power_output_thick 고정, 방열핀 3변수 신규),
-    목적함수의 레인 측정도 14개 → 6개(통과당 top/mid/bot)로 바뀌었다.
+  · 설계변수가 8개 → 9개로 바뀌었다(power_output_thick·fin_height 고정, 방열핀
+    2변수 fin_thick/fin_count 신규).
+  · 목적함수의 레인 측정도 14개 → std 2개(통과별 유로 전체의 표준편차)로 바뀌었다
+    — 유로 자체는 전부(fin_count+1개) 재지만, GPR엔 압축된 값만 넘긴다.
   · 형상 자체가 달라졌으므로(핀뱅크 길이 66.5 → 86.5mm 전제) V4 데이터를 재사용할
     수 없다 — seed_from_raw 같은 복원 경로 없이 idx=0부터 새로 시작한다.
 
@@ -20,8 +22,9 @@ V4(260821)와 완전히 분리된 새 캠페인.
   1) 260827\\Solidworks 에 plate_base.SLDPRT, flowpath.SLDASM 을 복사해 둘 것.
   2) SolidWorks Equation Manager에 아래 전역변수가 전부 있어야 한다(이름 정확히 일치):
        input_thick, input_angle, power_input_thick, mid_thick, mid_angle,
-       mid_input_thick, output_thick, fin_thick, fin_height, fin_count,
-       power_output_thick(고정값 25 — 자유변수는 아니지만 값은 넣어줌)
+       mid_input_thick, output_thick, fin_thick, fin_count  (자유변수 9개)
+       power_output_thick(고정값 25), fin_height(고정값 8.0 — 유로 깊이와 동일,
+       우회공간 없음. 실제 제작 시엔 조립공차 위해 7.5mm로 낮춰 최종 1회만 재검증)
      그리고 핀 간격은 변수가 아니라 수식으로 걸어둘 것:
        "fin_gap" = (86.5 - "fin_count" * "fin_thick") / ("fin_count" + 1)
      핀은 선형패턴으로 만들고, 패턴 간격 = "fin_gap" + "fin_thick",

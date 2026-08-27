@@ -1,13 +1,14 @@
 # %%
 """
-V2 유로 8변수 — OLHD 샘플 분포 시각화
+OLHD 샘플 분포 시각화 — 변수 개수(N_DIM)와 무관하게 동작
 
-V1(2변수) 대비 변경점
-  - 변수가 8개(mm/deg 혼재)라 2D 산점도 하나로 설계공간을 못 보여줌
+  - 변수가 여럿(mm/deg/개수 혼재)이라 2D 산점도 하나로 설계공간을 못 보여줌
     → 변수쌍 전체(하삼각 산점도, N_DIM x N_DIM)로 확장
   - 최소/평균 거리도 정규화 공간([0,1]^N_DIM) 기준으로 계산
     → mm(15~40)와 deg(90~150)처럼 스케일이 다른 변수가 섞여있어,
       원래 값 그대로 거리를 재면 범위 넓은 변수(각도)가 지배해버림
+  - OLHD.PARAM_SPEC/FIXED_PARAMS를 그대로 import해서 쓰므로, 변수 구성이
+    바뀌어도(V5: 9변수 + fin_height/power_output_thick 고정) 이 파일은 안 고쳐도 됨
 """
 import numpy as np
 import matplotlib.pyplot as plt

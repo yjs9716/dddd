@@ -1,41 +1,43 @@
 """
-V5 유로+방열핀 10변수 — GPR 대체모델 + IMSE 적응 샘플링 + 예측오차 기반 자동종료
+V5 유로+방열핀 9변수 — GPR 대체모델 + IMSE 적응 샘플링 + 예측오차 기반 자동종료
 
 V4(Code3) 대비 변경점
 
-  ① 종료기준: 전 그룹 상대오차 1% → 레인만 절대오차 기준으로 교체
-     V4에서 211점을 쌓고도 레인 그룹은 상대오차 1%를 3회 연속 만족한 적이 없었다.
-     데이터가 부족해서가 아니라 기준 자체가 구조적으로 도달 불가능했기 때문이다:
-     레인 유량은 총유량을 여러 개로 나눈 값이라, 설계가 좋아져 유량이 균일해질수록
-     각 레인값이 서로 비슷해지고 분모가 작아진다 — CV에서 겪었던 증폭 문제가
-     한 단계 아래에서 똑같이 재현된 것.
-
-     그래서 레인만 분모를 "그때그때 예측값"이 아니라 "총유량 4 LPM"이라는 고정값으로
-     바꾼다. 상대오차 원칙을 버리는 게 아니라, 설계 품질에 종속되지 않는 기준량으로
-     분모를 옮기는 것이다.
-         pressure_drop / temp_std / max_temp : 상대오차 <= 1%       (그대로 — 문제 없었음)
-         lane_pass1 / lane_pass2             : 절대오차 <= 0.01 LPM (= 총유량의 0.25%)
-
-     ⚠ V5에서는 이 기준이 V4보다 상대적으로 느슨해진다. V4는 레인이 통과당 7개라
-       레인 하나가 약 4/7 = 0.57 LPM이었지만, V5는 유로가 11~22개라 하나당
-       0.18~0.36 LPM이다. 같은 0.01 LPM이 레인 대비 1.8% → 2.8~5.5%가 된다.
-       그래도 이 기준을 쓰는 이유: 설계 판단에서 의미 있는 건 "시스템 총유량 대비
-       얼마나 잘못 배분됐나"이고, 그 값은 유로를 몇 개로 쪼갰든 달라지지 않기 때문.
-       레인 대비 비율로 잡으면 핀 개수가 많은 설계일수록 기준이 저절로 빡세져서
-       설계마다 다른 잣대를 들이대는 꼴이 된다.
-
-  ② 학습 대상 레인 14개 → 6개 (통과당 top/mid/bot)
+  ① 학습 대상 레인 14개 → std 2개 (통과당 표준편차 1개)
      핀 개수가 설계변수가 되면서 유로 개수가 설계마다 달라진다. GPR은 출력 차원이
-     고정이어야 하므로 개수가 변하는 값을 통째로 목적함수로 쓸 수 없다.
-     상대위치 3점만 재는 이유와 트레이드오프는 result_parser.py 참고.
-     부수 효과로 모델 수가 19개 → 11개로 줄어 회차당 학습 시간도 짧아진다.
+     고정이어야 하므로 개수가 변하는 값을 통째로 목적함수로 쓸 수 없다. 처음엔
+     상대위치 몇 점(top/mid/bot 등)만 골라 재는 방식을 검토했지만 위치 선정 자체가
+     애매해지는 문제가 있어서(짝수 유로에서 정중앙이 없음, 2점만 쓰면 중앙의
+     비단조 패턴을 놓침), 유로 전체를 다 재고 그 표준편차 하나로 압축하는 쪽으로
+     바꿨다(근거는 result_parser.py 참고). 부수 효과로 모델 수가 19개 → 7개로
+     줄어 회차당 학습 시간도 짧아진다.
 
-  ③ 적응샘플링 후보가 갭 제약을 항상 만족하도록 함
+  ② 종료기준: std 그룹은 절대오차, 나머지는 그대로 상대오차 1%
+     std_pass1/2는 CV와 마찬가지로 설계가 좋아질수록(균일해질수록) 0에 가까워지는
+     값이라, 상대오차로 판정하면 CV 때 겪은 증폭 문제가 그대로 재현된다(진짜 std가
+     0.005 LPM으로 내려간 좋은 설계에서, 레인 하나의 절대오차 수준인 0.01 LPM만
+     틀려도 상대오차가 60%까지 치솟는다).
+
+     그래서 std만 오차전파로 유도한 절대오차 기준을 쓴다. 레인 하나의 예측
+     절대오차를 eps=0.01 LPM(총유량의 0.25%, V4에서 실측 검증한 값)이라 하면,
+     N개 유로의 표준편차가 갖는 오차는 SD(std 오차) ≈ eps/√N로 전파된다
+     (시뮬레이션으로 검증 완료). 유로 개수가 제일 적은 경우(N=11, 가장 빡빡한
+     경우)를 기준으로 잡으면 0.01/√11 ≈ 0.003 LPM — 채널이 많을수록 오차는 더
+     줄어드므로 이 값 하나로 고정해도 모든 설계에서 항상 만족 가능하다.
+         pressure_drop / temp_std / max_temp : 상대오차 <= 1%        (그대로 — 문제 없었음)
+         std_pass1 / std_pass2               : 절대오차 <= 0.003 LPM (오차전파로 유도)
+
+  ③ fin_height는 자유변수가 아니라 8.0mm 고정 (OLHD.FIXED_PARAMS 참고)
+     유로 깊이와 같아 우회공간이 없다 — 그 얇고 가변적인 틈을 DOE 전체에서
+     메싱해야 하는 리스크와, 우회유동이 열전달을 나쁘게 하는 트레이드오프를
+     캠페인에서 피하기 위함. 실제 제작 시엔 조립공차 반영값(7.5mm)으로 최종
+     후보 1개만 재검증한다 — 캠페인 자체에는 반영하지 않는다.
+
+  ④ 적응샘플링 후보가 갭 제약을 항상 만족하도록 함
      후보를 박스에서 뽑아 버리는(rejection) 대신 OLHD.decode()로 유효영역 안에
      접어 넣어 생성한다. 무효 후보가 아예 안 생기므로 후보 낭비가 없다.
 
 V4에서 그대로 가져온 것 (근거는 V4 주석에 상세)
-  - 레인 유량을 CV로 압축하지 않고 개별 유량을 학습 (CV는 작은 오차를 크게 증폭)
   - 적응샘플링은 σ x sparsity가 아니라 IMSE (V3에서 코너 쏠림이 실측으로 확인됨)
   - 회차당 GPR 재학습 최적화: 예측 중복 제거 + joblib 병렬 + n_restarts 3 +
     하이퍼파라미터 5회 재사용 (실측 322.9초 → 4초 안팎)
@@ -51,14 +53,14 @@ from OLHD import (generate_olhd, PARAM_NAMES, LO, HI, N_DIM, DEFAULT_N_DOE,
                   to_dict, decode, normalize, FIXED_PARAMS, I_FIN_THICK, I_FIN_COUNT)
 from fins import fin_gap, is_feasible
 from paths import RESULTS_PATH, FAILED_PATH
-from result_parser import LANE1_NAMES, LANE2_NAMES, LANE_NAMES, TOTAL_FLOW_LPM, _cv_from_flows
+from result_parser import STD_NAMES, TOTAL_FLOW_LPM
 
 # ── 실험 설정 ────────────────────────────────────────────────
-N_DOE         = DEFAULT_N_DOE   # 초기 DOE 샘플 수 = 10 x 변수수 (10변수 → 100)
+N_DOE         = DEFAULT_N_DOE   # 초기 DOE 샘플 수 = 10 x 변수수 (9변수 → 90)
 N_CONSECUTIVE = 3               # 연속 만족 횟수 (모든 그룹이 동시 만족해야 종료)
 
-REL_THRESHOLD = 1.0                                     # 상대오차 기준 [%]
-LANE_ABS_THRESHOLD_LPM = TOTAL_FLOW_LPM * 0.25 / 100    # 레인 절대오차 기준 [LPM] = 0.01
+REL_THRESHOLD = 1.0             # 상대오차 기준 [%]
+STD_ABS_THRESHOLD_LPM = 0.003   # std 절대오차 기준 [LPM] — 오차전파(eps/√N, N=11 최악값)로 유도
 
 # ── 적응 샘플링 설정 ──────────────────────────────────────────
 N_CAND        = 65536   # σ로 1차 선별할 후보점 수 (Sobol 균형성 위해 2^16)
@@ -66,14 +68,14 @@ N_IMSE_CAND   = 2000    # 그중 σ 상위 몇 개에 대해 IMSE를 계산할�
 N_IMSE_REF    = 1024    # IMSE 적분에 쓸 참고점 수 (설계공간 전체에 흩뿌림)
 MIN_DIST_NORM = 0.05    # 정규화 공간에서 기존 실험점과 이 거리 미만이면 후보 제외
 
-# ── 목적함수 (9개 = 레인 6 + 차압 + 온도std + 최고온도) ──────
+# ── 목적함수 (5개 = std 2 + 차압 + 온도std + 최고온도) ──────
 #    (이름, log변환 여부)
-#    레인 유량에 log를 쓰지 않는 이유: 값의 범위가 좁고 0에 가까워지지 않으므로
-#    선형 공간에서 충분히 잘 학습됨
+#    std에 log를 쓰지 않는 이유: 값의 범위가 좁고 0 근처에서도 GPR이 선형 공간에서
+#    충분히 잘 학습됨 (log는 0 근처에서 오히려 민감도가 과도해짐)
 OBJECTIVES = (
     [("pressure_drop", True)]                    # 차압은 스케일이 넓어 log
     + [("temp_std", False), ("max_temp", False)]
-    + [(n, False) for n in LANE_NAMES]           # 레인 6개
+    + [(n, False) for n in STD_NAMES]            # std_pass1, std_pass2
 )
 OBJ_NAMES = [o[0] for o in OBJECTIVES]
 
@@ -90,10 +92,8 @@ MODELED       = OBJECTIVES + CONSTRAINTS
 MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
 
 # ── 종료판정 그룹 ──────────────────────────────────────────────
-#    레인을 각각 독립 조건으로 걸면 "9개가 동시에 3연속"이 되어 조합이 기하급수적으로
-#    어려워진다. 레인은 같은 물리량이므로 통과별로 묶어서 "그 통과의 측정점 중 최악"을
-#    하나의 조건으로 본다. "최악"을 쓰는 이유: "레인 유량을 전부 기준 이내로 맞힌다"가
-#    우리가 주장하려는 내용이므로, 평균이 아니라 최악을 기준으로 삼는 게 정직하다.
+#    std_pass1/2는 각각 스칼라 하나라 그룹 내 "최악값" 개념이 필요 없지만(멤버 1개),
+#    _group_values의 로직을 그대로 재사용할 수 있게 같은 구조(members 리스트)로 둔다.
 #
 #    mode="rel" : 상대오차 [%]   — err_* 열을 그대로 씀
 #    mode="abs" : 절대오차 [LPM] — |pred_* − *| 를 직접 계산 (err_*는 %라서 못 씀)
@@ -101,8 +101,8 @@ TERMINATION_GROUPS = {
     "pressure_drop": {"members": ["pressure_drop"], "mode": "rel", "threshold": REL_THRESHOLD},
     "temp_std":      {"members": ["temp_std"],      "mode": "rel", "threshold": REL_THRESHOLD},
     "max_temp":      {"members": ["max_temp"],      "mode": "rel", "threshold": REL_THRESHOLD},
-    "lane_pass1":    {"members": LANE1_NAMES, "mode": "abs", "threshold": LANE_ABS_THRESHOLD_LPM},
-    "lane_pass2":    {"members": LANE2_NAMES, "mode": "abs", "threshold": LANE_ABS_THRESHOLD_LPM},
+    "std_pass1":     {"members": ["std_pass1"], "mode": "abs", "threshold": STD_ABS_THRESHOLD_LPM},
+    "std_pass2":     {"members": ["std_pass2"], "mode": "abs", "threshold": STD_ABS_THRESHOLD_LPM},
 }
 GROUP_NAMES = list(TERMINATION_GROUPS)
 GROUP_UNIT  = {g: ("%" if s["mode"] == "rel" else " LPM") for g, s in TERMINATION_GROUPS.items()}
@@ -120,12 +120,8 @@ def _get_doe_samples():
 
 # 지표별로 [예측값, 실측값, 오차]를 나란히 묶어서 CSV 훑어보기 편하게 정렬
 _METRIC_COLS = [c for n in MODELED_NAMES for c in (f"pred_{n}", n, f"err_{n}")]
-# CV는 학습 대상이 아니지만 실측/예측 둘 다 기록해둠 — GA 입력이자 사람이 보는 지표라
-#   pred_vel_cv_*는 "예측된 레인 유량으로 계산한 CV"
-_CV_COLS = ["pred_vel_cv_pass1", "vel_cv_pass1", "err_vel_cv_pass1",
-            "pred_vel_cv_pass2", "vel_cv_pass2", "err_vel_cv_pass2"]
 # fin_gap은 설계변수가 아니라 fin_thick/fin_count에서 나오는 종속값 — 기록만 해둠
-_COLUMNS = ["idx"] + PARAM_NAMES + ["fin_gap"] + _METRIC_COLS + _CV_COLS
+_COLUMNS = ["idx"] + PARAM_NAMES + ["fin_gap"] + _METRIC_COLS
 
 
 def _load_results():
@@ -202,7 +198,6 @@ def update_ml(params, results):
 
     preds = {n: np.nan for n in MODELED_NAMES}
     errs  = {n: np.nan for n in MODELED_NAMES}
-    cv_pred = {}
     if idx >= N_DOE:
         global _PENDING_PREDICTION
         cached = _PENDING_PREDICTION
@@ -220,10 +215,6 @@ def update_ml(params, results):
         for name in MODELED_NAMES:
             errs[name] = abs(preds[name] - results[name]) / abs(results[name]) * 100
 
-        # 예측된 레인 유량으로부터 CV를 계산 — 실측 CV와 같은 식(_cv_from_flows)을 씀
-        cv_pred["pred_vel_cv_pass1"] = _cv_from_flows([preds[n] for n in LANE1_NAMES])
-        cv_pred["pred_vel_cv_pass2"] = _cv_from_flows([preds[n] for n in LANE2_NAMES])
-
     row = {"idx": idx}
     row.update({n: params[n] for n in PARAM_NAMES})
     row["fin_gap"] = fin_gap(params["fin_thick"], params["fin_count"])
@@ -231,31 +222,15 @@ def update_ml(params, results):
     row.update({f"pred_{n}": preds[n] for n in MODELED_NAMES})
     row.update({f"err_{n}": errs[n] for n in MODELED_NAMES})
 
-    # CV(학습 대상 아님) 기록 — 실측은 항상, 예측은 적응 단계에서만
-    for pass_no in (1, 2):
-        meas = results.get(f"vel_cv_pass{pass_no}", np.nan)
-        pred = cv_pred.get(f"pred_vel_cv_pass{pass_no}", np.nan)
-        row[f"vel_cv_pass{pass_no}"]      = meas
-        row[f"pred_vel_cv_pass{pass_no}"] = pred
-        row[f"err_vel_cv_pass{pass_no}"]  = (
-            abs(pred - meas) / abs(meas) * 100
-            if np.isfinite(pred) and np.isfinite(meas) and abs(meas) > 1e-12 else np.nan
-        )
-
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     _save_results(df)
 
     if idx >= N_DOE:
         g = _group_values(df.tail(1))
-        msg = [f"{k} {g[k][0]:.3f}{GROUP_UNIT[k]}" for k in GROUP_NAMES]
+        msg = [f"{k} {g[k][0]:.4f}{GROUP_UNIT[k]}" for k in GROUP_NAMES]
         print(f"[{idx}] 예측오차: " + "  ".join(msg))
-        print(f"      (종료기준: 상대 {REL_THRESHOLD}% / 레인 절대 "
-              f"{LANE_ABS_THRESHOLD_LPM:.4f} LPM, {N_CONSECUTIVE}회 연속)")
-        if "vel_cv_pass1" in results:
-            print(f"      CV 참고 — 1차 예측 {cv_pred['pred_vel_cv_pass1']:.2f}% / "
-                  f"실측 {results['vel_cv_pass1']:.2f}%,  "
-                  f"2차 예측 {cv_pred['pred_vel_cv_pass2']:.2f}% / "
-                  f"실측 {results['vel_cv_pass2']:.2f}%")
+        print(f"      (종료기준: 상대 {REL_THRESHOLD}% / std 절대 "
+              f"{STD_ABS_THRESHOLD_LPM:.4f} LPM, {N_CONSECUTIVE}회 연속)")
     print(f"[{idx}] 결과 저장 완료")
 
 
@@ -306,8 +281,9 @@ def _converged_objectives(df):
     """최근 N_CONSECUTIVE회 연속 기준을 만족한 '지표' 이름 집합.
 
     이미 수렴한 지표는 _gpr_suggest()의 σ/IMSE 합산에서 빼서, 남은 실험 예산이
-    아직 안 맞는 지표 쪽으로 자연스럽게 쏠리게 함. 판정은 그룹 단위로 하되
-    (레인 3점이 다 같이 수렴해야 그 통과가 수렴한 것으로 봄), 제외는 지표 단위로 함.
+    아직 안 맞는 지표 쪽으로 자연스럽게 쏠리게 함. 그룹당 멤버가 1개뿐이라 지표
+    단위 제외와 그룹 단위 판정이 사실상 같지만, TERMINATION_GROUPS 구조를
+    그대로 재사용하기 위해 이렇게 둔다.
     """
     adaptive = _adaptive_rows(df)
     if len(adaptive) < N_CONSECUTIVE:
@@ -575,7 +551,7 @@ def report_progress():
     gv = _group_values(adaptive)
     ok = _group_ok(adaptive)
     print(f"\n=== 적응샘플링 오차 추이 ({len(adaptive)}회차) ===")
-    print(f"  기준: 상대 {REL_THRESHOLD}% / 레인 절대 {LANE_ABS_THRESHOLD_LPM:.4f} LPM")
+    print(f"  기준: 상대 {REL_THRESHOLD}% / std 절대 {STD_ABS_THRESHOLD_LPM:.4f} LPM")
     print("      " + "".join(f"{g:>18s}" for g in GROUP_NAMES))
     for i in range(len(adaptive)):
         cells = "".join(f"{gv[g][i]:15.4f}{'o' if ok[g][i] else 'x':>3s}" for g in GROUP_NAMES)

@@ -2,11 +2,21 @@
 V5 — 방열핀 배치 계산 (핀 관련 형상 수식의 단일 출처)
 
 이 파일이 필요한 이유
-  V5에서 핀두께(fin_thick)·핀개수(fin_count)·핀높이(fin_height)가 설계변수가 되면서,
+  V5에서 핀두께(fin_thick)·핀개수(fin_count)가 설계변수가 되면서,
   "유로 갭이 몇 mm인가", "몇 번째 유로가 어디에 있는가"가 설계마다 달라진다.
   이 계산이 OLHD(샘플링) / ML(적응샘플링·GA) / icepak(측정면 배치) 세 곳에서 각각
   필요한데, 수식이 흩어지면 한 곳만 고쳤을 때 조용히 어긋난다.
   그래서 핀 배치에 관한 모든 수식을 여기 한 곳에만 둔다.
+
+  핀높이(fin_height)는 설계변수가 아니라 8.0mm 고정값이다(OLHD.FIXED_PARAMS) —
+  유로 깊이(icepak.CHANNEL_DEPTH_MM)와 정확히 같아서 핀 위 우회공간이 아예 없다.
+  이유는 두 가지: ① 우회공간이 있으면 그 얇은 틈(설계마다 0.1~2mm로 가변)을
+  DOE 전체(90~100점)에서 매번 잘 메싱해야 하는데 실패 시 오염이 데이터 전체에
+  조용히 깔린다 ② 우회유동은 핀 표면에 안 닿고 새는 유량이라 압력강하는 낮추고
+  열전달은 나쁘게 만드는 트레이드오프라, 캠페인 목적(상대비교)엔 없는 게 더 깨끗한
+  신호를 준다. 실제 제작 시엔 브레이징 조립공차 때문에 핀이 유로보다 살짝
+  낮아야 하므로(예: 7.5mm), 최종 후보 결정 후 그 값으로 1회 재해석해서
+  스펙을 여전히 만족하는지 확인한다 — 캠페인 자체에는 반영하지 않는다.
 
 배치 규칙 — 등간격
   [벽] g [핀] g [핀] g ... g [핀] g [벽]
@@ -86,36 +96,15 @@ def channel_offsets(fin_thick, fin_count):
     return [(k * pitch, g) for k in range(n + 1)]
 
 
-# ── 측정 위치 ─────────────────────────────────────────────────
+# ── 측정 ──────────────────────────────────────────────────────
 #   핀 개수가 설계마다 달라지므로 "몇 번째 유로"라는 인덱스는 설계마다 다른 물리적
-#   위치를 가리킨다. 게다가 GPR은 출력 차원이 고정이어야 해서 유로 전체(N+1개)를
-#   목적함수로 쓸 수도 없다. 그래서 개수와 무관하게 항상 같은 의미를 갖는
-#   상대위치 3점(최상단 / 중앙 / 최하단)만 측정한다.
-#
-#   트레이드오프: "중간의 특정 유로 하나만 막힘" 같은 비단조 편차는 놓친다.
-#   다만 헤더 분배 유동의 지배적 실패모드는 위→아래 단조 편중이나 중앙 vs 양끝
-#   포물선 형태라, 3점이면 그 주된 패턴은 잡힌다. N이 가변인 이상 "전체 측정"은
-#   선택지 자체가 없으므로 이건 손해라기보다 불가피한 근사다.
-MEASURE_LABELS = ("top", "mid", "bot")
-N_MEASURE = len(MEASURE_LABELS)
-
-
-def measure_indices(fin_count):
-    """측정할 유로 인덱스 3개 (최상단, 중앙, 최하단).
-
-    유로는 0 ~ N번(총 N+1개)이므로 중앙은 N//2.
-    (N이 홀수면 정확히 중앙이 아니라 반 칸 위 — 유로 개수가 짝수라 중앙 칸이
-     없기 때문이며, 위치가 설계마다 튀지 않고 일관되면 되므로 문제되지 않음)
-    """
-    n = int(round(fin_count))
-    return (0, n // 2, n)
-
-
-def measure_channels(fin_thick, fin_count):
-    """측정 유로 3개의 (라벨, 시작 오프셋 [mm], 폭 [mm]) 목록."""
-    offs = channel_offsets(fin_thick, fin_count)
-    return [(label, offs[k][0], offs[k][1])
-            for label, k in zip(MEASURE_LABELS, measure_indices(fin_count))]
+#   위치를 가리킨다. 상대위치로 몇 점만 골라 재는 방식(top/mid/bot 등)은 그 위치
+#   선정 자체가 애매해지는 문제(짝수 유로에서 정중앙이 없음 등)가 있어서 폐기했다.
+#   대신 유로 전체(N+1개)를 다 재고, GPR에는 그 값들의 표준편차(std)만 학습시킨다
+#   — std는 개수와 무관하게 항상 스칼라 하나라 차원 문제도, 위치 선정 문제도 없다.
+#   (result_parser.py가 표준편차를 계산, ML.py가 std_pass1/std_pass2를 학습)
+#   channel_offsets()가 이미 전체 유로 위치를 다 계산해주므로, icepak.py는 그걸
+#   그대로 순회하며 측정면을 만들면 된다.
 
 
 def describe(fin_thick, fin_count):
@@ -150,5 +139,5 @@ if __name__ == "__main__":
         print(f"  t={t}, N={n:2d} → 마지막 유로 끝 {end:.6f}mm  (L={FIN_SPAN_MM}) "
               f"{'OK' if abs(end - FIN_SPAN_MM) < 1e-9 else '불일치!'}")
         print(f"      {describe(t, n)}")
-        print(f"      측정유로: " + ", ".join(
-            f"{lab}@{off:.2f}~{off+w:.2f}mm" for lab, off, w in measure_channels(t, n)))
+        print(f"      유로 {len(offs)}개 전부 측정: " + ", ".join(
+            f"{off:.2f}~{off+w:.2f}" for off, w in offs[:3]) + " ...")

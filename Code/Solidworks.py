@@ -1,5 +1,5 @@
 """
-V5 유로+방열핀 10변수 — SolidWorks COM 자동화 (글로벌 변수 제어 + STEP 저장)
+V5 유로+방열핀 9변수 — SolidWorks COM 자동화 (글로벌 변수 제어 + STEP 저장)
 
 V4(Code3) 대비 변경점
   - 글로벌 변수 8개 → 11개 (자유변수 10 + 고정값 power_output_thick)
@@ -64,7 +64,7 @@ def update_sw(app, errors, warnings, params):
     """
     글로벌 변수 업데이트 및 리빌드.
       params : {변수명: 값} — 키는 SolidWorks 글로벌 변수명과 정확히 일치해야 함.
-               자유변수 10개 + 고정값(power_output_thick)까지 전부 들어있어야 함.
+               자유변수 9개 + 고정값(power_output_thick, fin_height)까지 전부 들어있어야 함.
 
     반환: (aluminum_mass_kg, aluminum_volume_mm3)
       유로(빈 공간)를 채운 PAO는 형상에 없는 개념이라 여기선 알 수 없음.
