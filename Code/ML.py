@@ -12,20 +12,44 @@ V4(Code3) 대비 변경점
      바꿨다(근거는 result_parser.py 참고). 부수 효과로 모델 수가 19개 → 7개로
      줄어 회차당 학습 시간도 짧아진다.
 
-  ② 종료기준: std 그룹은 절대오차, 나머지는 그대로 상대오차 1%
-     std_pass1/2는 CV와 마찬가지로 설계가 좋아질수록(균일해질수록) 0에 가까워지는
-     값이라, 상대오차로 판정하면 CV 때 겪은 증폭 문제가 그대로 재현된다(진짜 std가
-     0.005 LPM으로 내려간 좋은 설계에서, 레인 하나의 절대오차 수준인 0.01 LPM만
-     틀려도 상대오차가 60%까지 치솟는다).
+  ② 종료기준: 목적함수마다 다른 상대/절대오차 대신, 설계공간 변동폭 기준
+     단일 규칙으로 통일 (V4 상수 이식 방식 폐기)
 
-     그래서 std만 오차전파로 유도한 절대오차 기준을 쓴다. 레인 하나의 예측
-     절대오차를 eps=0.01 LPM(총유량의 0.25%, V4에서 실측 검증한 값)이라 하면,
-     N개 유로의 표준편차가 갖는 오차는 SD(std 오차) ≈ eps/√N로 전파된다
-     (시뮬레이션으로 검증 완료). 유로 개수가 제일 적은 경우(N=11, 가장 빡빡한
-     경우)를 기준으로 잡으면 0.01/√11 ≈ 0.003 LPM — 채널이 많을수록 오차는 더
-     줄어드므로 이 값 하나로 고정해도 모든 설계에서 항상 만족 가능하다.
-         pressure_drop / temp_std / max_temp : 상대오차 <= 1%        (그대로 — 문제 없었음)
-         std_pass1 / std_pass2               : 절대오차 <= 0.003 LPM (오차전파로 유도)
+     예전 방식(상대오차 1% + std만 절대오차 0.003 LPM)의 문제:
+       - "1%"가 목적함수마다 실제 강도가 천차만별이었다. max_temp는 절대값(약
+         120도)은 크고 설계마다 변동폭은 작아서(약 0.45도), 1%=1.2도 기준이
+         변동폭의 2.66배 — 설계변수를 무시하고 평균값만 답하는 상수 모델도
+         통과해버리는 사실상 무의미한 기준이었다(V4 데이터로 실측 확인).
+       - std_pass1/2에 쓴 절대오차 0.003 LPM도, 그 유도 근거(eps=0.01 LPM)가
+         "V4에서 실측 검증한 값"이라는 것뿐이라 V5(형상·채널수·메시 다 다름)에
+         그대로 이식할 근거가 없었다 — 새 캠페인은 이전 캠페인을 몰라도 성립하는
+         논리여야 한다.
+
+     새 방식: 모든 목적함수를 절대오차로 통일하되, 기준값을 그 목적함수의
+     "DOE 90점에서 실측된 설계공간 표준편차(S_j)"에 비례하게 잡는다.
+
+         |예측 − 실측|  ≤  α · S_j        (α = 0.1, 전 목적함수 공통)
+
+     S_j는 DOE 90점(idx < N_DOE)에서만 딱 한 번 계산하고 이후 고정한다
+     (_get_S_j 참고). 적응샘플링 단계 데이터로는 절대 재계산하지 않는데,
+     이유는 두 가지:
+       1) 순환논리 방지 — 종료 여부를 판단하는 잣대(S_j)와, 그 판단의 대상인
+          적응샘플링 오차가 서로 다른 데이터 묶음이어야 한다. DOE는 적응샘플링이
+          시작되기 전에 이미 확정되므로 이 조건을 만족한다.
+       2) 안정성 — 적응샘플링은 불확실한 영역에 몰아서 찍는 방식이라(균등
+          샘플링 아님) 회차마다 S_j 추정치가 출렁이면, "몇 번째 점에서 수렴
+          판정났다"는 결론이 언제 멈췄냐에 따라 달라지는 재현성 문제가 생긴다.
+
+     α=0.1의 근거: Q² ≈ 1 − α² 관계로 보면 α=0.1은 Q²≈0.99에 해당 — 대체모델
+     검증에서 흔히 쓰는 현실적 기준. α=0.01(Q²≈0.9999)은 지나치게 엄격해서
+     가상 시나리오 시뮬레이션 결과 사실상 영원히 수렴하지 않았다.
+
+     ⚠ 이 S_j는 DOE 90점만으로 잰 것이라, 적응샘플링이 DOE보다 더 극단적인
+     값을 찾아내면 "진짜" 설계공간 변동폭보다 작게 잡힌 걸 수 있다(→ 기준이
+     의도보다 엄격해지는 안전한 방향의 오차). 캠페인 종료 후 전체 데이터
+     (DOE+적응샘플링)로 S_j를 다시 계산해 사후 검증용으로 같이 보고할 것 —
+     운영 중 쓰는 기준(DOE 고정값)은 안 건드리고, 두 값이 얼마나 다른지만
+     논문에 기록한다.
 
   ③ fin_height는 자유변수가 아니라 8.0mm 고정 (OLHD.FIXED_PARAMS 참고)
      유로 깊이와 같아 우회공간이 없다 — 그 얇고 가변적인 틈을 DOE 전체에서
@@ -57,10 +81,12 @@ from result_parser import STD_NAMES, TOTAL_FLOW_LPM
 
 # ── 실험 설정 ────────────────────────────────────────────────
 N_DOE         = DEFAULT_N_DOE   # 초기 DOE 샘플 수 = 10 x 변수수 (9변수 → 90)
-N_CONSECUTIVE = 3               # 연속 만족 횟수 (모든 그룹이 동시 만족해야 종료)
+# 무인 장기구동(예: 휴가 중) 안전마진 — S_j 기반 기준이 실전에서 예상보다 쉽게
+# 통과되는 목적함수가 있을 경우를 대비해 넉넉하게 잡음. 사람이 결과를 검토한
+# 뒤 정상값(예: 3)으로 되돌릴 것.
+N_CONSECUTIVE = 20               # 연속 만족 횟수 (모든 그룹이 동시 만족해야 종료)
 
-REL_THRESHOLD = 1.0             # 상대오차 기준 [%]
-STD_ABS_THRESHOLD_LPM = 0.003   # std 절대오차 기준 [LPM] — 오차전파(eps/√N, N=11 최악값)로 유도
+ALPHA = 0.1   # 절대오차 기준 = ALPHA x S_j (S_j = DOE 90점 기준 설계공간 표준편차, 하단 참고)
 
 # ── 적응 샘플링 설정 ──────────────────────────────────────────
 N_CAND        = 65536   # σ로 1차 선별할 후보점 수 (Sobol 균형성 위해 2^16)
@@ -94,18 +120,51 @@ MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
 # ── 종료판정 그룹 ──────────────────────────────────────────────
 #    std_pass1/2는 각각 스칼라 하나라 그룹 내 "최악값" 개념이 필요 없지만(멤버 1개),
 #    _group_values의 로직을 그대로 재사용할 수 있게 같은 구조(members 리스트)로 둔다.
-#
-#    mode="rel" : 상대오차 [%]   — err_* 열을 그대로 씀
-#    mode="abs" : 절대오차 [LPM] — |pred_* − *| 를 직접 계산 (err_*는 %라서 못 씀)
+#    전 그룹 절대오차(|pred_* − *|) 통일 — 기준값은 ALPHA x S_j (아래 _thresholds 참고)
 TERMINATION_GROUPS = {
-    "pressure_drop": {"members": ["pressure_drop"], "mode": "rel", "threshold": REL_THRESHOLD},
-    "temp_std":      {"members": ["temp_std"],      "mode": "rel", "threshold": REL_THRESHOLD},
-    "max_temp":      {"members": ["max_temp"],      "mode": "rel", "threshold": REL_THRESHOLD},
-    "std_pass1":     {"members": ["std_pass1"], "mode": "abs", "threshold": STD_ABS_THRESHOLD_LPM},
-    "std_pass2":     {"members": ["std_pass2"], "mode": "abs", "threshold": STD_ABS_THRESHOLD_LPM},
+    "pressure_drop": {"members": ["pressure_drop"]},
+    "temp_std":      {"members": ["temp_std"]},
+    "max_temp":      {"members": ["max_temp"]},
+    "std_pass1":     {"members": ["std_pass1"]},
+    "std_pass2":     {"members": ["std_pass2"]},
 }
 GROUP_NAMES = list(TERMINATION_GROUPS)
-GROUP_UNIT  = {g: ("%" if s["mode"] == "rel" else " LPM") for g, s in TERMINATION_GROUPS.items()}
+GROUP_UNIT = {
+    "pressure_drop": " Pa",
+    "temp_std":      " °C",
+    "max_temp":      " °C",
+    "std_pass1":     " LPM",
+    "std_pass2":     " LPM",
+}
+
+_S_J_CACHE = {}   # {목적함수명: DOE 90점 기준 표준편차} — 최초 1회 계산 후 고정, 절대 재계산 안 함
+
+
+def _get_S_j(df):
+    """DOE 90점(idx < N_DOE)에서 목적함수별 표준편차 계산 — 최초 1회만, 이후 고정.
+
+    적응샘플링 데이터가 아무리 쌓여도 이 값은 안 바뀐다 (독립성·재현성 확보 이유는
+    상단 모듈 docstring ② 참고). DOE가 아직 안 끝났으면 None을 반환한다.
+    """
+    global _S_J_CACHE
+    if _S_J_CACHE:
+        return _S_J_CACHE
+    doe_rows = df[df["idx"] < N_DOE]
+    if len(doe_rows) < N_DOE:
+        return None
+    _S_J_CACHE = {name: float(doe_rows[name].std(ddof=0)) for name in OBJ_NAMES}
+    print(f"\n[S_j 고정] DOE {N_DOE}점 기준 설계공간 표준편차 — 이후 종료기준에 고정 사용:")
+    for name, s in _S_J_CACHE.items():
+        print(f"    {name:16s} S_j={s:.5f}  threshold(={ALPHA}xS_j)={ALPHA*s:.5f}")
+    return _S_J_CACHE
+
+
+def _thresholds():
+    """그룹별 절대오차 기준(ALPHA x S_j). DOE 미완료면 None."""
+    s_j = _get_S_j(_load_results())
+    if s_j is None:
+        return None
+    return {g: ALPHA * s_j[spec["members"][0]] for g, spec in TERMINATION_GROUPS.items()}
 
 _DOE_SAMPLES = None   # 실제로 DOE 단계를 밟을 때만 계산 (lazy)
 
@@ -212,6 +271,9 @@ def update_ml(params, results):
             preds = _predict_point(df, params)
         _PENDING_PREDICTION = None
 
+        # err_*는 참고용 상대오차(%) — CONSTRAINT_NAMES 등 종료판정에 안 쓰는 값도
+        # CSV에서 훑어보기 편하도록 그대로 남겨둔다. 실제 종료판정(_group_values)은
+        # 이 열을 안 쓰고 pred_*/실측값으로 절대오차를 직접 계산한다.
         for name in MODELED_NAMES:
             errs[name] = abs(preds[name] - results[name]) / abs(results[name]) * 100
 
@@ -227,39 +289,45 @@ def update_ml(params, results):
 
     if idx >= N_DOE:
         g = _group_values(df.tail(1))
+        thr = _thresholds()
         msg = [f"{k} {g[k][0]:.4f}{GROUP_UNIT[k]}" for k in GROUP_NAMES]
-        print(f"[{idx}] 예측오차: " + "  ".join(msg))
-        print(f"      (종료기준: 상대 {REL_THRESHOLD}% / std 절대 "
-              f"{STD_ABS_THRESHOLD_LPM:.4f} LPM, {N_CONSECUTIVE}회 연속)")
+        print(f"[{idx}] 예측오차(절대): " + "  ".join(msg))
+        if thr is None:
+            print(f"      (종료기준 계산 대기 중 — DOE {N_DOE}점 완료 시 S_j 확정)")
+        else:
+            thr_msg = [f"{k}<={thr[k]:.4f}{GROUP_UNIT[k]}" for k in GROUP_NAMES]
+            print(f"      (종료기준: " + "  ".join(thr_msg) + f", {N_CONSECUTIVE}회 연속)")
     print(f"[{idx}] 결과 저장 완료")
 
 
 def _group_values(rows):
-    """DataFrame(회차 x 지표) → {그룹: 회차별 '그룹 내 최악값' 배열}
+    """DataFrame(회차 x 지표) → {그룹: 회차별 절대오차 |예측 − 실측|}
 
-    그룹마다 단위가 다르다 — rel 그룹은 %, abs 그룹은 LPM.
-    비교는 항상 그룹별 threshold와 하므로 단위가 섞여도 문제되지 않는다.
+    전 그룹 공통으로 절대오차를 쓴다(목적함수 고유 단위 그대로, GROUP_UNIT 참고).
     """
     out = {}
     for g, spec in TERMINATION_GROUPS.items():
-        if spec["mode"] == "rel":
-            cols = [f"err_{m}" for m in spec["members"] if f"err_{m}" in rows.columns]
-            vals = rows[cols].abs().max(axis=1).values if cols else np.full(len(rows), np.nan)
-        else:
-            # 절대오차: |예측 − 실측|을 직접 계산 (err_* 열은 %라서 쓸 수 없음)
-            per_member = []
-            for m in spec["members"]:
-                if f"pred_{m}" in rows.columns and m in rows.columns:
-                    per_member.append((rows[f"pred_{m}"] - rows[m]).abs().values)
-            vals = np.max(per_member, axis=0) if per_member else np.full(len(rows), np.nan)
+        per_member = []
+        for m in spec["members"]:
+            if f"pred_{m}" in rows.columns and m in rows.columns:
+                per_member.append((rows[f"pred_{m}"] - rows[m]).abs().values)
+        vals = np.max(per_member, axis=0) if per_member else np.full(len(rows), np.nan)
         out[g] = np.asarray(vals, dtype=float)
     return out
 
 
 def _group_ok(rows):
-    """DataFrame → {그룹: 회차별 통과여부 bool 배열}"""
+    """DataFrame → {그룹: 회차별 통과여부 bool 배열}.
+
+    S_j(=DOE 90점 기준 기준값)가 아직 확정 안 됐으면 전부 미통과 처리 — DOE
+    끝나기 전엔 종료판정 자체가 성립하지 않아야 하므로(is_done이 이미 DOE
+    구간을 걸러내긴 하지만, 이중 안전장치로 여기도 방어).
+    """
+    thr = _thresholds()
     gv = _group_values(rows)
-    return {g: (gv[g] <= TERMINATION_GROUPS[g]["threshold"]) for g in GROUP_NAMES}
+    if thr is None:
+        return {g: np.zeros(len(rows), dtype=bool) for g in GROUP_NAMES}
+    return {g: (gv[g] <= thr[g]) for g in GROUP_NAMES}
 
 
 def _adaptive_rows(df):
@@ -550,8 +618,13 @@ def report_progress():
         return
     gv = _group_values(adaptive)
     ok = _group_ok(adaptive)
+    thr = _thresholds()
     print(f"\n=== 적응샘플링 오차 추이 ({len(adaptive)}회차) ===")
-    print(f"  기준: 상대 {REL_THRESHOLD}% / std 절대 {STD_ABS_THRESHOLD_LPM:.4f} LPM")
+    if thr is None:
+        print(f"  기준: 아직 미확정 (DOE {N_DOE}점 완료 시 S_j로 확정)")
+    else:
+        print("  기준(절대오차, ALPHA x S_j): " +
+              "  ".join(f"{g}<={thr[g]:.4f}{GROUP_UNIT[g]}" for g in GROUP_NAMES))
     print("      " + "".join(f"{g:>18s}" for g in GROUP_NAMES))
     for i in range(len(adaptive)):
         cells = "".join(f"{gv[g][i]:15.4f}{'o' if ok[g][i] else 'x':>3s}" for g in GROUP_NAMES)
