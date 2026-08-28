@@ -52,7 +52,10 @@ GLOBAL_MESH_Z = 2.0
 def connect_aedt():
     desktop = Desktop(
         version="2025.1",
-        non_graphical=False,  # ⚠ True로 시도했으나 Fields Summary export가 멈춤(1시간+ 무응답) — 원복
+        non_graphical=True,   # 리소스 절약 목적. 이전에 True로 의심됐던 export 무응답은
+                               # 실제로는 로컬에 이 변경이 반영도 안 된 채(GUI 모드) 발생한
+                               # 것으로 확인됨(업무시간 자원경합이 실제 원인으로 추정) —
+                               # non_graphical 자체가 원인이라는 증거는 없었음. 재적용.
         new_desktop=True,
         close_on_exit=False,
     )
