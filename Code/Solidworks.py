@@ -48,6 +48,7 @@ def connect_sw():
     warnings = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     swDocASSEMBLY = 2
     model = app.OpenDoc6(ASM_PATH, swDocASSEMBLY, 1, "", errors, warnings)
+    app.Visible = False   # OpenDoc6가 창을 다시 보이게 리셋하는 경우가 있어 재적용
     print("SW 연결 완료:", model.GetTitle)
     return app, errors, warnings
 
