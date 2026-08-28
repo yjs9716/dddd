@@ -52,7 +52,7 @@ GLOBAL_MESH_Z = 2.0
 def connect_aedt():
     desktop = Desktop(
         version="2025.1",
-        non_graphical=False,
+        non_graphical=True,   # 무인 장기구동 안정성 + Fields Summary export 등 후처리 속도 개선
         new_desktop=True,
         close_on_exit=False,
     )

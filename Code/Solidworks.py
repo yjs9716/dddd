@@ -43,7 +43,7 @@ def connect_sw():
     """SW 연결 및 어셈블리 열기"""
     pythoncom.CoInitialize()
     app = win32com.client.Dispatch("SldWorks.Application")
-    app.Visible = True
+    app.Visible = False   # 무인 장기구동 안정성 + 리소스 절약
     errors   = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     warnings = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     swDocASSEMBLY = 2
