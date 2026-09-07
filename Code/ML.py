@@ -81,16 +81,11 @@ from result_parser import STD_NAMES, TOTAL_FLOW_LPM
 
 # ── 실험 설정 ────────────────────────────────────────────────
 N_DOE         = DEFAULT_N_DOE   # 초기 DOE 샘플 수 = 10 x 변수수 (9변수 → 90)
-# 무인 장기구동(예: 휴가 중) 안전마진 — S_j 기반 기준이 실전에서 예상보다 쉽게
-# 통과되는 목적함수가 있을 경우를 대비해 넉넉하게 잡음. 사람이 결과를 검토한
-# 뒤 정상값(예: 3)으로 되돌릴 것.
-N_CONSECUTIVE = 20               # 연속 만족 횟수 (모든 그룹이 동시 만족해야 종료)
+N_CONSECUTIVE = 3               # 연속 만족 횟수 (모든 그룹이 동시 만족해야 종료)
 
-# ⚠ 무인 장기구동(휴가) 중 절대 조기종료 안 되게 하려고 0.01로 임시 하향(원래 0.1).
-#   S_j 자체(DOE 90점 표준편차)는 이 값과 무관하게 그대로 고정되므로, 복귀 후
-#   "진짜" 판정(논문용)은 0.1로 되돌려서 이미 쌓인 데이터에 재적용하면 됨 —
-#   재실험 불필요, 상수만 바꾸면 즉시 재계산됨.
-ALPHA = 0.01   # 절대오차 기준 = ALPHA x S_j (S_j = DOE 90점 기준 설계공간 표준편차, 하단 참고)
+ALPHA = 0.1   # 절대오차 기준 = ALPHA x S_j (S_j = DOE 90점 기준 설계공간 표준편차, 하단 참고)
+              # Q^2 ~= 1 - ALPHA^2 = 0.99 에 해당 — 대체모델 검증에서 흔히 쓰는 현실적 기준.
+              # (휴가 중 무인구동 안전마진으로 0.01/N_CONSECUTIVE=20까지 썼던 건 복귀 후 원복함)
 
 # ── 적응 샘플링 설정 ──────────────────────────────────────────
 N_CAND        = 65536   # σ로 1차 선별할 후보점 수 (Sobol 균형성 위해 2^16)
@@ -275,11 +270,20 @@ def update_ml(params, results):
             preds = _predict_point(df, params)
         _PENDING_PREDICTION = None
 
-        # err_*는 참고용 상대오차(%) — CONSTRAINT_NAMES 등 종료판정에 안 쓰는 값도
-        # CSV에서 훑어보기 편하도록 그대로 남겨둔다. 실제 종료판정(_group_values)은
-        # 이 열을 안 쓰고 pred_*/실측값으로 절대오차를 직접 계산한다.
+        # err_* — 종료판정과 동일한 기준으로 기록.
+        #   목적함수(OBJ_NAMES, TERMINATION_GROUPS에 있는 5개): |예측-실측| / (ALPHA x S_j)
+        #     1.0 = 딱 통과선, <1 이면 그 회차만으론 통과, >1 이면 미통과 — 단위가
+        #     다른(Pa/°C/LPM) 5개를 무차원 비율 하나로 한눈에 비교하기 위함.
+        #     threshold가 아직 없으면(DOE 미완료 등) NaN.
+        #   제약조건(power_module_flow, weight): 종료판정 대상이 아니라 threshold
+        #     자체가 없으므로 기존처럼 상대오차(%)로 기록.
+        thr = _thresholds()
         for name in MODELED_NAMES:
-            errs[name] = abs(preds[name] - results[name]) / abs(results[name]) * 100
+            abs_err = abs(preds[name] - results[name])
+            if name in TERMINATION_GROUPS and thr is not None:
+                errs[name] = abs_err / thr[name]
+            else:
+                errs[name] = abs_err / abs(results[name]) * 100
 
     row = {"idx": idx}
     row.update({n: params[n] for n in PARAM_NAMES})
