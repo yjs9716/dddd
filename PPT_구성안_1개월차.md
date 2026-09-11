@@ -38,7 +38,9 @@
 | OLHD / fins | 설계변수·DOE / 핀 배치 수식 |
 | Solidworks / icepak | 형상 리빌드 / 해석 실행 |
 | result_parser / ML | 결과 파싱 / 학습·샘플링 |
-| main / grid_convergence | 루프 제어 / 격자수렴성 |
+| main / paths | 루프 제어 / 경로 관리 |
+
+*별도 진단 스크립트: `grid_convergence`(격자수렴성), `OLHD_PLOT`(DOE 분포)
 
 **좌하 — 단일 출처 원칙**
 - 같은 값을 두 곳에 두지 않음 → 한쪽만 고쳤을 때 어긋나는 사고 차단
