@@ -2,7 +2,7 @@ const pptxgen = require("pptxgenjs");
 const pres = new pptxgen();
 pres.layout = "LAYOUT_WIDE";           // 13.333 x 7.5
 pres.author = "학습조직";
-pres.title  = "AI 에이전트 활용방안 및 DOE 기반 해석 데이터 확보";
+pres.title  = "AI 기반 열유체 해석 자동화 및 설계최적화";
 
 const NAVY   = "16305B";
 const NAVY2  = "2C4E82";
@@ -63,11 +63,15 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   s.addShape(pres.ShapeType.ellipse, { x: 9.7, y: -1.6, w: 5.4, h: 5.4, fill: { color: NAVY2, transparency: 55 }, line: { color: NAVY2, transparency: 100 } });
   s.addShape(pres.ShapeType.ellipse, { x: 11.2, y: 4.3, w: 3.4, h: 3.4, fill: { color: ACCENT, transparency: 78 }, line: { color: ACCENT, transparency: 100 } });
 
-  s.addText("학습조직 1개월차 산출물", { x: M + 0.3, y: 1.55, w: 8, h: 0.32, fontSize: 12, bold: true, color: ACCENT, fontFace: F, isTextBox: true, margin: 0, charSpacing: 2 });
-  s.addText("AI 에이전트 활용방안 및\nDOE 기반 해석 데이터 확보", { x: M + 0.3, y: 2.05, w: 9.2, h: 1.9, fontSize: 38, bold: true, color: "FFFFFF", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
-  s.addText("수냉식 냉각판 유로·방열핀 설계최적화", { x: M + 0.3, y: 4.05, w: 9, h: 0.4, fontSize: 15, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
-  s.addShape(pres.ShapeType.rect, { x: M + 0.3, y: 5.05, w: 1.1, h: 0.035, fill: { color: ACCENT }, line: { color: ACCENT } });
-  s.addText("소속 / 성명 / 발표일자", { x: M + 0.3, y: 5.3, w: 8, h: 0.32, fontSize: 12, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("학습조직", { x: M + 0.3, y: 1.42, w: 8, h: 0.32, fontSize: 12, bold: true, color: ACCENT, fontFace: F, isTextBox: true, margin: 0, charSpacing: 2 });
+  s.addText("AI 기반 열유체 해석 자동화 및\n설계최적화", { x: M + 0.3, y: 1.92, w: 9.2, h: 1.9, fontSize: 38, bold: true, color: "FFFFFF", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
+  s.addText("수냉식 냉각판 유로·방열핀 설계 사례", { x: M + 0.3, y: 3.92, w: 9, h: 0.4, fontSize: 15, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
+
+  // 월별 범위 — 매월 이 줄만 교체
+  s.addShape(pres.ShapeType.roundRect, { x: M + 0.3, y: 4.72, w: 6.6, h: 0.62, rectRadius: 0.08, fill: { color: NAVY2 }, line: { color: NAVY2 } });
+  s.addText("1개월차   |   AI 에이전트 활용방안 및 DOE 결과", { x: M + 0.3, y: 4.72, w: 6.6, h: 0.62, fontSize: 13, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+
+  s.addText("소속 / 성명 / 발표일자", { x: M + 0.3, y: 5.75, w: 8, h: 0.32, fontSize: 12, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
   s.addNotes("1개월차 산출물 발표. 해석 자동화 파이프라인 구축과 DOE 데이터 확보까지가 이번 달 범위이며, 대리모델 학습은 차월 주제임을 먼저 밝힌다.");
 }
 
