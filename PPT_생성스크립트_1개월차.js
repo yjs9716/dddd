@@ -84,7 +84,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   const items = [
     ["01", "AI 에이전트 기반 개발환경 구축", "1.  협업 방식 및 모듈 구성\n2.  단일 출처 원칙 및 코드 검증 절차"],
     ["02", "설계변수 정의 및 설계공간 설정", "1.  형상 및 유동 경로\n2.  설계변수 9종 / 고정 2종\n3.  방열핀 배치 및 가공 제약"],
-    ["03", "실험계획법(DOE) 기반 데이터 확보", "1.  형상 자동 빌드 및 중량 산출\n2.  DOE 기법 및 무인 자동 해석 루프\n3.  DOE 데이터 확보 현황"]
+    ["03", "실험계획법 기반 데이터 확보 및 자동해석 수행", "1.  형상 자동 빌드 및 중량 산출\n2.  DOE 기법 및 무인 자동 해석 루프\n3.  DOE 데이터 확보 현황"]
   ];
   let y = 1.62;
   items.forEach(([no, t, sub], i) => {
@@ -282,7 +282,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "03", "실험계획법(DOE) 기반 데이터 확보", "형상 자동 빌드 및 중량 산출");
+  header(s, "03", "실험계획법 기반 데이터 확보 및 자동해석 수행", "형상 자동 빌드 및 중량 산출");
 
   const y0 = 1.30, ch = 5.6;
 
@@ -329,7 +329,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "03", "실험계획법(DOE) 기반 데이터 확보", "DOE 기법 선정 및 무인 자동 해석 루프");
+  header(s, "03", "실험계획법 기반 데이터 확보 및 자동해석 수행", "DOE 기법 선정 및 무인 자동 해석 루프");
 
   const y1 = 1.30, y2 = 4.18, ch = 2.72;
 
@@ -386,7 +386,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "03", "실험계획법(DOE) 기반 데이터 확보", "DOE 데이터 확보 현황 및 차월 계획");
+  header(s, "03", "실험계획법 기반 데이터 확보 및 자동해석 수행", "DOE 데이터 확보 현황 및 차월 계획");
 
   const tiles = [
     ["90", "점", "DOE 실험점"],
