@@ -56,6 +56,50 @@ function tbl(s, x, y, w, rows, colW, opt = {}) {
 
 const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color: "EEF2F7" } } });
 
+// 코드 블록 — 간단한 구문 강조 (주석 / 문자열 / 키워드)
+const CODE_BG = "1E2430", C_TXT = "D6DEEB", C_CMT = "7F9C7A", C_STR = "E6A26B", C_KW = "C792EA";
+const MONO = "Consolas";
+function codeRuns(line) {
+  const runs = [];
+  let code = line, cmt = "";
+  const h = line.indexOf("#");
+  if (h >= 0) { code = line.slice(0, h); cmt = line.slice(h); }
+  const re = /(f?"[^"]*"|f?'[^']*'|\b(?:for|in|import|from|return|def|lambda|if)\b)/g;
+  let last = 0, m;
+  while ((m = re.exec(code)) !== null) {
+    if (m.index > last) runs.push([code.slice(last, m.index), C_TXT]);
+    const tok = m[0];
+    runs.push([tok, /^(for|in|import|from|return|def|lambda|if)$/.test(tok) ? C_KW : C_STR]);
+    last = m.index + tok.length;
+  }
+  if (last < code.length) runs.push([code.slice(last), C_TXT]);
+  if (cmt) runs.push([cmt, C_CMT]);
+  if (!runs.length) runs.push([" ", C_TXT]);
+  return runs;
+}
+function codeBlock(s, x, y, w, h, fname, lines) {
+  s.addShape(pres.ShapeType.roundRect, { x, y, w, h, rectRadius: 0.06, fill: { color: CODE_BG }, line: { color: CODE_BG } });
+  ["FF5F57", "FEBC2E", "28C840"].forEach((c, i) => s.addShape(pres.ShapeType.ellipse, { x: x + 0.18 + i * 0.17, y: y + 0.14, w: 0.1, h: 0.1, fill: { color: c }, line: { color: c } }));
+  s.addText(fname, { x: x + 0.72, y: y + 0.07, w: w - 0.9, h: 0.24, fontSize: 8.5, color: "8A94A6", fontFace: MONO, isTextBox: true, margin: 0, valign: "middle" });
+  s.addShape(pres.ShapeType.line, { x: x, y: y + 0.38, w: w, h: 0, line: { color: "2E3645", width: 0.75 } });
+  const runs = [];
+  lines.forEach((ln, i) => {
+    const r = codeRuns(ln);
+    r.forEach(([t, c], j) => runs.push({ text: t, options: { color: c, breakLine: (j === r.length - 1 && i < lines.length - 1) } }));
+  });
+  s.addText(runs, { x: x + 0.2, y: y + 0.5, w: w - 0.32, h: h - 0.62, fontSize: 8.5, fontFace: MONO, isTextBox: true, margin: 0, valign: "top", lineSpacingMultiple: 1.12 });
+}
+
+function bottomStrip(s, pts) {
+  s.addShape(pres.ShapeType.roundRect, { x: M, y: 6.06, w: 12.23, h: 0.92, rectRadius: 0.06, fill: { color: CARD }, line: { color: LINE, width: 0.75 }, shadow: sh() });
+  pts.forEach(([h, d], i) => {
+    const x = M + 0.36 + i * 4.0;
+    s.addShape(pres.ShapeType.rect, { x, y: 6.26, w: 0.07, h: 0.18, fill: { color: ACCENT }, line: { color: ACCENT } });
+    s.addText(h, { x: x + 0.16, y: 6.20, w: 3.6, h: 0.28, fontSize: 10.5, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(d, { x: x + 0.16, y: 6.50, w: 3.7, h: 0.34, fontSize: 9.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
+  });
+}
+
 /* ─────────────────────────── 1. 표지 ─────────────────────────── */
 {
   const s = pres.addSlide();
@@ -85,7 +129,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   const items = [
     ["01", "AI 에이전트 기반 개발환경 구축", "1.  망분리 환경에서의 AI 에이전트 활용 체계\n2.  저장소 기반 개발환경 구성\n3.  내부망 실행 구조"],
     ["02", "설계변수 정의 및 설계공간 설정", "1.  형상 및 유동 경로\n2.  설계변수 9종 / 고정 2종\n3.  방열핀 배치 및 가공 제약"],
-    ["03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "1.  형상 자동 빌드 및 중량 산출\n2.  DOE 기법 및 무인 자동 해석 루프\n3.  DOE 데이터 확보 현황"]
+    ["03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "1.  형상 자동 빌드 및 중량 산출 (SolidWorks)\n2.  해석 모델 자동 구성 및 결과 추출 (Icepak)\n3.  DOE 기법 및 무인 자동 해석 루프\n4.  DOE 데이터 확보 현황"]
   ];
   let y = 1.62;
   items.forEach(([no, t, sub], i) => {
@@ -374,54 +418,127 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   s.addNotes("핀 두께와 개수는 독립 변수처럼 보이지만 가공 제약 때문에 서로 묶인다. 이 점이 DOE 실험점 생성 방식에 영향을 준다.");
 }
 
-/* ───────────── 8. [03] 형상 자동 빌드 및 중량 산출 ───────────── */
+/* ───────────── 8. [03] 형상 자동 빌드 및 중량 산출 — SolidWorks ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "형상 자동 빌드 및 중량 산출");
+  header(s, "03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "형상 자동 빌드 및 중량 산출 — SolidWorks");
+  const y0 = 1.30, ch = 4.55;
 
-  const y0 = 1.30, ch = 5.6;
-
-  // 좌 — 형상 빌드
+  // 좌 — 처리 절차
   card(s, M, y0, CW, ch);
   cardTitle(s, M, y0, "Equation Manager 기반 형상 빌드");
-  const bsteps = ["전역변수 갱신", "파트·어셈블리 리빌드", "STEP 저장"];
-  bsteps.forEach((t, i) => {
+  ["전역변수 갱신", "파트·어셈블리 리빌드", "STEP 저장"].forEach((t, i) => {
     const x = M + 0.34 + i * 1.82;
-    s.addShape(pres.ShapeType.roundRect, { x, y: y0 + 0.82, w: 1.6, h: 0.5, rectRadius: 0.07, fill: { color: i === 0 ? NAVY : "EEF2F7" }, line: { color: i === 0 ? NAVY : LINE, width: 0.75 } });
-    s.addText(t, { x, y: y0 + 0.82, w: 1.6, h: 0.5, fontSize: 9, bold: true, color: i === 0 ? "FFFFFF" : NAVY, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-    if (i < 2) s.addText("▶", { x: x + 1.6, y: y0 + 0.82, w: 0.22, h: 0.5, fontSize: 9, color: ACCENT, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addShape(pres.ShapeType.roundRect, { x, y: y0 + 0.80, w: 1.6, h: 0.46, rectRadius: 0.07, fill: { color: i === 0 ? NAVY : "EEF2F7" }, line: { color: i === 0 ? NAVY : LINE, width: 0.75 } });
+    s.addText(t, { x, y: y0 + 0.80, w: 1.6, h: 0.46, fontSize: 9, bold: true, color: i === 0 ? "FFFFFF" : NAVY, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    if (i < 2) s.addText("▶", { x: x + 1.6, y: y0 + 0.80, w: 0.22, h: 0.46, fontSize: 9, color: ACCENT, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
-  tbl(s, M + 0.34, y0 + 1.55, 5.3, [
-    [hdr("항목"), hdr("처리 방식")],
-    ["변수 기입", "수식 목록에서 변수명 → 인덱스 매핑 후 치환"],
-    ["변수명 검증", "없는 변수명이면 즉시 중단 + 실제 변수 목록 출력"],
-    ["정수 변수", "핀 개수는 정수 문자열로 기입 (패턴 개수 해석)"],
-    ["종속값", "핀 간격은 CAD 수식이 자체 계산 — 이중 계산 방지"],
-    ["고정값", "전역변수로 만들지 않고 스케치에 직접 기입"]
-  ], [1.3, 4.0], { rowH: 0.45 });
-  s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y0 + 4.5, w: 5.3, h: 0.72, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
-  s.addText("변수명이 어긋나면 형상이 바뀌지 않은 채 해석이 수행될 수 있음\n→ 사전 차단이 데이터 신뢰성의 핵심", { x: M + 0.48, y: y0 + 4.5, w: 5.05, h: 0.72, fontSize: 9.5, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+  tbl(s, M + 0.34, y0 + 1.48, 5.3, [
+    [hdr("단계"), hdr("처리")],
+    ["변수 갱신", "수식 목록에서 변수명 → 인덱스 매핑 후 값 치환"],
+    ["정수 변수", "핀 개수는 정수 문자열로 기입 (선형패턴 개수)"],
+    ["리빌드", "파트 → 어셈블리 순으로 리빌드 후 저장"],
+    ["질량 특성", "리빌드 직후 부피·질량 일괄 취득"],
+    ["형상 저장", "실험점 번호별 STEP 파일로 내보내기"]
+  ], [1.2, 4.1], { rowH: 0.36 });
+  s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y0 + 3.80, w: 5.3, h: 0.56, rectRadius: 0.06, fill: { color: "F7F9FC" }, line: { color: LINE, width: 0.75 } });
+  s.addText([{ text: "중량 = ", options: { bold: true, color: NAVY } },
+             { text: "알루미늄 질량 + (완전충진 부피 − 알루미늄 부피) × 794 kg/m³", options: { color: TXT } }],
+    { x: M + 0.48, y: y0 + 3.80, w: 5.05, h: 0.56, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
-  // 우 — 중량 산출
+  // 우 — 코드 발췌
   card(s, CX2, y0, CW, ch);
-  cardTitle(s, CX2, y0, "중량 산출");
-  s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: y0 + 0.8, w: 5.3, h: 1.0, rectRadius: 0.06, fill: { color: "F7F9FC" }, line: { color: LINE, width: 0.75 } });
-  s.addText([{ text: "PAO 부피 = 완전충진 형상 부피(상수) − 알루미늄 부피", options: { breakLine: true, color: TXT } },
-             { text: "중  량   = 알루미늄 질량 + PAO 부피 × 794 kg/m³", options: { bold: true, color: NAVY } }],
-    { x: CX2 + 0.5, y: y0 + 0.9, w: 5.0, h: 0.82, fontSize: 10.5, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.35 });
-  tbl(s, CX2 + 0.34, y0 + 2.0, 5.3, [
-    [hdr("항목"), hdr("내용")],
-    ["취득 시점", "리빌드 직후 어셈블리에서 질량 특성 일괄 취득"],
-    ["반환값 해석", "반환 순서가 미문서화 → CAD 질량특성 패널과 전량 대조하여 부피·질량 위치 확정"],
-    ["검산", "산출값이 수기 계산값과 소수점까지 일치 확인"],
-    ["교차검증", "해석 측 유체 부피값과 대조, 이상 시 로그 경고"]
-  ], [1.3, 4.0], { rowH: 0.5 });
-  s.addText("유로(빈 공간)는 형상에 존재하지 않는 개념 → 완전충진 부피 기준으로 역산", { x: CX2 + 0.34, y: y0 + 4.75, w: 5.3, h: 0.4, fontSize: 9.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
-  s.addNotes("조용히 잘못된 데이터가 쌓이는 실패 모드를 어떻게 막았는지가 이 장의 요지.");
+  cardTitle(s, CX2, y0, "코드 발췌");
+  codeBlock(s, CX2 + 0.26, y0 + 0.74, CW - 0.52, ch - 0.98, "Solidworks.py — update_sw()", [
+    "part  = app.ActivateDoc3(PART_PATH, False, 0, errors)",
+    "eqMgr = part.GetEquationMgr",
+    "",
+    "# 수식 목록에서 변수명 → 인덱스 매핑",
+    "for i in range(eqMgr.GetCount):",
+    "    lhs = eqMgr.Equation(i).split('=')[0].strip()",
+    "    name_to_i[lhs.strip('\"')] = i",
+    "",
+    "# 전역변수 값 치환 (COM 속성 쓰기)",
+    "for name in SW_PARAM_NAMES:",
+    "    eqMgr._oleobj_.Invoke(dispid, 0, DISPATCH_PROPERTYPUT,",
+    "        False, name_to_i[name], '\"%s\" = %s' % (name, text))",
+    "",
+    "part.EditRebuild3              # 파트 리빌드",
+    "asm.ForceRebuild3(False)       # 어셈블리 리빌드",
+    "mp = asm.GetMassProperties     # [3] 부피 · [5] 질량",
+    "asm.SaveAs3(step_path, 0, 0)   # STEP 내보내기"
+  ]);
+
+  bottomStrip(s, [
+    ["변수명 검증", "불일치 시 즉시 중단 — 형상 미변경 해석 차단"],
+    ["종속값 CAD 위임", "핀 간격은 CAD 수식이 계산 — 이중 계산 방지"],
+    ["질량 특성 검증", "미문서화 반환값을 GUI 패널과 대조해 확정"]
+  ]);
+  s.addNotes("설계값을 Equation Manager 전역변수에 써넣고 리빌드한 뒤 질량 특성과 STEP 파일을 얻는 과정이다. 변수명이 어긋나면 즉시 중단해 형상이 바뀌지 않은 채 해석되는 사고를 막았고, 핀 간격처럼 다른 변수에서 결정되는 값은 CAD 수식에 맡겨 두 곳에서 따로 계산하지 않도록 했다. 코드는 주요 호출부만 발췌했다.");
 }
 
-/* ───────────── 9. [03] DOE 기법 및 무인 자동 해석 루프 ───────────── */
+/* ───────────── 9. [03] 해석 모델 자동 구성 및 결과 추출 — Icepak ───────────── */
+{
+  const s = pres.addSlide();
+  s.background = { color: BG };
+  header(s, "03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "해석 모델 자동 구성 및 결과 추출 — Icepak");
+  const y0 = 1.30, ch = 4.55;
+
+  // 좌 — 처리 절차
+  card(s, M, y0, CW, ch);
+  cardTitle(s, M, y0, "해석 모델 구성 절차");
+  const steps = [
+    ["프로젝트 생성", "회차마다 새로 생성, 잔여·잠금 파일 정리"],
+    ["형상 불러오기", "STEP 불러오기 → 부품 이름·재질 지정"],
+    ["유체 영역", "박스에서 형상을 빼 냉각유(PAO) 영역 생성"],
+    ["경계조건", "발열원 9개 · 팬(입구) · 개구부(출구) 지정"],
+    ["메시", "유체 영역 로컬 메시 + 전체 글로벌 메시"],
+    ["측정면", "설계변수에 따라 위치·개수 동적 생성"],
+    ["해석 · 추출", "정상상태 해석 → 온도·차압·유량 CSV 추출"]
+  ];
+  steps.forEach(([h, d], i) => {
+    const yy = y0 + 0.80 + i * 0.52;
+    s.addShape(pres.ShapeType.ellipse, { x: M + 0.36, y: yy + 0.06, w: 0.3, h: 0.3, fill: { color: i === 6 ? ACCENT : NAVY }, line: { color: i === 6 ? ACCENT : NAVY } });
+    s.addText(String(i + 1), { x: M + 0.36, y: yy + 0.06, w: 0.3, h: 0.3, fontSize: 9, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(h, { x: M + 0.80, y: yy, w: 1.35, h: 0.42, fontSize: 10, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(d, { x: M + 2.15, y: yy, w: 3.55, h: 0.42, fontSize: 9.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    if (i < steps.length - 1) s.addShape(pres.ShapeType.line, { x: M + 0.80, y: yy + 0.47, w: 4.9, h: 0, line: { color: LINE, width: 0.5 } });
+  });
+
+  // 우 — 코드 발췌
+  card(s, CX2, y0, CW, ch);
+  cardTitle(s, CX2, y0, "코드 발췌");
+  codeBlock(s, CX2 + 0.26, y0 + 0.74, CW - 0.52, ch - 0.98, "icepak.py — run_icepak()", [
+    "ipk = Icepak(project=PROJ_PATH, design=f\"IcepakDesign_{idx:03d}\")",
+    "ipk.modeler.import_3d_cad(step_file)       # STEP 불러오기",
+    "",
+    "oEditor.Subtract(...)                      # 유체 영역 = 박스 − 형상",
+    "oEditor.SeparateBody(...)",
+    "",
+    "# 팬·개구부 면을 좌표 기준으로 자동 탐지",
+    "faces = [f for f in box.faces if abs(f.center[2] - z_top) < 0.1]",
+    "faces.sort(key=lambda f: f.center[0])",
+    "oModule.AssignOpeningBoundary(...)          # 출구 경계",
+    "oModule.AssignMeshRegion(...)               # 로컬 메시",
+    "",
+    "# 설계변수에 맞춰 유로 전체에 측정면 생성",
+    "for k, (offset, gap) in enumerate(channel_offsets(t, n)):",
+    "    oEditor.CreateRectangle(...)",
+    "",
+    "oDesign.AnalyzeAll()                        # 메싱 + 솔브",
+    "oModule.ExportFieldsSummary(...)            # 결과 CSV 추출"
+  ]);
+
+  bottomStrip(s, [
+    ["회차별 새 프로젝트", "이전 회차 설정 간섭·잠금 파일로 인한 정지 방지"],
+    ["경계면 자동 탐지", "형상이 바뀌어도 팬·개구부 면을 좌표로 식별"],
+    ["측정면 동적 생성", "핀 개수 변화에 맞춰 유로 전체 측정면 자동 배치"]
+  ]);
+  s.addNotes("SolidWorks에서 내보낸 STEP 파일을 받아 Icepak 해석 모델을 매 회차 새로 구성한다. 유체 영역 생성, 경계조건 지정, 메시 설정, 측정면 생성, 해석 실행, 결과 추출까지 전 과정이 코드로 수행된다. 형상이 바뀌면 팬·개구부 면과 측정면 위치가 달라지므로, 이를 좌표와 설계변수로부터 자동으로 계산하도록 구성했다. 코드는 주요 호출부만 발췌했고 인자는 생략했다.");
+}
+
+/* ───────────── 10. [03] DOE 기법 및 무인 자동 해석 루프 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
@@ -478,7 +595,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   s.addNotes("1회 해석에 수십 분이 걸리므로 무인 연속 운전이 전제 조건. 사람이 붙어 있지 않아도 데이터가 쌓이는 구조를 만든 것이 이번 달의 실질적 성과.");
 }
 
-/* ───────────── 10. [03] 확보 현황 및 차월 계획 ───────────── */
+/* ───────────── 11. [03] 확보 현황 및 차월 계획 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
