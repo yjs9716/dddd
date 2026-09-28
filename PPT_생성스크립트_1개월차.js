@@ -141,7 +141,7 @@ function bottomStrip(s, pts) {
     s.addText(sub, { x: M + 6.95, y: y + 0.3, w: 5.0, h: h - 0.6, fontSize: 11, color: TXT, fontFace: F, isTextBox: true, margin: 0, valign: "middle", lineSpacingMultiple: 1.45 });
     y += h + 0.22;
   });
-  s.addText("부록   A-1  SolidWorks 제어 코드   ·   A-2  Icepak 제어 코드", { x: M, y: 7.0, w: 12.23, h: 0.26, fontSize: 9.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("부록   A-1  SolidWorks 제어 코드   ·   A-2  Icepak 제어 코드   ·   A-3  Icepak GUI 설정 절차", { x: M, y: 7.0, w: 12.23, h: 0.26, fontSize: 9.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
   s.addNotes("01은 망분리 환경에서 AI를 어떻게 활용했는지, 02는 무엇을 설계변수로 두었는지, 03은 자동해석을 통해 실제로 확보한 데이터를 다룬다.");
 }
 
@@ -472,57 +472,62 @@ function bottomStrip(s, pts) {
   s.addNotes("설계값을 Equation Manager 전역변수에 써넣고 리빌드한 뒤 질량 특성과 STEP 파일을 얻는 과정이다. 변수명이 어긋나면 즉시 중단해 형상이 바뀌지 않은 채 해석되는 사고를 막았고, 핀 간격처럼 다른 변수에서 결정되는 값은 CAD 수식에 맡겨 두 곳에서 따로 계산하지 않도록 했다. 주요 코드는 부록 A-1에 정리했다.");
 }
 
-/* ───────────── 9. [03] 해석 모델 자동 구성 및 결과 추출 — Icepak ───────────── */
+/* ───────────── 9. [03] 해석 모델 자동 구성 — Icepak ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
   header(s, "03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "해석 모델 자동 구성 및 결과 추출 — Icepak");
   const y0 = 1.30, ch = 4.55;
 
-  // 좌 — 처리 절차
+  // 좌 — 자동화 전환 과정
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "해석 모델 구성 절차");
-  const steps = [
-    ["프로젝트 생성", "회차마다 새로 생성, 잔여·잠금 파일 정리"],
-    ["형상 불러오기", "STEP 불러오기 → 부품 이름·재질 지정"],
-    ["유체 영역", "박스에서 형상을 빼 냉각유(PAO) 영역 생성"],
-    ["경계조건", "발열원 9개 · 팬(입구) · 개구부(출구) 지정"],
-    ["메시", "유체 영역 로컬 메시 + 전체 글로벌 메시"],
-    ["측정면", "설계변수에 따라 위치·개수 동적 생성"],
-    ["해석 · 추출", "정상상태 해석 → 온도·차압·유량 CSV 추출"]
+  cardTitle(s, M, y0, "자동화 전환 과정");
+  const flow = [
+    ["GUI 수동 설정", "해석 모델을 GUI로 한 번 직접 구성\n(프로젝트 생성 ~ 결과 추출 7단계)", "EEF2F7", NAVY],
+    ["스크립트 리코더 기록", "GUI 조작 과정을 Python 스크립트로 기록", "EEF2F7", NAVY],
+    ["AI 에이전트와 코드 정리", "기록된 고정값을 설계변수 기반으로 치환하고\n재사용 가능한 모듈로 구조화", NAVY, "FFFFFF"],
+    ["매 회차 자동 반복", "형상(STEP)만 바뀌면 동일 절차를 코드가 재현", ACCENT, "FFFFFF"]
   ];
-  steps.forEach(([h, d], i) => {
-    const yy = y0 + 0.80 + i * 0.52;
-    s.addShape(pres.ShapeType.ellipse, { x: M + 0.36, y: yy + 0.06, w: 0.3, h: 0.3, fill: { color: i === 6 ? ACCENT : NAVY }, line: { color: i === 6 ? ACCENT : NAVY } });
-    s.addText(String(i + 1), { x: M + 0.36, y: yy + 0.06, w: 0.3, h: 0.3, fontSize: 9, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-    s.addText(h, { x: M + 0.80, y: yy, w: 1.35, h: 0.42, fontSize: 10, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-    s.addText(d, { x: M + 2.15, y: yy, w: 3.55, h: 0.42, fontSize: 9.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-    if (i < steps.length - 1) s.addShape(pres.ShapeType.line, { x: M + 0.80, y: yy + 0.47, w: 4.9, h: 0, line: { color: LINE, width: 0.5 } });
+  flow.forEach(([h, d, f, c], i) => {
+    const yy = y0 + 0.78 + i * 0.84;
+    s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: yy, w: 5.3, h: 0.64, rectRadius: 0.06, fill: { color: f }, line: { color: f === "EEF2F7" ? LINE : f, width: 0.75 } });
+    s.addText(String(i + 1), { x: M + 0.46, y: yy, w: 0.34, h: 0.64, fontSize: 16, bold: true, color: f === "EEF2F7" ? ACCENT : "FFFFFF", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(h, { x: M + 0.86, y: yy + 0.04, w: 1.9, h: 0.56, fontSize: 10.5, bold: true, color: c, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(d, { x: M + 2.72, y: yy + 0.04, w: 2.84, h: 0.56, fontSize: 8.8, color: f === "EEF2F7" ? TXT : "FFFFFF", valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.1 });
+    if (i < flow.length - 1) s.addText("▼", { x: M + 0.34, y: yy + 0.64, w: 5.3, h: 0.2, fontSize: 7, color: MUTED, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
+  s.addText("※ 단계별 GUI 설정은 부록 A-3, 코드는 부록 A-2 참고", { x: M + 0.34, y: y0 + 4.20, w: 5.3, h: 0.24, fontSize: 9, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
 
-  // 우 — 측정 항목 및 결과 출력
-  card(s, CX2, y0, CW, ch);
-  cardTitle(s, CX2, y0, "측정 항목 및 결과 출력");
-  tbl(s, CX2 + 0.34, y0 + 0.80, 5.3, [
+  // 우상 — 수동 vs 자동
+  const hA = 2.38;
+  card(s, CX2, y0, CW, hA);
+  cardTitle(s, CX2, y0, "GUI 수동 설정 vs 코드 자동 구성");
+  tbl(s, CX2 + 0.34, y0 + 0.70, 5.3, [
+    [hdr("항목"), hdr("GUI 수동"), hdr("코드 자동")],
+    ["모델 구성", "7단계 매회 직접 설정", { text: "스크립트 1회 실행", options: { bold: true, color: NAVY } }],
+    ["형상 변경 시", "처음부터 재설정", { text: "STEP 교체만으로 재구성", options: { bold: true, color: NAVY } }],
+    ["측정면 배치", "유로마다 수작업", { text: "핀 개수 따라 자동 계산", options: { bold: true, color: NAVY } }],
+    ["설정 일관성", "작업자·회차별 편차", { text: "전 회차 동일 조건", options: { bold: true, color: NAVY } }]
+  ], [1.25, 1.95, 2.1], { rowH: 0.32 });
+
+  // 우하 — 측정 항목
+  const yB = y0 + hA + 0.17, hB = ch - hA - 0.17;
+  card(s, CX2, yB, CW, hB);
+  cardTitle(s, CX2, yB, "측정 항목 및 결과 출력");
+  tbl(s, CX2 + 0.34, yB + 0.66, 5.3, [
     [hdr("측정 대상"), hdr("항목"), hdr("개수")],
     ["발열원", "최고 · 평균 온도", "9"],
     ["팬 통과면", "차압", "1"],
-    ["1차 통과 유로", "유량", "핀 개수 + 1"],
-    ["2차 통과 유로", "유량", "핀 개수 + 1"],
+    ["1·2차 통과 유로", "유량", "각 핀 개수 + 1"],
     ["전원모듈 분기 입구", "유량", "1"]
-  ], [1.9, 1.8, 1.6], { rowH: 0.38 });
-  s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: y0 + 3.25, w: 5.3, h: 0.78, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
-  s.addText([{ text: "측정 순서 = 결과 CSV 행 순서", options: { bold: true, color: NAVY, breakLine: true } },
-             { text: "해석 완료 후 Fields Summary로 일괄 추출 → 파싱 모듈이 행 순서대로 해석", options: { color: TXT } }],
-    { x: CX2 + 0.48, y: y0 + 3.25, w: 5.05, h: 0.78, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.3 });
-  s.addText("※ 주요 코드는 부록 A-2 참고", { x: CX2 + 0.34, y: y0 + 4.12, w: 5.3, h: 0.26, fontSize: 9, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
+  ], [1.9, 1.7, 1.7], { rowH: 0.26, fontSize: 9 });
 
   bottomStrip(s, [
     ["회차별 새 프로젝트", "이전 회차 설정 간섭·잠금 파일로 인한 정지 방지"],
     ["경계면 자동 탐지", "형상이 바뀌어도 팬·개구부 면을 좌표로 식별"],
     ["측정면 동적 생성", "핀 개수 변화에 맞춰 유로 전체 측정면 자동 배치"]
   ]);
-  s.addNotes("SolidWorks에서 내보낸 STEP 파일을 받아 Icepak 해석 모델을 매 회차 새로 구성한다. 유체 영역 생성, 경계조건 지정, 메시 설정, 측정면 생성, 해석 실행, 결과 추출까지 전 과정이 코드로 수행된다. 형상이 바뀌면 팬·개구부 면과 측정면 위치가 달라지므로, 이를 좌표와 설계변수로부터 자동으로 계산하도록 구성했다. 주요 코드는 부록 A-2에 정리했다.");
+  s.addNotes("해석 모델은 처음에 GUI로 한 번 직접 구성하고, 그 과정을 스크립트 리코더로 기록했다. 기록된 스크립트는 형상 치수가 고정값으로 박혀 있어 그대로는 재사용할 수 없으므로, AI 에이전트와 함께 설계변수 기반 코드로 정리했다. 이후에는 형상 파일만 바뀌면 같은 절차를 코드가 매 회차 재현한다. 단계별 GUI 설정은 부록 A-3, 코드는 부록 A-2에 정리했다.");
 }
 
 /* ───────────── 10. [03] DOE 기법 및 무인 자동 해석 루프 ───────────── */
@@ -707,6 +712,43 @@ function bottomStrip(s, pts) {
     "    return ipk, result_path, pao_volume_mm3"
   ], 8.5);
   s.addText("※ 주요 흐름 위주로 발췌 · 긴 인자 목록은 (...)로 생략, 설계 치수는 변수명으로 대체", { x: M, y: 7.06, w: 12.23, h: 0.24, fontSize: 8.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
+}
+
+
+/* ───────────── 부록 A-3. Icepak GUI 설정 절차 ───────────── */
+{
+  const s = pres.addSlide();
+  s.background = { color: BG };
+  header(s, "A-3", "부록", "Icepak 해석 모델 GUI 설정 절차");
+  const steps = [
+    ["프로젝트 생성", "새 프로젝트 · 디자인 생성"],
+    ["형상 불러오기", "STEP 불러오기 · 부품 이름·재질 지정"],
+    ["유체 영역", "박스 생성 → 형상 Subtract → 분리"],
+    ["경계조건", "발열원 · 팬(입구) · 개구부(출구)"],
+    ["메시", "유체 영역 로컬 메시 · 글로벌 메시"],
+    ["측정면", "유로 단면 · 분기 입구 측정면 생성"],
+    ["해석 · 추출", "정상상태 해석 → Fields Summary 추출"]
+  ];
+  const W = 2.86, G = 0.263, FH = 2.05;
+  steps.forEach(([h, d], i) => {
+    const r = Math.floor(i / 4), c = i % 4;
+    const x = M + c * (W + G), y = 1.28 + r * 2.9;
+    s.addShape(pres.ShapeType.ellipse, { x, y, w: 0.28, h: 0.28, fill: { color: NAVY }, line: { color: NAVY } });
+    s.addText(String(i + 1), { x, y, w: 0.28, h: 0.28, fontSize: 9, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(h, { x: x + 0.38, y: y - 0.02, w: W - 0.38, h: 0.32, fontSize: 11, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addShape(pres.ShapeType.roundRect, { x, y: y + 0.40, w: W, h: FH, rectRadius: 0.05, fill: { color: CARD }, line: { color: "C3CDDA", width: 1, dashType: "dash" } });
+    s.addText("GUI 캡처", { x, y: y + 0.40, w: W, h: FH, fontSize: 10, bold: true, color: "B5C0CF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(d, { x, y: y + 0.40 + FH + 0.05, w: W, h: 0.3, fontSize: 9, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
+  });
+  // 8번째 칸 — 요약
+  const x = M + 3 * (W + G), y = 1.28 + 2.9;
+  s.addShape(pres.ShapeType.roundRect, { x, y: y + 0.40, w: W, h: FH, rectRadius: 0.06, fill: { color: NAVY }, line: { color: NAVY } });
+  s.addText([{ text: "위 7단계를", options: { breakLine: true } },
+             { text: "스크립트 리코더로 기록", options: { breakLine: true, bold: true } },
+             { text: "→ 코드화하여", options: { breakLine: true } },
+             { text: "매 회차 자동 수행", options: { bold: true, color: "7FD6E8" } }],
+    { x: x + 0.2, y: y + 0.40, w: W - 0.4, h: FH, fontSize: 11, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.3 });
+  s.addText("대응 코드: 부록 A-2", { x, y: y + 0.40 + FH + 0.05, w: W, h: 0.3, fontSize: 9, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
 }
 
 pres.writeFile({ fileName: "/home/user/dddd/1개월차_AI에이전트_활용방안_및_DOE결과.pptx" })
