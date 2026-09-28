@@ -141,7 +141,7 @@ function bottomStrip(s, pts) {
     s.addText(sub, { x: M + 6.95, y: y + 0.3, w: 5.0, h: h - 0.6, fontSize: 11, color: TXT, fontFace: F, isTextBox: true, margin: 0, valign: "middle", lineSpacingMultiple: 1.45 });
     y += h + 0.22;
   });
-  s.addText("부록   A-1  SolidWorks 제어 코드   ·   A-2  Icepak 제어 코드   ·   A-3  Icepak GUI 설정 절차", { x: M, y: 7.0, w: 12.23, h: 0.26, fontSize: 9.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("부록   A-1  Icepak 해석 모델 GUI 설정 절차", { x: M, y: 7.0, w: 12.23, h: 0.26, fontSize: 9.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
   s.addNotes("01은 망분리 환경에서 AI를 어떻게 활용했는지, 02는 무엇을 설계변수로 두었는지, 03은 자동해석을 통해 실제로 확보한 데이터를 다룬다.");
 }
 
@@ -462,14 +462,13 @@ function bottomStrip(s, pts) {
     ["검산", "산출값이 수기 계산값과 소수점까지 일치"],
     ["교차검증", "해석 측 유체 부피와 대조, 이상 시 로그 경고"]
   ], [1.3, 4.0], { rowH: 0.40 });
-  s.addText("※ 주요 코드는 부록 A-1 참고", { x: CX2 + 0.34, y: y0 + 4.12, w: 5.3, h: 0.26, fontSize: 9, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
 
   bottomStrip(s, [
     ["변수명 검증", "불일치 시 즉시 중단 — 형상 미변경 해석 차단"],
     ["종속값 CAD 위임", "핀 간격은 CAD 수식이 계산 — 이중 계산 방지"],
     ["질량 특성 검증", "미문서화 반환값을 GUI 패널과 대조해 확정"]
   ]);
-  s.addNotes("설계값을 Equation Manager 전역변수에 써넣고 리빌드한 뒤 질량 특성과 STEP 파일을 얻는 과정이다. 변수명이 어긋나면 즉시 중단해 형상이 바뀌지 않은 채 해석되는 사고를 막았고, 핀 간격처럼 다른 변수에서 결정되는 값은 CAD 수식에 맡겨 두 곳에서 따로 계산하지 않도록 했다. 주요 코드는 부록 A-1에 정리했다.");
+  s.addNotes("설계값을 Equation Manager 전역변수에 써넣고 리빌드한 뒤 질량 특성과 STEP 파일을 얻는 과정이다. 변수명이 어긋나면 즉시 중단해 형상이 바뀌지 않은 채 해석되는 사고를 막았고, 핀 간격처럼 다른 변수에서 결정되는 값은 CAD 수식에 맡겨 두 곳에서 따로 계산하지 않도록 했다.");
 }
 
 /* ───────────── 9. [03] 해석 모델 자동 구성 — Icepak ───────────── */
@@ -496,7 +495,7 @@ function bottomStrip(s, pts) {
     s.addText(d, { x: M + 2.72, y: yy + 0.04, w: 2.84, h: 0.56, fontSize: 8.8, color: f === "EEF2F7" ? TXT : "FFFFFF", valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.1 });
     if (i < flow.length - 1) s.addText("▼", { x: M + 0.34, y: yy + 0.64, w: 5.3, h: 0.2, fontSize: 7, color: MUTED, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
-  s.addText("※ 단계별 GUI 설정은 부록 A-3, 코드는 부록 A-2 참고", { x: M + 0.34, y: y0 + 4.20, w: 5.3, h: 0.24, fontSize: 9, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("※ 단계별 GUI 설정은 부록 A-1 참고", { x: M + 0.34, y: y0 + 4.20, w: 5.3, h: 0.24, fontSize: 9, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
 
   // 우상 — 수동 vs 자동
   const hA = 2.38;
@@ -527,7 +526,7 @@ function bottomStrip(s, pts) {
     ["경계면 자동 탐지", "형상이 바뀌어도 팬·개구부 면을 좌표로 식별"],
     ["측정면 동적 생성", "핀 개수 변화에 맞춰 유로 전체 측정면 자동 배치"]
   ]);
-  s.addNotes("해석 모델은 처음에 GUI로 한 번 직접 구성하고, 그 과정을 스크립트 리코더로 기록했다. 기록된 스크립트는 형상 치수가 고정값으로 박혀 있어 그대로는 재사용할 수 없으므로, AI 에이전트와 함께 설계변수 기반 코드로 정리했다. 이후에는 형상 파일만 바뀌면 같은 절차를 코드가 매 회차 재현한다. 단계별 GUI 설정은 부록 A-3, 코드는 부록 A-2에 정리했다.");
+  s.addNotes("해석 모델은 처음에 GUI로 한 번 직접 구성하고, 그 과정을 스크립트 리코더로 기록했다. 기록된 스크립트는 형상 치수가 고정값으로 박혀 있어 그대로는 재사용할 수 없으므로, AI 에이전트와 함께 설계변수 기반 코드로 정리했다. 이후에는 형상 파일만 바뀌면 같은 절차를 코드가 매 회차 재현한다. 단계별 GUI 설정은 부록 A-1에 정리했다.");
 }
 
 /* ───────────── 10. [03] DOE 기법 및 무인 자동 해석 루프 ───────────── */
@@ -628,98 +627,11 @@ function bottomStrip(s, pts) {
 }
 
 
-/* ───────────── 부록 A-1. SolidWorks 제어 코드 ───────────── */
+/* ───────────── 부록 A-1. Icepak GUI 설정 절차 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "A-1", "부록", "SolidWorks 제어 코드 — 형상 빌드 · 질량 특성 · STEP 저장");
-  codeBlock(s, M, 1.28, 12.23, 5.72, "Solidworks.py", [
-    "def connect_sw():",
-    "    pythoncom.CoInitialize()",
-    "    app = win32com.client.Dispatch(\"SldWorks.Application\")",
-    "    app.Visible = False                                   # 무인 장기구동",
-    "    model = app.OpenDoc6(ASM_PATH, swDocASSEMBLY, 1, \"\", errors, warnings)",
-    "    return app, errors, warnings",
-    "def update_sw(app, errors, warnings, params):",
-    "    _validate(params)                                     # 누락 변수 · 정수 · 갭 제약 사전 검증",
-    "    part  = app.ActivateDoc3(PART_PATH, False, 0, errors)",
-    "    eqMgr = part.GetEquationMgr",
-    "    dispid = eqMgr._oleobj_.GetIDsOfNames(\"Equation\")",
-    "",
-    "    name_to_i = {}                                        # 수식 목록에서 변수명 → 인덱스 매핑",
-    "    for i in range(eqMgr.GetCount):",
-    "        lhs = eqMgr.Equation(i).split(\"=\")[0].strip()",
-    "        name_to_i[lhs.strip('\"')] = i",
-    "    missing = [n for n in SW_PARAM_NAMES if n not in name_to_i]",
-    "    if missing: raise KeyError(f\"SolidWorks에 없는 글로벌 변수: {missing}\")",
-    "",
-    "    for name in SW_PARAM_NAMES:                           # 전역변수 값 치환 (COM 속성 쓰기)",
-    "        text = str(int(params[name])) if name in INT_PARAMS else str(params[name])",
-    "        eqMgr._oleobj_.Invoke(dispid, 0, pythoncom.DISPATCH_PROPERTYPUT,",
-    "                              False, name_to_i[name], '\"%s\" = %s' % (name, text))",
-    "",
-    "    part.EditRebuild3;  part.Save3(1, errors, warnings)   # 파트 리빌드 · 저장",
-    "    asm = app.ActivateDoc3(ASM_PATH, False, 0, errors)",
-    "    asm.ForceRebuild3(False);  asm.Save3(1, errors, warnings)",
-    "",
-    "    mp = asm.GetMassProperties                            # [3] 부피(m³) · [5] 질량(kg)",
-    "    return float(mp[5]), float(mp[3]) * 1e9",
-    "def export_step(app, errors, idx):",
-    "    asm = app.ActivateDoc3(ASM_PATH, False, 0, errors)",
-    "    asm.SaveAs3(os.path.join(STEP_DIR, f\"flowpath_{idx:03d}.STEP\"), 0, 0)"
-  ], 8.2);
-  s.addText("※ 주요 흐름 위주로 발췌 · 일부 로그 출력 및 예외 처리 생략", { x: M, y: 7.06, w: 12.23, h: 0.24, fontSize: 8.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
-}
-
-/* ───────────── 부록 A-2. Icepak 제어 코드 ───────────── */
-{
-  const s = pres.addSlide();
-  s.background = { color: BG };
-  header(s, "A-2", "부록", "Icepak 제어 코드 — 해석 모델 구성 · 해석 실행 · 결과 추출");
-  codeBlock(s, M, 1.28, 12.23, 5.72, "icepak.py — run_icepak()", [
-    "def run_icepak(desktop, ipk, step_file, idx, params):",
-    "    if ipk is not None:                                   # 이전 회차 프로젝트 닫기",
-    "        ipk.odesktop.CloseProject(ipk.project_name)",
-    "    for ext in (\".aedt\", \".aedt.lock\"):                   # 잔여 · 잠금 파일 정리",
-    "        if os.path.exists(PROJ_PATH + ext): os.remove(PROJ_PATH + ext)",
-    "",
-    "    ipk = Icepak(project=PROJ_PATH, design=f\"IcepakDesign_{idx:03d}\",",
-    "                 new_desktop=False, close_on_exit=False)",
-    "    ipk.modeler.import_3d_cad(step_file)                  # STEP 불러오기",
-    "    oDesign = ipk.odesign",
-    "    oEditor = oDesign.SetActiveEditor(\"3D Modeler\")",
-    "",
-    "    oEditor.CreateBox(...)                                # 냉각유(PAO) 박스",
-    "    oEditor.Subtract(...);  oEditor.SeparateBody(...)     # 유체 영역 = 박스 − 형상",
-    "    for i in range(N_SOURCE):                             # 발열원 생성",
-    "        oEditor.CreateBox(...)",
-    "",
-    "    faces = [f for f in box.faces if abs(f.center[2] - z_top) < 0.1]",
-    "    faces.sort(key=lambda f: f.center[0])                 # 팬 · 개구부 면 자동 탐지",
-    "    oEditor.InsertNativeComponent(...)                    # 팬(입구)",
-    "    oDesign.GetModule(\"BoundarySetup\").AssignOpeningBoundary(...)   # 개구부(출구)",
-    "    oDesign.GetModule(\"MeshRegion\").AssignMeshRegion(...)           # 로컬 메시",
-    "",
-    "    _create_lane_rectangles(oEditor, \"V_inlet\",  x_pos,  y_bank1, params)   # 측정면 동적 생성",
-    "    _create_lane_rectangles(oEditor, \"V_inlet2\", x_pos2, y_bank2, params)",
-    "",
-    "    oDesign.GetModule(\"AnalysisSetup\").InsertSetup(\"IcepakSteadyState\", [...])",
-    "    oDesign.AnalyzeAll()                                  # 메싱 + 솔브",
-    "",
-    "    oModule = oDesign.GetModule(\"Solutions\")",
-    "    oModule.EditFieldsSummarySetting(calc_args)           # 측정 순서 = CSV 행 순서",
-    "    oModule.ExportFieldsSummary([..., \"ExportFileName:=\", result_path])",
-    "    return ipk, result_path, pao_volume_mm3"
-  ], 8.5);
-  s.addText("※ 주요 흐름 위주로 발췌 · 긴 인자 목록은 (...)로 생략, 설계 치수는 변수명으로 대체", { x: M, y: 7.06, w: 12.23, h: 0.24, fontSize: 8.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
-}
-
-
-/* ───────────── 부록 A-3. Icepak GUI 설정 절차 ───────────── */
-{
-  const s = pres.addSlide();
-  s.background = { color: BG };
-  header(s, "A-3", "부록", "Icepak 해석 모델 GUI 설정 절차");
+  header(s, "A-1", "부록", "Icepak 해석 모델 GUI 설정 절차");
   const steps = [
     ["프로젝트 생성", "새 프로젝트 · 디자인 생성"],
     ["형상 불러오기", "STEP 불러오기 · 부품 이름·재질 지정"],
@@ -748,7 +660,6 @@ function bottomStrip(s, pts) {
              { text: "→ 코드화하여", options: { breakLine: true } },
              { text: "매 회차 자동 수행", options: { bold: true, color: "7FD6E8" } }],
     { x: x + 0.2, y: y + 0.40, w: W - 0.4, h: FH, fontSize: 11, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.3 });
-  s.addText("대응 코드: 부록 A-2", { x, y: y + 0.40 + FH + 0.05, w: W, h: 0.3, fontSize: 9, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
 }
 
 pres.writeFile({ fileName: "/home/user/dddd/1개월차_AI에이전트_활용방안_및_DOE결과.pptx" })
