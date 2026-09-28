@@ -2,7 +2,7 @@ const pptxgen = require("pptxgenjs");
 const pres = new pptxgen();
 pres.layout = "LAYOUT_WIDE";           // 13.333 x 7.5
 pres.author = "학습조직";
-pres.title  = "AI 기반 열유체 해석 자동화 및 설계최적화";
+pres.title  = "형상 생성부터 설계최적화까지";
 
 const NAVY   = "16305B";
 const NAVY2  = "2C4E82";
@@ -64,14 +64,15 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   s.addShape(pres.ShapeType.ellipse, { x: 11.2, y: 4.3, w: 3.4, h: 3.4, fill: { color: ACCENT, transparency: 78 }, line: { color: ACCENT, transparency: 100 } });
 
   s.addText("학습조직", { x: M + 0.3, y: 1.42, w: 8, h: 0.32, fontSize: 12, bold: true, color: ACCENT, fontFace: F, isTextBox: true, margin: 0, charSpacing: 2 });
-  s.addText("AI 기반 열유체 해석 자동화 및\n설계최적화", { x: M + 0.3, y: 1.92, w: 9.2, h: 1.9, fontSize: 38, bold: true, color: "FFFFFF", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
-  s.addText("수냉식 냉각판 유로·방열핀 설계 사례", { x: M + 0.3, y: 3.92, w: 9, h: 0.4, fontSize: 15, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("형상 생성부터\n설계최적화까지", { x: M + 0.3, y: 1.88, w: 9.2, h: 1.9, fontSize: 40, bold: true, color: "FFFFFF", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.12 });
+  s.addText("AI 기반 형상·해석 자동화 연계 설계최적화", { x: M + 0.3, y: 3.86, w: 9, h: 0.4, fontSize: 16, bold: true, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("수냉식 냉각판 유로·방열핀 설계 사례", { x: M + 0.3, y: 4.26, w: 9, h: 0.32, fontSize: 12, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
 
   // 월별 범위 — 매월 이 줄만 교체
-  s.addShape(pres.ShapeType.roundRect, { x: M + 0.3, y: 4.72, w: 6.6, h: 0.62, rectRadius: 0.08, fill: { color: NAVY2 }, line: { color: NAVY2 } });
-  s.addText("1개월차   |   AI 에이전트 활용방안 및 DOE 결과", { x: M + 0.3, y: 4.72, w: 6.6, h: 0.62, fontSize: 13, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  s.addShape(pres.ShapeType.roundRect, { x: M + 0.3, y: 4.92, w: 6.6, h: 0.62, rectRadius: 0.08, fill: { color: NAVY2 }, line: { color: NAVY2 } });
+  s.addText("1개월차   |   AI 에이전트 활용방안 및 DOE 결과", { x: M + 0.3, y: 4.92, w: 6.6, h: 0.62, fontSize: 13, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
-  s.addText("소속 / 성명 / 발표일자", { x: M + 0.3, y: 5.75, w: 8, h: 0.32, fontSize: 12, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("소속 / 성명 / 발표일자", { x: M + 0.3, y: 5.9, w: 8, h: 0.32, fontSize: 12, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
   s.addNotes("1개월차 산출물 발표. 해석 자동화 파이프라인 구축과 DOE 데이터 확보까지가 이번 달 범위이며, 대리모델 학습은 차월 주제임을 먼저 밝힌다.");
 }
 
@@ -82,7 +83,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   s.addText("목   차", { x: M, y: 0.55, w: 6, h: 0.5, fontSize: 26, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0, charSpacing: 3 });
 
   const items = [
-    ["01", "AI 에이전트 기반 개발환경 구축", "1.  협업 방식 및 모듈 구성\n2.  단일 출처 원칙 및 코드 검증 절차"],
+    ["01", "AI 에이전트 기반 개발환경 구축", "1.  망분리 환경에서의 AI 에이전트 활용 체계\n2.  저장소 기반 개발환경 구성\n3.  내부망 실행 구조"],
     ["02", "설계변수 정의 및 설계공간 설정", "1.  형상 및 유동 경로\n2.  설계변수 9종 / 고정 2종\n3.  방열핀 배치 및 가공 제약"],
     ["03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "1.  형상 자동 빌드 및 중량 산출\n2.  DOE 기법 및 무인 자동 해석 루프\n3.  DOE 데이터 확보 현황"]
   ];
@@ -96,68 +97,163 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
     s.addText(sub, { x: M + 6.95, y: y + 0.3, w: 5.0, h: h - 0.6, fontSize: 11, color: TXT, fontFace: F, isTextBox: true, margin: 0, valign: "middle", lineSpacingMultiple: 1.45 });
     y += h + 0.22;
   });
-  s.addNotes("01은 개발 방식, 02는 무엇을 변수로 두었는지, 03은 실제로 확보한 데이터를 다룬다.");
+  s.addNotes("01은 망분리 환경에서 AI를 어떻게 활용했는지, 02는 무엇을 설계변수로 두었는지, 03은 자동해석을 통해 실제로 확보한 데이터를 다룬다.");
 }
 
-/* ───────────── 3. [01] 협업 방식 · 모듈 · 단일출처 · 검증 ───────────── */
+/* ───────────── 3. [01] 망분리 환경에서의 AI 에이전트 활용 체계 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "01", "AI 에이전트 기반 개발환경 구축", "협업 방식 및 모듈 구성 · 코드 검증 절차");
-
+  header(s, "01", "AI 에이전트 기반 개발환경 구축", "망분리 환경에서의 AI 에이전트 활용 체계");
   const y1 = 1.30, y2 = 4.18, ch = 2.72;
 
-  // 좌상 — 협업 흐름
+  // 좌상 — 제약 조건
   card(s, M, y1, CW, ch);
-  cardTitle(s, M, y1, "협업 방식");
-  const chips = ["설계자", "AI 에이전트", "자동화 코드"];
-  chips.forEach((c, i) => {
-    const x = M + 0.34 + i * 1.85;
-    s.addShape(pres.ShapeType.roundRect, { x, y: y1 + 0.92, w: 1.62, h: 0.52, rectRadius: 0.08, fill: { color: i === 1 ? NAVY : "EEF2F7" }, line: { color: i === 1 ? NAVY : LINE, width: 0.75 } });
-    s.addText(c, { x, y: y1 + 0.92, w: 1.62, h: 0.52, fontSize: 10.5, bold: true, color: i === 1 ? "FFFFFF" : NAVY, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-    if (i < 2) s.addText("▶", { x: x + 1.62, y: y1 + 0.92, w: 0.23, h: 0.52, fontSize: 9, color: ACCENT, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-  });
-  s.addText("◀   결과 검토 · 이상 징후 피드백", { x: M + 0.34, y: y1 + 1.55, w: 5.2, h: 0.3, fontSize: 9.5, color: ACCENT, fontFace: F, isTextBox: true, margin: 0 });
-  body(s, M + 0.34, y1 + 1.92, 5.3, 0.65,
-    "요구사항·물리조건 정의부터 지표 정의·검증 방법까지 대화 기반으로 진행\n— 단순 코드 생성이 아닌 설계 판단 단계부터 협업", { fontSize: 10, color: MUTED });
+  cardTitle(s, M, y1, "제약 조건");
+  tbl(s, M + 0.34, y1 + 0.80, 5.3, [
+    [hdr("구분"), hdr("현황")],
+    ["내부망", "보안 정책상 외부 AI 직접 접속 불가"],
+    ["반출 제한", "CAD·해석 모델 및 원본 결과는 반출 불가"],
+    ["필요 사항", "내부 자산을 내보내지 않고 개발하는 방법"]
+  ], [1.15, 4.15], { rowH: 0.34 });
+  s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y1 + 2.22, w: 5.3, h: 0.42, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  s.addText("→  외부에서 만드는 것은 '코드'이고, 형상과 해석은 내부망에서만 수행", { x: M + 0.48, y: y1 + 2.22, w: 5.05, h: 0.42, fontSize: 9.5, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
-  // 우상 — 구축 모듈
+  // 우상 — 활용 구조
   card(s, CX2, y1, CW, ch);
-  cardTitle(s, CX2, y1, "구축 모듈 — 해석 자동화 파이프라인");
-  tbl(s, CX2 + 0.34, y1 + 0.78, 5.3, [
-    [hdr("모듈"), hdr("역할")],
-    ["OLHD / fins", "설계변수·DOE / 핀 배치 수식"],
-    ["Solidworks / icepak", "형상 리빌드 / 해석 실행"],
-    ["result_parser", "결과 파싱 및 지표 산출"],
-    ["main / paths", "루프 제어 / 경로 관리"]
-  ], [1.85, 3.45], { rowH: 0.3 });
-  body(s, CX2 + 0.34, y1 + 2.25, 5.3, 0.35, "데이터 생성까지의 파이프라인 — 대리모델은 차월 구축", { fontSize: 9.5, color: MUTED, italic: true });
+  cardTitle(s, CX2, y1, "활용 구조");
+  const zoneY = y1 + 0.72;
+  s.addText("외부 (개발)", { x: CX2 + 0.34, y: zoneY, w: 2.0, h: 0.22, fontSize: 9, bold: true, color: MUTED, align: "left", fontFace: F, isTextBox: true, margin: 0, charSpacing: 1 });
+  s.addText("내부망", { x: CX2 + 3.64, y: zoneY, w: 2.0, h: 0.22, fontSize: 9, bold: true, color: MUTED, align: "right", fontFace: F, isTextBox: true, margin: 0, charSpacing: 1 });
+  s.addShape(pres.ShapeType.line, { x: CX2 + 3.64, y: y1 + 0.68, w: 0, h: 1.58, line: { color: "B9C4D2", width: 1.25, dashType: "dash" } });
+  const bY = y1 + 1.02, bH = 0.5, bW = 1.5;
+  const bx = [CX2 + 0.34, CX2 + 2.04, CX2 + 3.74];
+  [["AI 에이전트", ACCENT, "FFFFFF"], ["저장소\n(코드 · 문서)", "FFFFFF", NAVY], ["CAD · 해석 실행", NAVY, "FFFFFF"]].forEach(([t, f, c], i) => {
+    s.addShape(pres.ShapeType.roundRect, { x: bx[i], y: bY, w: bW, h: bH, rectRadius: 0.07, fill: { color: f }, line: { color: f === "FFFFFF" ? NAVY : f, width: 1.25 } });
+    s.addText(t, { x: bx[i], y: bY, w: bW, h: bH, fontSize: i === 1 ? 9 : 10, bold: true, color: c, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 0.95 });
+  });
+  s.addShape(pres.ShapeType.line, { x: CX2 + 1.84, y: bY + bH / 2, w: 0.20, h: 0, line: { color: NAVY, width: 1.25, endArrowType: "triangle" } });
+  s.addShape(pres.ShapeType.line, { x: CX2 + 3.54, y: bY + bH / 2, w: 0.20, h: 0, line: { color: NAVY, width: 1.25, endArrowType: "triangle" } });
+  s.addText("코드 · 문서 반입", { x: CX2 + 2.85, y: bY + bH + 0.03, w: 1.45, h: 0.22, fontSize: 8, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  const rY = y1 + 1.92;
+  s.addShape(pres.ShapeType.line, { x: CX2 + 4.49, y: bY + bH, w: 0, h: rY - (bY + bH), line: { color: MUTED, width: 1.1 } });
+  s.addShape(pres.ShapeType.line, { x: CX2 + 1.09, y: rY, w: 3.40, h: 0, line: { color: MUTED, width: 1.1, beginArrowType: "triangle" } });
+  s.addShape(pres.ShapeType.line, { x: CX2 + 1.09, y: bY + bH, w: 0, h: rY - (bY + bH), line: { color: MUTED, width: 1.1, beginArrowType: "triangle" } });
+  s.addText("개발자가 결과를 확인하고 요구사항만 정리해 전달", { x: CX2 + 0.34, y: rY + 0.04, w: 5.3, h: 0.24, fontSize: 8.5, color: MUTED, align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: y1 + 2.28, w: 5.3, h: 0.32, rectRadius: 0.05, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  s.addText("형상·해석 모델과 원본 결과는 경계를 넘지 않음", { x: CX2 + 0.34, y: y1 + 2.28, w: 5.3, h: 0.32, fontSize: 9, bold: true, color: NAVY, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
-  // 좌하 — 단일 출처 원칙
+  // 좌하 — 맥락 구축
   card(s, M, y2, CW, ch);
-  cardTitle(s, M, y2, "단일 출처(Single Source) 원칙");
-  body(s, M + 0.34, y2 + 0.8, 5.3, 1.1,
-    [{ text: "같은 값을 두 곳에 두지 않는다", options: { bullet: true, breakLine: true, bold: true } },
-     { text: "한쪽만 수정했을 때 조용히 어긋나는 사고를 구조적으로 차단", options: { bullet: true, breakLine: true } },
-     { text: "핀뱅크 길이 1곳 수정 → 갭 공식·유로 위치·최대 개수 자동 반영", options: { bullet: true } }],
-    { paraSpaceAfter: 5 });
-  s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y2 + 1.92, w: 5.3, h: 0.55, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
-  s.addText("설계변수 · DOE 점수 · 핀 배치 수식 · 채널 수 · 경로  →  각 1개 모듈에서만 정의", { x: M + 0.45, y: y2 + 1.92, w: 5.1, h: 0.55, fontSize: 9.5, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  cardTitle(s, M, y2, "맥락(Context) 구축 방법");
+  tbl(s, M + 0.34, y2 + 0.78, 5.3, [
+    [hdr("저장소 구성"), hdr("담는 내용")],
+    ["설계 로직 문서", "설계변수 구성 · 제약조건 · 처리 절차"],
+    ["작업 규칙 문서", "임의 수정 금지 등 협업 규칙"],
+    ["코드", "형상·해석 자동화 모듈"],
+    ["인터페이스 규약", "결과 파일 형식, API 호출 규약"]
+  ], [1.45, 3.85], { rowH: 0.30 });
+  s.addText("코드 작성에 필요한 범위로 한정 — 매 세션 저장소를 읽어 이전 맥락을 그대로 이어받음",
+    { x: M + 0.34, y: y2 + 2.34, w: 5.3, h: 0.30, fontSize: 9, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
-  // 우하 — 검증 절차
+  // 우하 — 운영 방식
   card(s, CX2, y2, CW, ch);
-  cardTitle(s, CX2, y2, "코드 검증 절차");
-  s.addText("① 요구사항 정의  ▶  ② AI 코드 생성  ▶  ③ 검증  ▶  ④ 반영", { x: CX2 + 0.34, y: y2 + 0.76, w: 5.3, h: 0.3, fontSize: 10, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
-  tbl(s, CX2 + 0.34, y2 + 1.18, 5.3, [
-    [hdr("검증 방법"), hdr("실제 적용")],
-    ["수식 검산", "중량 산출식 ↔ 수기 계산값 일치"],
-    ["전수 검증", "후보 20만 개 → 제약 위반 0건"],
-    ["통합 테스트", "해석 없이 생성·파싱 구간 구동 확인"]
-  ], [1.55, 3.75], { rowH: 0.32 });
-  s.addNotes("AI 출력을 그대로 쓰지 않고 검증을 절차화했다는 점, 그리고 값의 정의 위치를 한 곳으로 고정해 일관성을 유지했다는 점이 핵심.");
+  cardTitle(s, CX2, y2, "운영 방식");
+  tbl(s, CX2 + 0.34, y2 + 0.78, 5.3, [
+    [hdr("항목"), hdr("내용")],
+    ["버전 관리", "코드·문서 변경을 버전별 분기로 이력화"],
+    ["변경 이력", "코드 수정 이력이 곧 설계 결정 이력"],
+    ["반입 범위", "코드·문서만 내부망으로 반입"],
+    ["코드 검증", "수식 검산 · 전수 검증 · 통합 테스트"]
+  ], [1.25, 4.05], { rowH: 0.30 });
+  s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: y2 + 2.30, w: 5.3, h: 0.38, rectRadius: 0.06, fill: { color: NAVY } });
+  s.addText("내부 자산을 반출하지 않고 AI 협업 체계 구축", { x: CX2 + 0.34, y: y2 + 2.30, w: 5.3, h: 0.38, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+
+  s.addNotes("보안 정책상 CAD·해석 모델과 원본 결과는 외부로 나갈 수 없다. 따라서 외부에서는 코드와 문서만 작성하고, 형상 생성과 해석은 전적으로 내부망에서 수행한다. 실행 결과는 개발자가 확인한 뒤 필요한 요구사항만 정리해 전달하는 방식으로 운영했다.");
 }
 
-/* ───────────── 4. [02] 형상·유동 경로 및 설계변수 ───────────── */
+/* ───────────── 4. [01] 저장소 기반 개발환경 구성 ───────────── */
+{
+  const s = pres.addSlide();
+  s.background = { color: BG };
+  header(s, "01", "AI 에이전트 기반 개발환경 구축", "저장소 기반 개발환경 구성");
+
+  const FW = 5.75, FH = 3.42, FY = 1.66;
+  const FX = [M, 7.03];
+  [["①", "AI 에이전트 — 작업 브랜치 연결", ACCENT], ["②", "저장소 — 버전별 브랜치로 저장", NAVY]].forEach(([no, title, col], i) => {
+    s.addShape(pres.ShapeType.ellipse, { x: FX[i], y: 1.20, w: 0.30, h: 0.30, fill: { color: col }, line: { color: col } });
+    s.addText(no, { x: FX[i], y: 1.20, w: 0.30, h: 0.30, fontSize: 11, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(title, { x: FX[i] + 0.42, y: 1.18, w: FW - 0.42, h: 0.34, fontSize: 13, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addShape(pres.ShapeType.roundRect, { x: FX[i], y: FY, w: FW, h: FH, rectRadius: 0.05, fill: { color: CARD }, line: { color: "C3CDDA", width: 1, dashType: "dash" }, shadow: sh() });
+    s.addText(`${no}  화면 캡처 삽입 영역`, { x: FX[i], y: FY + FH / 2 - 0.3, w: FW, h: 0.4, fontSize: 12, bold: true, color: "AAB6C6", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText("(프레임에 맞춰 캡처 이미지로 교체)", { x: FX[i], y: FY + FH / 2 + 0.06, w: FW, h: 0.3, fontSize: 9, color: "C3CDDA", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  });
+  s.addShape(pres.ShapeType.line, { x: 6.40, y: FY + FH / 2, w: 0.55, h: 0, line: { color: NAVY, width: 1.5, endArrowType: "triangle" } });
+  s.addText("저장", { x: 6.28, y: FY + FH / 2 - 0.34, w: 0.80, h: 0.26, fontSize: 9, bold: true, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  ["세션 시작 시 저장소의 지정 브랜치를 연결\n→ 이전 작업 맥락을 그대로 이어받아 코드 작성",
+   "작성된 코드·문서가 해당 브랜치에 반영\n→ 형상·변수 구성 변경이 버전별로 축적"].forEach((t, i) => {
+    s.addText(t, { x: FX[i] + 0.04, y: 5.22, w: FW - 0.08, h: 0.68, fontSize: 10, color: TXT, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
+  });
+  s.addShape(pres.ShapeType.roundRect, { x: M, y: 6.06, w: 12.23, h: 0.92, rectRadius: 0.06, fill: { color: CARD }, line: { color: LINE, width: 0.75 }, shadow: sh() });
+  [["작업 단위 = 브랜치", "형상·변수 구성이 바뀔 때마다 분기하여 관리"],
+   ["맥락 유지", "세션이 바뀌어도 저장소를 읽어 이어서 작업"],
+   ["이력 = 근거", "커밋 메시지가 곧 설계 변경 사유로 남음"]].forEach(([h, d], i) => {
+    const x = M + 0.36 + i * 4.0;
+    s.addShape(pres.ShapeType.rect, { x, y: 6.26, w: 0.07, h: 0.18, fill: { color: ACCENT }, line: { color: ACCENT } });
+    s.addText(h, { x: x + 0.16, y: 6.20, w: 3.6, h: 0.28, fontSize: 10.5, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(d, { x: x + 0.16, y: 6.50, w: 3.6, h: 0.34, fontSize: 9.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
+  });
+  s.addText("※ 화면 내 설계 세부값은 마스킹 처리", { x: M, y: 7.02, w: 6, h: 0.26, fontSize: 8.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
+  s.addNotes("왼쪽은 AI 에이전트에서 작업 브랜치를 연결하는 화면, 오른쪽은 그 결과가 저장소에 버전별 브랜치로 쌓이는 화면이다. 세션이 바뀌어도 저장소를 읽어 이전 맥락을 이어받기 때문에 같은 설명을 반복할 필요가 없고, 커밋 메시지가 설계 변경 사유로 남아 이력 추적이 가능하다. 화면에 보이는 설계 세부값은 마스킹 처리했다.");
+}
+
+/* ───────────── 5. [01] 내부망 실행 구조 ───────────── */
+{
+  const s = pres.addSlide();
+  s.background = { color: BG };
+  header(s, "01", "AI 에이전트 기반 개발환경 구축", "내부망 실행 구조 — 시스템 아키텍처");
+
+  s.addShape(pres.ShapeType.rect, { x: M, y: 1.22, w: 0.07, h: 0.26, fill: { color: ACCENT }, line: { color: ACCENT } });
+  s.addText("작성된 코드가 CAD·해석 프로그램을 직접 제어 — 전 과정이 코드로 연결됨",
+    { x: M + 0.18, y: 1.16, w: 11.6, h: 0.36, fontSize: 12.5, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+
+  const IW = 8.55, IH = IW / 1.8044, IX = M, IY = 1.64;
+  s.addShape(pres.ShapeType.roundRect, { x: IX - 0.06, y: IY - 0.06, w: IW + 0.12, h: IH + 0.12, rectRadius: 0.05, fill: { color: CARD }, line: { color: LINE, width: 0.75 }, shadow: sh() });
+  s.addImage({ path: "/home/user/dddd/시스템아키텍처.PNG", x: IX, y: IY, w: IW, h: IH });
+
+  const RX = IX + IW + 0.45, RW = 13.333 - RX - M;
+  s.addText("구성 계층", { x: RX, y: IY - 0.02, w: RW, h: 0.3, fontSize: 12, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  const layers = [
+    ["개발 환경", "코드 편집 · 디버깅 · 인터프리터 설정"],
+    ["실행 환경", "Python 기반 API 라이브러리로 명령 전달"],
+    ["CAD", "형상 파라미터 갱신 · 리빌드 · STEP 내보내기"],
+    ["해석", "해석 모델 구성 · 솔버 실행 · 결과 추출"]
+  ];
+  let ly = IY + 0.34;
+  layers.forEach(([h, d], i) => {
+    s.addShape(pres.ShapeType.ellipse, { x: RX, y: ly + 0.02, w: 0.26, h: 0.26, fill: { color: NAVY }, line: { color: NAVY } });
+    s.addText(String(i + 1), { x: RX, y: ly + 0.02, w: 0.26, h: 0.26, fontSize: 8.5, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(h, { x: RX + 0.36, y: ly, w: RW - 0.36, h: 0.28, fontSize: 10.5, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(d, { x: RX + 0.36, y: ly + 0.28, w: RW - 0.36, h: 0.42, fontSize: 9.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
+    ly += 0.82;
+  });
+  s.addShape(pres.ShapeType.roundRect, { x: RX, y: IY + IH - 0.92, w: RW, h: 0.9, rectRadius: 0.06, fill: { color: NAVY }, line: { color: NAVY } });
+  s.addText("망분리 정책상\n외부망 ↔ 내부망 코드 이전은 수동 수행", { x: RX + 0.16, y: IY + IH - 0.92, w: RW - 0.32, h: 0.9, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+
+  const by = IY + IH + 0.26;
+  s.addShape(pres.ShapeType.roundRect, { x: M, y: by, w: 12.23, h: 0.72, rectRadius: 0.06, fill: { color: CARD }, line: { color: LINE, width: 0.75 }, shadow: sh() });
+  [["프로그램 간 연동", "CAD와 해석 프로그램을 코드 한 곳에서 제어"],
+   ["수작업 개입 제거", "형상 수정·해석 실행·결과 정리를 무인 반복"],
+   ["재사용 가능 구조", "설계변수 정의만 교체하면 타 과제 적용 가능"]].forEach(([h, d], i) => {
+    const x = M + 0.36 + i * 4.0;
+    s.addShape(pres.ShapeType.rect, { x, y: by + 0.16, w: 0.07, h: 0.17, fill: { color: ACCENT }, line: { color: ACCENT } });
+    s.addText(h, { x: x + 0.16, y: by + 0.10, w: 3.6, h: 0.28, fontSize: 10.5, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(d, { x: x + 0.16, y: by + 0.38, w: 3.7, h: 0.28, fontSize: 9.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
+  });
+  s.addNotes("지난 차수에서 구축한 해석 자동화 환경의 시스템 아키텍처다. 개발 환경에서 작성한 Python 코드가 API를 통해 CAD와 해석 프로그램을 직접 제어하며, 형상 생성부터 결과 추출까지 전 과정이 코드로 연결된다. 코드 이전은 망분리 정책에 따라 수동으로 수행한다.");
+}
+
+/* ───────────── 6. [02] 형상·유동 경로 및 설계변수 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
@@ -221,7 +317,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   s.addNotes("변수를 늘리기만 한 것이 아니라, 근거를 갖고 2개를 고정해 탐색 예산을 방열핀 쪽으로 재배분했다는 점을 강조.");
 }
 
-/* ───────────── 5. [02] 방열핀 배치 제약 및 평가 항목 ───────────── */
+/* ───────────── 7. [02] 방열핀 배치 제약 및 평가 항목 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
@@ -278,7 +374,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   s.addNotes("핀 두께와 개수는 독립 변수처럼 보이지만 가공 제약 때문에 서로 묶인다. 이 점이 DOE 실험점 생성 방식에 영향을 준다.");
 }
 
-/* ───────────── 6. [03] 형상 자동 빌드 및 중량 산출 ───────────── */
+/* ───────────── 8. [03] 형상 자동 빌드 및 중량 산출 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
@@ -325,7 +421,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   s.addNotes("조용히 잘못된 데이터가 쌓이는 실패 모드를 어떻게 막았는지가 이 장의 요지.");
 }
 
-/* ───────────── 7. [03] DOE 기법 및 무인 자동 해석 루프 ───────────── */
+/* ───────────── 9. [03] DOE 기법 및 무인 자동 해석 루프 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
@@ -382,7 +478,7 @@ const hdr = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color
   s.addNotes("1회 해석에 수십 분이 걸리므로 무인 연속 운전이 전제 조건. 사람이 붙어 있지 않아도 데이터가 쌓이는 구조를 만든 것이 이번 달의 실질적 성과.");
 }
 
-/* ───────────── 8. [03] 확보 현황 및 차월 계획 ───────────── */
+/* ───────────── 10. [03] 확보 현황 및 차월 계획 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
