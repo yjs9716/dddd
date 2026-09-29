@@ -129,7 +129,7 @@ function bottomStrip(s, pts) {
   const items = [
     ["01", "AI 에이전트 기반 개발환경 구축", "1.  망분리 환경에서의 AI 에이전트 활용 체계\n2.  저장소 기반 개발환경 구성\n3.  내부망 실행 구조"],
     ["02", "설계변수 정의 및 설계공간 설정", "1.  형상 및 유동 경로\n2.  설계변수 9종 / 고정 2종\n3.  방열핀 배치 및 가공 제약"],
-    ["03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "1.  형상 자동 빌드 및 중량 산출 (SolidWorks)\n2.  해석 모델 자동 구성 및 결과 추출 (Icepak)\n3.  DOE 기법 및 무인 자동 해석 루프\n4.  DOE 데이터 확보 현황"]
+    ["03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "1.  자동해석 코드 구성\n2.  형상 자동 빌드 및 중량 산출 (SolidWorks)\n3.  해석 모델 자동 구성 및 결과 추출 (Icepak)\n4.  DOE 기법 및 무인 자동 해석 루프\n5.  DOE 데이터 확보 현황"]
   ];
   let y = 1.62;
   items.forEach(([no, t, sub], i) => {
@@ -417,6 +417,71 @@ function bottomStrip(s, pts) {
              { text: "유량 균일도의 구체적 지표화 방식은 대리모델 구축 단계에서 확정 예정", options: { bullet: true } }],
     { x: CX2 + 0.55, y: y0 + 4.12, w: 4.9, h: 0.9, fontSize: 10, color: TXT, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25, paraSpaceAfter: 5 });
   s.addNotes("핀 두께와 개수는 독립 변수처럼 보이지만 가공 제약 때문에 서로 묶인다. 이 점이 DOE 실험점 생성 방식에 영향을 준다.");
+}
+
+/* ───────────── 8. [03] 자동해석 코드 구성 ───────────── */
+{
+  const s = pres.addSlide();
+  s.background = { color: BG };
+  header(s, "03", "실험계획법 기반 자동해석 수행 및 데이터 확보", "자동해석 코드 구성");
+
+  // 상단 — 실행 흐름
+  const yA = 1.30, hA = 2.22;
+  card(s, M, yA, 12.23, hA);
+  cardTitle(s, M, yA, "실행 흐름");
+  const cy = yA + 0.72;
+  // main.py
+  s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: cy, w: 1.5, h: 1.02, rectRadius: 0.07, fill: { color: NAVY }, line: { color: NAVY } });
+  s.addText([{ text: "main.py", options: { fontFace: MONO, bold: true, fontSize: 11, breakLine: true } },
+             { text: "루프 제어", options: { fontSize: 9, color: ICE } }],
+    { x: M + 0.34, y: cy, w: 1.5, h: 1.02, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+  s.addText("▶", { x: M + 1.84, y: cy, w: 0.36, h: 1.02, fontSize: 11, color: ACCENT, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  const st = [
+    ["실험점 생성", "OLHD.py · fins.py", "설계변수 9종 · 갭 제약"],
+    ["형상 빌드", "Solidworks.py", "STEP · 질량 · 부피"],
+    ["해석", "icepak.py", "결과 CSV"],
+    ["결과 저장", "result_parser.py", "차압 · 온도 · 유량 · 중량"]
+  ];
+  const SW = 2.2, SG = 0.26, SX = M + 2.2;
+  st.forEach(([h, f, o], i) => {
+    const x = SX + i * (SW + SG);
+    s.addShape(pres.ShapeType.roundRect, { x, y: cy, w: SW, h: 1.02, rectRadius: 0.07, fill: { color: "F7F9FC" }, line: { color: LINE, width: 0.75 } });
+    s.addShape(pres.ShapeType.rect, { x, y: cy, w: SW, h: 0.34, fill: { color: i === 3 ? ACCENT : "DCE6F2" }, line: { color: i === 3 ? ACCENT : "DCE6F2" } });
+    s.addText(`${i + 1}  ${h}`, { x, y: cy, w: SW, h: 0.34, fontSize: 10, bold: true, color: i === 3 ? "FFFFFF" : NAVY, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(f, { x, y: cy + 0.38, w: SW, h: 0.3, fontSize: 9.5, bold: true, color: NAVY, align: "center", valign: "middle", fontFace: MONO, isTextBox: true, margin: 0 });
+    s.addText(o, { x, y: cy + 0.66, w: SW, h: 0.3, fontSize: 8.8, color: MUTED, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    if (i < 3) s.addText("▶", { x: x + SW, y: cy, w: SG, h: 1.02, fontSize: 9, color: ACCENT, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  });
+  // paths.py
+  s.addShape(pres.ShapeType.roundRect, { x: SX, y: cy + 1.14, w: 4 * SW + 3 * SG, h: 0.28, rectRadius: 0.05, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  s.addText([{ text: "paths.py", options: { fontFace: MONO, bold: true, color: NAVY } }, { text: "   작업폴더 · 모델 파일 · 결과 파일 경로를 한 곳에서 관리", options: { color: TXT } }],
+    { x: SX + 0.15, y: cy + 1.14, w: 4 * SW + 3 * SG - 0.3, h: 0.28, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+
+  // 하단 — 파일별 역할
+  const yB = yA + hA + 0.17, hB = 6.06 - 0.17 - yB;
+  card(s, M, yB, 12.23, hB);
+  cardTitle(s, M, yB, "파일별 역할");
+  const fileCell = (t) => ({ text: t, options: { fontFace: MONO, bold: true, color: NAVY } });
+  tbl(s, M + 0.34, yB + 0.60, 5.75, [
+    [hdr("파일"), hdr("역할")],
+    [fileCell("main.py"), "실험점 → 형상 → 해석 → 저장 반복, 실패 시 기록 후 다음 점"],
+    [fileCell("OLHD.py"), "설계변수 정의(단일 위치) · 초기 실험점 90개 생성"],
+    [fileCell("fins.py"), "핀 두께·개수로 갭 계산, 갭 ≥ 2.5mm 제약 판정"],
+    [fileCell("paths.py"), "모든 경로를 한 곳에서 관리"]
+  ], [1.5, 4.25], { rowH: 0.30 });
+  tbl(s, M + 6.34, yB + 0.60, 5.55, [
+    [hdr("파일"), hdr("역할")],
+    [fileCell("Solidworks.py"), "전역변수 갱신 → 리빌드 → 질량·부피 취득 → STEP 저장"],
+    [fileCell("icepak.py"), "해석 모델 구성 → 해석 실행 → 결과 CSV 추출"],
+    [fileCell("result_parser.py"), "결과 CSV에서 차압·온도·유량·중량 산출 후 누적 저장"]
+  ], [1.6, 3.95], { rowH: 0.30 });
+
+  bottomStrip(s, [
+    ["프로그램별 모듈 분리", "CAD·해석 제어를 각각 독립 모듈로 구성"],
+    ["단일 출처", "설계변수·경로 등은 한 파일에서만 정의"],
+    ["실패 격리", "한 점이 실패해도 기록 후 다음 점으로 진행"]
+  ]);
+  s.addNotes("자동해석은 7개 파일로 구성된다. main.py가 전체 루프를 돌리면서 실험점 생성, 형상 빌드, 해석, 결과 저장 모듈을 순서대로 호출하고, 경로는 paths.py 한 곳에서 관리한다. 프로그램별로 모듈을 나눠 두었기 때문에 한쪽을 고쳐도 다른 쪽에 영향이 없다.");
 }
 
 /* ───────────── 8. [03] 형상 자동 빌드 및 중량 산출 — SolidWorks ───────────── */
