@@ -16,7 +16,7 @@ application     chtMultiRegionSimpleFoam;
 startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         2000;           // 정상해석 반복 횟수
+endTime         3000;           // 정상해석 반복 횟수 (고체 온도 수렴이 느림)
 deltaT          1;
 
 writeControl    timeStep;
