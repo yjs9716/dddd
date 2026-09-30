@@ -1,0 +1,93 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  연습 케이스: 직선 유로 냉각판 (OpenFOAM ESI v2412 기준)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     chtMultiRegionSimpleFoam;
+
+startFrom       latestTime;
+startTime       0;
+stopAt          endTime;
+endTime         2000;           // 정상해석 반복 횟수
+deltaT          1;
+
+writeControl    timeStep;
+writeInterval   500;
+purgeWrite      1;              // 최신 결과 하나만 남김 (용량 절약)
+writeFormat     binary;
+writePrecision  8;
+writeCompression off;
+timeFormat      general;
+timePrecision   6;
+runTimeModifiable true;
+
+functions
+{
+    // 목적 1: 고체 최고 온도
+    solidTmax
+    {
+        type            fieldMinMax;
+        libs            (fieldFunctionObjects);
+        region          solid;
+        fields          (T);
+        writeControl    timeStep;
+        writeInterval   10;
+    }
+
+    // 목적 2: 압력강하 = pIn - pOut
+    pIn
+    {
+        type            surfaceFieldValue;
+        libs            (fieldFunctionObjects);
+        region          fluid;
+        regionType      patch;
+        name            inlet;
+        operation       areaAverage;
+        fields          (p);
+        writeFields     false;
+        writeControl    timeStep;
+        writeInterval   10;
+    }
+    pOut
+    {
+        ${pIn}
+        name            outlet;
+    }
+
+    // 열수지 확인용: 출구 질량유량, 출구 질량가중 평균 온도
+    mdotOut
+    {
+        ${pIn}
+        name            outlet;
+        operation       sum;
+        fields          (phi);
+    }
+    TOut                        // 질량가중 평균(bulk) 온도 = sum(phi*T)/sum(phi)
+    {                           // 주의: weightedAreaAverage는 면적을 한 번 더 곱해 틀린 값이 됨
+        ${pIn}
+        name            outlet;
+        operation       weightedAverage;
+        weightField     phi;
+        fields          (T);
+    }
+
+    // 고체 -> 유체로 넘어간 열량 [W]
+    wallHeatFlux
+    {
+        type            wallHeatFlux;
+        libs            (fieldFunctionObjects);
+        region          fluid;
+        patches         (fluid_to_solid);
+        executeControl  timeStep;
+        executeInterval 10;
+        writeControl    writeTime;  // 이 기능은 필드도 같이 저장하므로 결과 저장 시점에만 기록
+    }
+}

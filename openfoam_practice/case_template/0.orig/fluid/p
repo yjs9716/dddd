@@ -1,0 +1,25 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  연습 케이스: 직선 유로 냉각판 (OpenFOAM ESI v2412 기준)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0/fluid";
+    object      p;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [1 -1 -2 0 0 0 0];
+
+internalField   uniform 1e5;
+
+boundaryField
+{
+    ".*"
+    {
+        type            calculated;
+        value           uniform 1e5;
+    }
+}

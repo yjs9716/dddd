@@ -1,0 +1,14 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  연습 케이스: 직선 유로 냉각판 (OpenFOAM ESI v2412 기준)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant/fluid";
+    object      turbulenceProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+simulationType  laminar;    // Re ~ 185 (params.json 기본값 기준)

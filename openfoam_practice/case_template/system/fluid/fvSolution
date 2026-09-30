@@ -1,0 +1,53 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  연습 케이스: 직선 유로 냉각판 (OpenFOAM ESI v2412 기준)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system/fluid";
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    p_rgh
+    {
+        solver          GAMG;
+        smoother        DICGaussSeidel;
+        tolerance       1e-08;
+        relTol          0.01;
+    }
+
+    "(U|h)"
+    {
+        solver          PBiCGStab;
+        preconditioner  DILU;
+        tolerance       1e-08;
+        relTol          0.1;
+    }
+}
+
+SIMPLE
+{
+    momentumPredictor        yes;
+    nNonOrthogonalCorrectors 1;
+    rhoMin                   700;
+    rhoMax                   900;
+}
+
+relaxationFactors
+{
+    fields
+    {
+        rho             1;
+        p_rgh           0.7;
+    }
+    equations
+    {
+        U               0.3;
+        h               0.9;
+    }
+}

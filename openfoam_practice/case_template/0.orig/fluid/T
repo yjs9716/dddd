@@ -1,0 +1,44 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  연습 케이스: 직선 유로 냉각판 (OpenFOAM ESI v2412 기준)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0/fluid";
+    object      T;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#include        "$FOAM_CASE/constant/caseParams"
+
+dimensions      [0 0 0 1 0 0 0];
+
+internalField   uniform $T_in;
+
+boundaryField
+{
+    ".*"
+    {
+        type            zeroGradient;
+    }
+    inlet
+    {
+        type            fixedValue;
+        value           uniform $T_in;
+    }
+    outlet
+    {
+        type            inletOutlet;
+        inletValue      uniform $T_in;
+        value           uniform $T_in;
+    }
+    fluid_to_solid
+    {
+        type            compressible::turbulentTemperatureCoupledBaffleMixed;
+        Tnbr            T;
+        kappaMethod     fluidThermo;
+        value           uniform $T_in;
+    }
+}

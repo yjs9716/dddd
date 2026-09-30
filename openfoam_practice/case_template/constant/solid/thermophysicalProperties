@@ -1,0 +1,45 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  연습 케이스: 직선 유로 냉각판 (OpenFOAM ESI v2412 기준)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant/solid";
+    object      thermophysicalProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// 알루미늄 (상수 물성)
+thermoType
+{
+    type            heSolidThermo;
+    mixture         pureMixture;
+    transport       constIso;
+    thermo          hConst;
+    equationOfState rhoConst;
+    specie          specie;
+    energy          sensibleEnthalpy;
+}
+
+mixture
+{
+    specie
+    {
+        molWeight   27;
+    }
+    equationOfState
+    {
+        rho         2700;       // kg/m3
+    }
+    thermodynamics
+    {
+        Cp          900;        // J/(kg K)
+        Hf          0;
+    }
+    transport
+    {
+        kappa       167;        // W/(m K)
+    }
+}

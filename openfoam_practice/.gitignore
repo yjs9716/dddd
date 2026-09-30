@@ -1,0 +1,8 @@
+# 해석 결과는 저장소에 올리지 않음 (스크립트로 언제든 재생성)
+runs/
+sweep_results.csv
+*.msh
+*.step
+*.FCStd
+*.FCBak
+__pycache__/

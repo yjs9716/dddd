@@ -1,0 +1,46 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  연습 케이스: 직선 유로 냉각판 (OpenFOAM ESI v2412 기준)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant/fluid";
+    object      thermophysicalProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// 연습용 PAO 근사 물성 (상수). 실제 해석에는 공급사 물성표로 교체할 것.
+thermoType
+{
+    type            heRhoThermo;
+    mixture         pureMixture;
+    transport       const;
+    thermo          hConst;
+    equationOfState rhoConst;
+    specie          specie;
+    energy          sensibleEnthalpy;
+}
+
+mixture
+{
+    specie
+    {
+        molWeight   400;
+    }
+    equationOfState
+    {
+        rho         800;        // kg/m3
+    }
+    thermodynamics
+    {
+        Cp          2200;       // J/(kg K)
+        Hf          0;
+    }
+    transport
+    {
+        mu          0.008;      // Pa s
+        Pr          125.7;      // = mu*Cp/k, k = 0.14 W/(m K)
+    }
+}
