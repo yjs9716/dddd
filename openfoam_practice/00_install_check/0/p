@@ -1,0 +1,21 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  설치 검증: 2D 평행평판 층류 (Poiseuille 유동, 해석해 있음)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    object      p;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 2 -2 0 0 0 0];
+internalField   uniform 0;
+boundaryField
+{
+    inlet  { type zeroGradient; }
+    outlet { type fixedValue; value uniform 0; }
+    walls  { type zeroGradient; }
+    sides  { type empty; }
+}

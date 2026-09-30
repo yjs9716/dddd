@@ -1,0 +1,26 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  설치 검증: 2D 평행평판 층류 (Poiseuille 유동, 해석해 있음)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 1 -1 0 0 0 0];
+internalField   uniform (0 0 0);
+boundaryField
+{
+    inlet
+    {
+        type                flowRateInletVelocity;
+        volumetricFlowRate  constant 1.388889e-06;   // 평균 유속 0.46296 m/s
+        value               uniform (0 0 0);
+    }
+    outlet { type inletOutlet; inletValue uniform (0 0 0); value uniform (0 0 0); }
+    walls  { type noSlip; }
+    sides  { type empty; }
+}

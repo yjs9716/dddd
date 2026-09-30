@@ -1,0 +1,42 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  설치 검증: 2D 평행평판 층류 (Poiseuille 유동, 해석해 있음)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     simpleFoam;
+startFrom       latestTime;
+startTime       0;
+stopAt          endTime;
+endTime         3000;
+deltaT          1;
+writeControl    timeStep;
+writeInterval   3000;
+purgeWrite      1;
+writeFormat     ascii;
+writePrecision  8;
+timeFormat      general;
+timePrecision   6;
+
+functions
+{
+    centerline
+    {
+        type            sets;
+        libs            (sampling);
+        writeControl    writeTime;
+        setFormat       raw;
+        interpolationScheme cellPoint;
+        fields          (p U);
+        sets
+        {
+            line { type uniform; axis x; start (0.001 0.0005 0.0015); end (0.299 0.0005 0.0015); nPoints 150; }
+        }
+    }
+}

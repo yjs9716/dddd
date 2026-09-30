@@ -1,0 +1,26 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  설치 검증: 2D 평행평판 층류 (Poiseuille 유동, 해석해 있음)
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// 평판 간격 3 mm, 길이 300 mm, 깊이 1 mm(2D, empty)
+vertices
+(
+    (0   0     0) (0.3 0     0) (0.3 0.001 0) (0 0.001 0)
+    (0   0 0.003) (0.3 0 0.003) (0.3 0.001 0.003) (0 0.001 0.003)
+);
+blocks ( hex (0 1 2 3 4 5 6 7) (300 1 20) simpleGrading (1 1 1) );
+boundary
+(
+    inlet  { type patch; faces ((0 4 7 3)); }
+    outlet { type patch; faces ((1 2 6 5)); }
+    walls  { type wall;  faces ((0 3 2 1) (4 5 6 7)); }
+    sides  { type empty; faces ((0 1 5 4) (3 7 6 2)); }
+);

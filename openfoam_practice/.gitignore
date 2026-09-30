@@ -6,3 +6,8 @@ sweep_results.csv
 *.FCStd
 *.FCBak
 __pycache__/
+# 설치 검증 케이스 출력
+00_install_check/[1-9]*/
+00_install_check/postProcessing/
+00_install_check/constant/polyMesh/
+00_install_check/log.*

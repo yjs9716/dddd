@@ -1,0 +1,7 @@
+#!/bin/bash
+# 설치 검증: 2D 층류 평행평판 유동을 풀고 해석해와 비교한다 (1분 이내)
+cd "$(dirname "$0")" || exit 1
+rm -rf [1-9]* postProcessing log.*
+blockMesh  > log.blockMesh 2>&1
+simpleFoam > log.simpleFoam 2>&1
+python3 check.py
