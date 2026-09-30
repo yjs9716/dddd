@@ -33,7 +33,7 @@ solvers
 SIMPLE
 {
     momentumPredictor        yes;
-    nNonOrthogonalCorrectors 1;
+    nNonOrthogonalCorrectors 2;
     rhoMin                   700;
     rhoMax                   900;
 }

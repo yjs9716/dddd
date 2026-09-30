@@ -18,24 +18,24 @@ ddtSchemes
 
 gradSchemes
 {
-    default         Gauss linear;
-    limited         cellLimited Gauss linear 1;
-    grad(U)         $limited;
-    grad(h)         $limited;
+    // 사면체 격자에서는 Gauss linear 기울기가 부정확함 (평행 유로 검증에서
+    // 압력강하 +35 % 오차). pointCellsLeastSquares로 +0.4 %까지 개선됨.
+    default         pointCellsLeastSquares;
+    limitedGrad     cellLimited pointCellsLeastSquares 1;   // 대류항 전용
 }
 
 divSchemes
 {
     default         none;
-    div(phi,U)      bounded Gauss linearUpwind grad(U);
-    div(phi,h)      bounded Gauss linearUpwind grad(h);
+    div(phi,U)      bounded Gauss linearUpwind limitedGrad;
+    div(phi,h)      bounded Gauss linearUpwind limitedGrad;
     div(phi,K)      bounded Gauss upwind;
     div(((rho*nuEff)*dev2(T(grad(U))))) Gauss linear;
 }
 
 laplacianSchemes
 {
-    default         Gauss linear limited corrected 0.33;
+    default         Gauss linear corrected;
 }
 
 interpolationSchemes
@@ -45,5 +45,5 @@ interpolationSchemes
 
 snGradSchemes
 {
-    default         limited corrected 0.33;
+    default         corrected;
 }
