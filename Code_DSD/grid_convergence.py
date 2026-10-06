@@ -46,7 +46,7 @@ from paths import GCI_DIR
 # ══════════════ 시험 설정 — 실행 전에 확정 ══════════════
 EDGE_LEVELS     = [2, 3, 4, 5, 6]       # MinElementsOnEdge 값 (작은 순)
 MESH_SIZE_MM    = 1.0                   # 유체 서브리전 최대 셀 크기 x/y/z [mm] (전 레벨 공통)
-APPLY_TO_GLOBAL = False                 # True 면 글로벌 메시의 MinElementsOnEdge 도 같이 바꿈
+APPLY_TO_GLOBAL = True                  # True 면 글로벌 메시의 MinElementsOnEdge 도 같이 바꿈
 FIN_THICK_MM    = 1.5                   # 두 뱅크 공통
 FIN_COUNT       = 24                    # 두 뱅크 공통
 TOL_PCT         = 2.0                   # 상대 차이 허용치 [%] (최고온도 제외)
