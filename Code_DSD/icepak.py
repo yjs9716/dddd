@@ -175,7 +175,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
     # 직접 고정 이름을 줘서 그 경로를 타지 않게 함
     ipk = Icepak(
         project=PROJ_PATH,
-        design=f"IcepakDesign_{'dsd_' if phase == 'dsd' else ''}{idx:03d}",
+        design=f"IcepakDesign_{phase + '_' if phase in ('dsd', 'gci') else ''}{idx:03d}",
         new_desktop=False,
         close_on_exit=False,
     )

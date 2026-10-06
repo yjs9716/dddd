@@ -49,6 +49,7 @@ SOLIDWORKS_DIR = os.path.join(BASE_V6, "Solidworks")
 RESULT_DIR     = os.path.join(BASE_V6, "Result")
 DSD_DIR        = os.path.join(RESULT_DIR, "DSD")
 OLHD_DIR       = os.path.join(RESULT_DIR, "OLHD")
+GCI_DIR        = os.path.join(RESULT_DIR, "GCI")    # 격자 민감도 시험 (grid_convergence.py)
 
 # ── SolidWorks ──
 PART_PATH = os.path.join(SOLIDWORKS_DIR, "plate_base.SLDPRT")
@@ -74,10 +75,12 @@ def icepak_result_path(phase, idx):
     """Icepak Fields Summary 원본 CSV 경로 — 단계별 폴더/접두어를 분리해 섞이지 않게."""
     if phase == "dsd":
         return os.path.join(DSD_DIR, f"result_dsd_{idx:03d}.csv")
+    if phase == "gci":
+        return os.path.join(GCI_DIR, f"result_gci_{idx:03d}.csv")
     return os.path.join(OLHD_DIR, f"result_{idx:03d}.csv")
 
 
 def step_path(phase, idx):
     os.makedirs(STEP_DIR, exist_ok=True)
-    tag = "dsd_" if phase == "dsd" else ""
+    tag = f"{phase}_" if phase in ("dsd", "gci") else ""
     return os.path.join(STEP_DIR, f"flowpath_{tag}{idx:03d}.STEP")
