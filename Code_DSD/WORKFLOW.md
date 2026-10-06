@@ -50,4 +50,6 @@ DSD run이 실패하면 `failed_dsd.csv`에 기록된다. 원인을 고친 뒤 `
 - `icepak.py`의 `FIN_BANK1/2_Y_START`가 맞는지, 그리고 측정면이 두 뱅크 유로에 정확히 놓이는지 DSD run 0에서 AEDT 화면으로 확인한다.
 - `result_parser.py`의 `FULL_SOLID_VOLUME_MM3`는 판재 외형이 바뀌었으면 다시 잰다.
 - `DSD_analysis.py`의 사전 고정 규칙(`ALPHA`, `SHARE_MIN`, `PROTECTED`, `MAX_DROP`, `FALLBACK_LEVEL`)은 **DSD 시작 전에** 확정한다.
-- 변수 범위는 V5와 같되 전원입구 두께만 3~10 mm로 좁혔다(근거는 `params.py` 주석). 바꾸려면 `params.py`의 `CANDIDATE_SPEC`만 고치면 된다.
+- 변수 범위는 V5와 같되 세 가지가 다르다. 전원입구 두께는 3~10 mm(V5는 3~20), 최소 핀 갭은 2.0 mm(V5는 2.5), 핀 개수는 10~24개(V5는 10~21)다. 근거는 `params.py`와 `fins.py` 주석에 있다. 범위를 바꾸려면 `params.py`의 `CANDIDATE_SPEC`과 `fins.py`의 `MIN_GAP_MM`을 고치면 된다.
+- 제작 최소 갭(예: 2.5 mm)은 실험 범위가 아니라 최적화 단계의 제약으로 건다.
+- 가장 촘촘한 조합(두께 1.5 mm, 핀 24개, 갭 2.02 mm)은 DSD 실험표에 들어 있다. DSD를 시작하기 전에 이 형상을 한 번 해석해서 메싱이 되는지, 갭 방향 셀이 3개 이상인지 확인한다.
