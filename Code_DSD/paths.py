@@ -9,7 +9,7 @@ V5(Code)와 완전히 분리된 새 캠페인.
     DSD run 0부터 새로 시작한다.
 
 작업폴더 구조
-  <BASE_V6>                (V6 작업폴더, 전부 여기)
+  E:\\Thermal_Anlaysis\\Liquid_plate\\261006   (V6 작업폴더, 전부 여기)
     ├─ AEDT           : V6 전용 AEDT 프로젝트 저장 위치
     ├─ Code           : 이 코드(Code_DSD 폴더 내용물)를 옮겨 넣는 위치
     ├─ Result
@@ -42,7 +42,7 @@ V5(Code)와 완전히 분리된 새 캠페인.
 import os
 
 BASE_V6 = os.environ.get("DSD_CAMPAIGN_DIR",
-                         r"E:\Thermal_Anlaysis\Liquid_plate\V6_DSD")   # ⚠ 실제 작업폴더로 바꿀 것
+                         r"E:\Thermal_Anlaysis\Liquid_plate\261006")   # V6 작업폴더
 
 AEDT_DIR       = os.path.join(BASE_V6, "AEDT")
 SOLIDWORKS_DIR = os.path.join(BASE_V6, "Solidworks")

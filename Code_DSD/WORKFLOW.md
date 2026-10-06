@@ -45,7 +45,7 @@ DSD run이 실패하면 `failed_dsd.csv`에 기록된다. 원인을 고친 뒤 `
 
 ## 실행 전 확인
 
-- `paths.py`의 `BASE_V6`를 실제 작업폴더로 바꾼다.
+- 작업폴더는 `E:\Thermal_Anlaysis\Liquid_plate\261006`(`paths.py`의 `BASE_V6`)이다.
 - SolidWorks 전역변수 11개와 뱅크별 갭 수식을 만든다(`paths.py` 상단 참고).
 - `icepak.py`의 `FIN_BANK1/2_Y_START`가 맞는지, 그리고 측정면이 두 뱅크 유로에 정확히 놓이는지 DSD run 0에서 AEDT 화면으로 확인한다.
 - `result_parser.py`의 `FULL_SOLID_VOLUME_MM3`는 판재 외형이 바뀌었으면 다시 잰다.
