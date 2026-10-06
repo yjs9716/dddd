@@ -52,7 +52,7 @@ CHANNEL_DEPTH_MM = 8.0               # 유로 깊이 = fin_height(고정값, fin
 #   거칠게 하면 얇은 두께(예: power_input_thick 5mm) 구간에서 메시 스냅으로 면적/유량이
 #   틀어질 수 있음 (README 4-(3) 참고)
 MESH_REGION_X = 1.0
-MESH_REGION_Y = 0.5   # V6: 1.0 → 0.5 — 핀 갭 방향(y). 최소 갭 2.0mm(V5 2.5)에서도 갭당 약 4셀 확보
+MESH_REGION_Y = 1.0   # V6: 0.5 시험 후 1.0으로 원복 — 갭 해상도는 MIN_ELEMENTS_ON_EDGE(격자 시험으로 결정)로 확보
 MESH_REGION_Z = 1.0
 
 # 유체 서브리전 메시의 최소 분할 수 — 갭 해상도 시험용으로 여기서 바꿀 수 있게 상수로 뺐다
