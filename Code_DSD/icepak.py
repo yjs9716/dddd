@@ -59,8 +59,10 @@ MESH_REGION_Z = 1.0
 #   MIN_ELEMENTS_IN_GAP  : 서로 다른 물체 사이 틈을 최소 N셀로 (핀 사이 유로에는 안 먹는 것으로 확인됨)
 #   MIN_ELEMENTS_ON_EDGE : 물체 모서리 하나를 최소 N셀로 — 유로 폭을 가로지르는 PAO 모서리에 걸리길 기대.
 #                          모든 모서리에 적용되므로 총 셀 수도 같이 확인할 것
-MIN_ELEMENTS_IN_GAP  = 3
-MIN_ELEMENTS_ON_EDGE = 2
+MIN_ELEMENTS_IN_GAP  = 3          # MeshRegion1 (유체 서브리전)
+MIN_ELEMENTS_ON_EDGE = 2          # MeshRegion1 (유체 서브리전)
+GLOBAL_MIN_ELEMENTS_IN_GAP  = 3   # 글로벌 메시 (전체 Region)
+GLOBAL_MIN_ELEMENTS_ON_EDGE = 2   # 글로벌 메시 (전체 Region)
 
 GLOBAL_MESH_X = 2.0
 GLOBAL_MESH_Y = 2.0
@@ -709,8 +711,8 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
             "MaxElementSizeX:="	, f"{GLOBAL_MESH_X}mm",
             "MaxElementSizeY:="	, f"{GLOBAL_MESH_Y}mm",
             "MaxElementSizeZ:="	, f"{GLOBAL_MESH_Z}mm",
-            "MinElementsInGap:="	, "3",
-            "MinElementsOnEdge:="	, "2",
+            "MinElementsInGap:="	, str(GLOBAL_MIN_ELEMENTS_IN_GAP),
+            "MinElementsOnEdge:="	, str(GLOBAL_MIN_ELEMENTS_ON_EDGE),
             "MaxSizeRatio:="	, "2",
             "NoOGrids:="		, True,
             "EnableMLM:="		, True,
