@@ -50,4 +50,4 @@ DSD run이 실패하면 `failed_dsd.csv`에 기록된다. 원인을 고친 뒤 `
 - `icepak.py`의 `FIN_BANK1/2_Y_START`가 맞는지, 그리고 측정면이 두 뱅크 유로에 정확히 놓이는지 DSD run 0에서 AEDT 화면으로 확인한다.
 - `result_parser.py`의 `FULL_SOLID_VOLUME_MM3`는 판재 외형이 바뀌었으면 다시 잰다.
 - `DSD_analysis.py`의 사전 고정 규칙(`ALPHA`, `SHARE_MIN`, `PROTECTED`, `MAX_DROP`, `FALLBACK_LEVEL`)은 **DSD 시작 전에** 확정한다.
-- 변수 범위는 V5와 같되 전원입구 두께만 3~15 mm로 좁혔다(근거는 `params.py` 주석). 바꾸려면 `params.py`의 `CANDIDATE_SPEC`만 고치면 된다.
+- 변수 범위는 V5와 같되 전원입구 두께만 3~10 mm로 좁혔다(근거는 `params.py` 주석). 바꾸려면 `params.py`의 `CANDIDATE_SPEC`만 고치면 된다.
