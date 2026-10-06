@@ -28,7 +28,10 @@ from fins import max_fin_count, BANK_PARAMS, BANK_SPAN_MM
 CANDIDATE_SPEC = [
     ("input_thick",        13.0,  25.0),   # mm — 25 초과 시 첫 발열채널 자리에 핀 배치 불가(간섭 제약)
     ("input_angle",        90.0, 150.0),   # deg
-    ("power_input_thick",   3.0,  20.0),   # mm
+    ("power_input_thick",   3.0,  15.0),   # mm — 상한 20→15: V5 216점에서 15mm 초과는 분기비 60% 이상
+                                            #   (74점 전부 요구 범위 밖). 분기비 요구 최대 50%까지
+                                            #   열어두기 위한 범위(20~50% 만족점은 3.0~12.4mm).
+                                            #   하한 3mm는 V5와 같음(2mm는 메시 해상도상 보류)
     ("mid_thick",          10.0,  25.0),   # mm — input_thick과 같은 이유
     ("mid_angle",          90.0, 140.0),   # deg
     ("mid_input_thick",    10.0,  25.0),   # mm — 위와 동일
