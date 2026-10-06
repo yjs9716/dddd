@@ -55,6 +55,13 @@ MESH_REGION_X = 1.0
 MESH_REGION_Y = 0.5   # V6: 1.0 → 0.5 — 핀 갭 방향(y). 최소 갭 2.0mm(V5 2.5)에서도 갭당 약 4셀 확보
 MESH_REGION_Z = 1.0
 
+# 유체 서브리전 메시의 최소 분할 수 — 갭 해상도 시험용으로 여기서 바꿀 수 있게 상수로 뺐다
+#   MIN_ELEMENTS_IN_GAP  : 서로 다른 물체 사이 틈을 최소 N셀로 (핀 사이 유로에는 안 먹는 것으로 확인됨)
+#   MIN_ELEMENTS_ON_EDGE : 물체 모서리 하나를 최소 N셀로 — 유로 폭을 가로지르는 PAO 모서리에 걸리길 기대.
+#                          모든 모서리에 적용되므로 총 셀 수도 같이 확인할 것
+MIN_ELEMENTS_IN_GAP  = 3
+MIN_ELEMENTS_ON_EDGE = 2
+
 GLOBAL_MESH_X = 2.0
 GLOBAL_MESH_Y = 2.0
 GLOBAL_MESH_Z = 2.0
@@ -655,8 +662,8 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
             "MaxElementSizeX:="	, f"{MESH_REGION_X}mm",
             "MaxElementSizeY:="	, f"{MESH_REGION_Y}mm",
             "MaxElementSizeZ:="	, f"{MESH_REGION_Z}mm",
-            "MinElementsInGap:="	, "3",
-            "MinElementsOnEdge:="	, "2",
+            "MinElementsInGap:="	, str(MIN_ELEMENTS_IN_GAP),
+            "MinElementsOnEdge:="	, str(MIN_ELEMENTS_ON_EDGE),
             "MaxSizeRatio:="	, "2",
             "NoOGrids:="		, True,
             "EnableMLM:="		, True,
