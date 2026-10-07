@@ -55,6 +55,13 @@ MESH_REGION_X = 2.0
 MESH_REGION_Y = 0.3   # V6: 격자 시험(grid_convergence.py, y 0.75~0.25, x·z 2.0 고정)으로 확정
 MESH_REGION_Z = 2.0
 
+# 전원분기 입구 국소 메시 (MeshRegion2) — 입구 폭(power_input_thick, x방향)이 3mm까지 내려가는데
+#   MESH_REGION_X=2.0이면 1.5셀뿐이라 메시가 입구를 막아 분기 유량이 0이 됨(DSD run 4,7~10에서 확인).
+#   입구를 감싸는 박스(x폭 = power_input_thick)에만 x를 촘촘하게 건다. 값은 GUI 시험에서 확인한 설정.
+PM_MESH_X = 0.5
+PM_MESH_Y = 2.0
+PM_MESH_Z = 2.0
+
 # 유체 서브리전 메시의 최소 분할 수 — 갭 해상도 시험용으로 여기서 바꿀 수 있게 상수로 뺐다
 #   MIN_ELEMENTS_IN_GAP  : 서로 다른 물체 사이 틈을 최소 N셀로 (핀 사이 유로에는 안 먹는 것으로 확인됨)
 #   MIN_ELEMENTS_ON_EDGE : 물체 모서리 하나를 최소 N셀로 — 유로 폭을 가로지르는 PAO 모서리에 걸리길 기대.
@@ -736,6 +743,165 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
             "Enforce2dot5DCutCell:=", False
         ])
 
+
+    # %%
+    # 전원분기 입구 국소 메시 — 박스 x폭을 power_input_thick 에 맞춰 동적으로 만든다
+    #   (위 PM_MESH_* 주석 참고). 서브리전 이름은 유체 전체용 "SubRegion"과 겹치지 않게
+    #   "SubRegion_PM"으로 고정 — 같은 이름이면 AEDT가 자동으로 이름을 바꿔서 MeshRegion2가
+    #   유체 전체 서브리전에 걸릴 수 있음.
+    oEditor = oDesign.SetActiveEditor("3D Modeler")
+    oEditor.CreateBox(
+        [
+            "NAME:BoxParameters",
+            "XPosition:="		, "-195mm",
+            "YPosition:="		, "47.5499999833333mm",
+            "ZPosition:="		, "7.99999998333333mm",
+            "XSize:="		, f"{params['power_input_thick']}mm",   # 전원분기 입구 폭 = 설계변수
+            "YSize:="		, "-42.29999997mm",
+            "ZSize:="		, "-7.99999998333333mm"
+        ], 
+        [
+            "NAME:Attributes",
+            "Name:="		, "power_input_mesh",
+            "Flags:="		, "",
+            "Color:="		, "(143 175 143)",
+            "Transparency:="	, 0,
+            "PartCoordinateSystem:=", "Global",
+            "UDMId:="		, "",
+            "MaterialValue:="	, "\"Al-Extruded\"",
+            "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
+            "SolveInside:="		, True,
+            "ShellElement:="	, False,
+            "ShellElementThickness:=", "0mm",
+            "ReferenceTemperature:=", "20cel",
+            "IsMaterialEditable:="	, True,
+            "IsSurfaceMaterialEditable:=", True,
+            "UseMaterialAppearance:=", False,
+            "IsLightweight:="	, False
+        ])
+    oEditor.ChangeProperty(
+        [
+            "NAME:AllTabs",
+            [
+                "NAME:Geometry3DAttributeTab",
+                [
+                    "NAME:PropServers", 
+                    "power_input_mesh"
+                ],
+                [
+                    "NAME:ChangedProps",
+                    [
+                        "NAME:Model",
+                        "Value:="		, False
+                    ]
+                ]
+            ]
+        ])
+    oEditor.CreateSubRegion(
+        [
+            "NAME:SubRegionParameters",
+            "+XPaddingType:="	, "Percentage Offset",
+            "+XPadding:="		, "0",
+            "-XPaddingType:="	, "Percentage Offset",
+            "-XPadding:="		, "0",
+            "+YPaddingType:="	, "Percentage Offset",
+            "+YPadding:="		, "0",
+            "-YPaddingType:="	, "Percentage Offset",
+            "-YPadding:="		, "0",
+            "+ZPaddingType:="	, "Percentage Offset",
+            "+ZPadding:="		, "0",
+            "-ZPaddingType:="	, "Percentage Offset",
+            "-ZPadding:="		, "0",
+            [
+                "NAME:BoxForVirtualObjects",
+                [
+                    "NAME:LowPoint", 
+                    1, 
+                    1, 
+                    1
+                ],
+                [
+                    "NAME:HighPoint", 
+                    -1, 
+                    -1, 
+                    -1
+                ]
+            ],
+            [
+                "NAME:SubRegionPartNames", 
+                "power_input_mesh"
+            ],
+            [
+                "NAME:SubRegionSubmodelNames"
+            ]
+        ], 
+        [
+            "NAME:Attributes",
+            "Name:="		, "SubRegion_PM",
+            "Flags:="		, "NonModel#Wireframe#",
+            "Color:="		, "(143 175 143)",
+            "Transparency:="	, 0,
+            "PartCoordinateSystem:=", "Global",
+            "UDMId:="		, "",
+            "MaterialValue:="	, "\"air\"",
+            "SurfaceMaterialValue:=", "\"\"",
+            "SolveInside:="		, True,
+            "ShellElement:="	, False,
+            "ShellElementThickness:=", "nan ",
+            "ReferenceTemperature:=", "nan ",
+            "IsMaterialEditable:="	, True,
+            "IsSurfaceMaterialEditable:=", True,
+            "UseMaterialAppearance:=", False,
+            "IsLightweight:="	, False
+        ])
+    oModule = oDesign.GetModule("MeshRegion")
+    oModule.AssignMeshRegion(
+        [
+            "NAME:MeshRegion2",
+            "Enable:="		, True,
+            "MeshMethod:="		, "MesherHD",
+            "UserSpecifiedSettings:=", True,
+            "MaxElementSizeX:="	, f"{PM_MESH_X}mm",
+            "MaxElementSizeY:="	, f"{PM_MESH_Y}mm",
+            "MaxElementSizeZ:="	, f"{PM_MESH_Z}mm",
+            "MinElementsInGap:="	, "3",
+            "MinElementsOnEdge:="	, "2",
+            "MaxSizeRatio:="	, "2",
+            "NoOGrids:="		, True,
+            "EnableMLM:="		, True,
+            "EnforeMLMType:="	, "3D",
+            "MaxLevels:="		, "0",
+            "BufferLayers:="	, "0",
+            "UniformMeshParametersType:=", "XYZ Max Sizes",
+            "StairStepMeshing:="	, False,
+            "2DMLMType:="		, "2DMLM_None",
+            "MinGapX:="		, "0.1mm",
+            "MinGapY:="		, "0.1mm",
+            "MinGapZ:="		, "0.1mm",
+            "Objects:="		, ["SubRegion_PM"],
+            "ProximitySizeFunction:=", True,
+            "CurvatureSizeFunction:=", True,
+            "EnableTransition:="	, False,
+            "OptimizePCBMesh:="	, True,
+            "Enable2DCutCell:="	, False,
+            "EnforceCutCellMeshing:=", False,
+            "Enforce2dot5DCutCell:=", False
+        ], 
+        [
+            "NAME:Geometrical Attributes",
+            "MinSlackX:="		, "0mm",
+            "MaxSlackX:="		, "0mm",
+            "MinSlackY:="		, "0mm",
+            "MaxSlackY:="		, "0mm",
+            "MinSlackZ:="		, "0mm",
+            "MaxSlackZ:="		, "0mm",
+            "MinBboxX:="		, "0mm",
+            "MaxBboxX:="		, "0mm",
+            "MinBboxY:="		, "0mm",
+            "MaxBboxY:="		, "0mm",
+            "MinBboxZ:="		, "0mm",
+            "MaxBboxZ:="		, "0mm"
+        ])
 
     # %%
     oEditor.UpdatePriorityList(
