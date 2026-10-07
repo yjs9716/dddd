@@ -13,8 +13,9 @@ V6 메인 루프 — DSD 선별 → OLHD + GPR 적응샘플링 (SW → Icepak �
   main.py 는 캠페인 상태(ML.campaign_state)를 보고 알아서 이어서 진행한다.
   DSD가 끝났는데 선별 판정이 아직 없으면 멈추고 ②를 안내한다 — 자동으로 넘어가지 않는다.
 
-실패 처리 (V5와 동일)
-  · 형상 리빌드 실패 : 기록하고 다음 점
+실패 처리
+  · 형상 검증 실패(갭 제약·변수 누락 등) : 기록하고 다음 점
+  · SolidWorks 오류(라이선스 회수·COM 끊김 등) : SW를 다시 띄워 같은 점 재시도 (MAX_SW_RETRY회)
   · AEDT 크래시      : 재연결 후 같은 점 재시도 (MAX_AEDT_RETRY회)
   · 그 외 해석 실패  : 기록하고 다음 점
   ⚠ DSD 단계는 한 run 이라도 빠지면 분석할 수 없다. 실패한 run 은 failed_dsd.csv 에 남고,
@@ -37,9 +38,21 @@ app, errors, warnings = connect_sw()
 desktop, ipk = connect_aedt()
 
 MAX_CONSECUTIVE_FAIL = 5
+MAX_SW_RETRY = 3
+SW_RETRY_WAIT_SEC = 30
 MAX_AEDT_RETRY = 3
 AEDT_CRASH_HINTS = ("GetName", "objectID", "Desktop", "CreateObject", "COM")
 consecutive_fail = 0
+
+
+def reconnect_sw(app):
+    """SolidWorks를 닫고 다시 띄운다 — 라이선스 회수 등으로 세션이 끊겼을 때 라이선스를 다시 받기 위함."""
+    try:
+        app.ExitApp()
+    except Exception:
+        pass
+    time.sleep(SW_RETRY_WAIT_SEC)
+    return connect_sw()
 
 
 def cleanup_projects(desktop):
@@ -69,11 +82,27 @@ while True:
 
     t_round = time.time()
     tag = f"{phase}:{idx}"
-    try:
-        aluminum_mass_kg, aluminum_volume_mm3 = update_sw(app, errors, warnings, params)
-        step_file = export_step(app, errors, phase, idx)
-    except Exception as e:
-        ML.log_failure(phase, idx, params, e)
+    step_file = None
+    for attempt in range(1, MAX_SW_RETRY + 1):
+        try:
+            aluminum_mass_kg, aluminum_volume_mm3 = update_sw(app, errors, warnings, params)
+            step_file = export_step(app, errors, phase, idx)
+            break
+        except (ValueError, KeyError) as e:
+            # 형상 자체의 문제(갭 제약 위반, 전역변수 누락) — 다시 해도 같으므로 재시도 없이 기록
+            ML.log_failure(phase, idx, params, e)
+            break
+        except Exception as e:
+            # SolidWorks 쪽 오류(라이선스 회수, COM 끊김 등) — SW를 다시 띄워 같은 점 재시도
+            print(f"  ⚠ SolidWorks 오류 ({attempt}/{MAX_SW_RETRY}회차, SW 재시작 후 같은 점 재시도): {e}")
+            try:
+                app, errors, warnings = reconnect_sw(app)
+            except Exception as e2:
+                print(f"  ⚠ SolidWorks 재시작 실패: {e2}")
+            if attempt == MAX_SW_RETRY:
+                ML.log_failure(phase, idx, params, e)
+
+    if step_file is None:
         consecutive_fail += 1
         if consecutive_fail >= MAX_CONSECUTIVE_FAIL:
             print(f"\n연속 {MAX_CONSECUTIVE_FAIL}회 형상 실패 — 변수 범위나 설정을 점검하세요.")
