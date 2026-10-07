@@ -942,7 +942,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
             "NAME:RectangleParameters",
             "IsCovered:="		, True,
             "XStart:="		, "-195mm",
-            "YStart:="		, "6mm",   # 분기 안쪽으로 이동 — PAO 경계면 공유 회피
+            "YStart:="		, "9mm",   # 분기 입구(y=5.25)에서 약 4mm 안쪽 — 입구 직후의 꺾인 흐름을 피함
             "ZStart:="		, "7.999999983mm",
             "Width:="		, f"-{PM_INLET_WIDTH_MM}mm",
             # 전원모듈 입구 폭은 형상 변수에 따라 바뀌므로 동적 할당
