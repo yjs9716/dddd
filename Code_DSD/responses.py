@@ -23,6 +23,11 @@ CONSTRAINTS = [
 ]
 CONSTRAINT_NAMES = [c[0] for c in CONSTRAINTS]
 
+# 기록 전용 — GPR 학습·적응샘플링·종료판정에는 쓰지 않는다.
+#   패스별 유로 유량의 실측 평균 [LPM]. 균일도를 변동계수 CV = std_pass / mean_pass 로
+#   계산하기 위한 재료(최적화 단계에서 사후 계산). 유로 합계 = mean × 유로 수 → 질량 보존 확인용.
+RECORD_ONLY = ["mean_pass1", "mean_pass2"]
+
 MODELED = OBJECTIVES + CONSTRAINTS
 MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
 LOG_RESP = {n: lg for n, lg in MODELED}
@@ -30,4 +35,5 @@ LOG_RESP = {n: lg for n, lg in MODELED}
 UNIT = {
     "pressure_drop": "Pa", "temp_std": "°C", "max_temp": "°C",
     "std_pass1": "LPM", "std_pass2": "LPM", "power_module_flow": "-", "weight": "kg",
+    "mean_pass1": "LPM", "mean_pass2": "LPM",
 }

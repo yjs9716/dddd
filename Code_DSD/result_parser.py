@@ -55,12 +55,15 @@ def _lane_flows_lpm(df, row0, n_channels):
     return np.abs(_lane_flows_signed(df, row0, n_channels))
 
 
-def _check_closure(tag_idx, flows1, flows2):
+def _check_closure(tag_idx, flows1, flows2, power_module_flow):
+    """측정면 유로 유량 합계가 그 패스에 흘러야 할 유량과 맞는지 검산 (경고만, 결과값 무관).
+    1차 통과는 입구 유량 전부(4 LPM), 2차 통과는 분기 후 남은 4·(1 − 분기비)가 기준."""
+    expected = {"1차": TOTAL_FLOW_LPM, "2차": TOTAL_FLOW_LPM * (1.0 - power_module_flow)}
     for tag, flows in (("1차", flows1), ("2차", flows2)):
-        ratio = float(np.sum(flows)) / TOTAL_FLOW_LPM
+        ratio = float(np.sum(flows)) / expected[tag]
         if not (0.7 <= ratio <= 1.3):
             print(f"  ⚠ [{tag_idx}] {tag} 통과 유량 검산 이상: 유로 합계 {np.sum(flows):.3f} LPM "
-                  f"(총유량의 {ratio*100:.0f}%). 측정면 위치/개수를 확인할 것")
+                  f"(기대값 {expected[tag]:.3f} LPM의 {ratio*100:.0f}%). 측정면 위치/개수를 확인할 것")
 
 
 def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3):
@@ -87,12 +90,12 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
     signed2 = _lane_flows_signed(df, row_lane2, n2)
     if np.ptp(np.sign(signed2)) > 1 and np.abs(signed2).min() > 1e-6:
         print(f"  ⚠ [{tag_idx}] 2차 통과 레인 부호가 섞임(일부 역류 의심): {np.round(signed2, 4).tolist()}")
-    _check_closure(tag_idx, flows1, flows2)
 
     pm_speed = abs(float(df.iloc[row_pmflow, COL_MEAN]))
     pm_area = _area_m2(df.iloc[row_pmflow, COL_AREA])
     pm_lpm = pm_speed * pm_area * 60000.0
     power_module_flow = pm_lpm / TOTAL_FLOW_LPM
+    _check_closure(tag_idx, flows1, flows2, power_module_flow)
 
     pao_volume_mm3 = FULL_SOLID_VOLUME_MM3 - float(aluminum_volume_mm3)
     if pao_volume_mm3 <= 0:
@@ -107,6 +110,9 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
         "std_pass2": float(flows2.std(ddof=0)),
         "power_module_flow": power_module_flow,
         "weight": weight,
+        # 기록 전용 (responses.RECORD_ONLY) — CV = std_pass / mean_pass 사후 계산용
+        "mean_pass1": float(flows1.mean()),
+        "mean_pass2": float(flows2.mean()),
     }
     results.update({f"fin_gap_{b}": bank_gap(params, b) for b in BANKS})
 

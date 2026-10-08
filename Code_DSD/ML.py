@@ -33,7 +33,7 @@ from joblib import Parallel, delayed
 
 from params import CANDIDATES, Screening, to_dict
 from fins import BANKS, bank_gap, all_banks_feasible
-from responses import OBJECTIVES, OBJ_NAMES, MODELED, MODELED_NAMES
+from responses import OBJECTIVES, OBJ_NAMES, MODELED, MODELED_NAMES, RECORD_ONLY
 from paths import (DSD_RESULTS_PATH, DSD_FAILED_PATH, SCREENING_PATH,
                    RESULTS_PATH, FAILED_PATH)
 import DSD
@@ -49,8 +49,8 @@ MIN_DIST_NORM = 0.05
 
 GAP_COLS = [f"fin_gap_{b}" for b in BANKS]
 _METRIC_COLS = [c for n in MODELED_NAMES for c in (f"pred_{n}", n, f"err_{n}")]
-_COLUMNS = ["idx"] + CANDIDATES + GAP_COLS + _METRIC_COLS
-_DSD_COLUMNS = ["run"] + CANDIDATES + GAP_COLS + MODELED_NAMES
+_COLUMNS = ["idx"] + CANDIDATES + GAP_COLS + _METRIC_COLS + RECORD_ONLY
+_DSD_COLUMNS = ["run"] + CANDIDATES + GAP_COLS + MODELED_NAMES + RECORD_ONLY
 
 TERMINATION_GROUPS = {n: {"members": [n]} for n in OBJ_NAMES}
 GROUP_NAMES = list(TERMINATION_GROUPS)
@@ -123,7 +123,8 @@ def _dsd_params(run):
 def _record_dsd(run, params, results):
     df = _dsd_results()
     row = {"run": run, **_row_params(params), **_gaps(params),
-           **{n: results[n] for n in MODELED_NAMES}}
+           **{n: results[n] for n in MODELED_NAMES},
+           **{n: results.get(n, np.nan) for n in RECORD_ONLY}}
     df = pd.concat([df[df["run"] != run], pd.DataFrame([row])], ignore_index=True)
     _write(df.sort_values("run"), DSD_RESULTS_PATH, _DSD_COLUMNS)
     print(f"[DSD run {run}] 결과 저장 ({len(df)}/{DSD.N_RUNS})")
@@ -280,6 +281,7 @@ def _record_olhd(params, results):
 
     row = {"idx": idx, **_row_params(params), **_gaps(params)}
     row.update({n: results[n] for n in MODELED_NAMES})
+    row.update({n: results.get(n, np.nan) for n in RECORD_ONLY})
     row.update({f"pred_{n}": preds[n] for n in MODELED_NAMES})
     row.update({f"err_{n}": errs[n] for n in MODELED_NAMES})
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
