@@ -205,8 +205,8 @@ def n_doe():
 def _get_doe_samples():
     global _DOE_SAMPLES
     if _DOE_SAMPLES is None:
-        from OLHD import generate_olhd
-        _DOE_SAMPLES = generate_olhd(screening(), seed=42)
+        from OLHD import get_olhd_plan
+        _DOE_SAMPLES = get_olhd_plan(screening())
     return _DOE_SAMPLES
 
 

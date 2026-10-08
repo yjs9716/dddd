@@ -5,7 +5,8 @@ V6 OLHD 샘플 분포 시각화 — 활성 변수 개수와 무관하게 동작
 V5(Code/OLHD_PLOT.py) 대비 변경점
   · 변수 목록이 screening_decision.json(1단계 DSD 선별 결과)에서 정해진다.
     활성 변수만 그리고, 고정 변수와 그 값은 제목에 적는다.
-  · main.py(ML.py)와 같은 generate_olhd(screening, seed=42)를 써서 실제로 돌릴 점과 똑같은 점을 그린다.
+  · main.py(ML.py)와 같은 get_olhd_plan()으로 실제로 돌릴 점과 똑같은 점을 그린다.
+    olhd_plan.csv 가 없으면 이 파일이 먼저 만들어 저장한다(약 40초) — main.py 는 그 파일을 그대로 쓴다.
   · 거리는 OLHD 생성 때와 같은 "활성 변수 박스 정규화 공간"에서 잰다.
   · 2단계는 핀 두께를 개수에 따라 접으므로(params.STAGE2_FOLD) 핀 두께 히스토그램은 얇은 쪽으로
     치우친다 — 정상이다(많은 개수는 얇은 핀으로만 가능). 핀 개수는 10~24에 고르게 퍼진다.
@@ -14,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import pdist
 
-from OLHD import generate_olhd
+from OLHD import get_olhd_plan
 from params import Screening
 from paths import SCREENING_PATH
 
@@ -31,7 +32,7 @@ names = sc.active
 n_dim = sc.n_dim
 lo, hi = sc.lo, sc.hi
 
-X_full = generate_olhd(sc, seed=42)        # (n, 11) 실제 설계값 — main.py가 돌릴 점과 동일
+X_full = get_olhd_plan(sc)                 # (n, 11) 실제 설계값 — main.py가 돌릴 점과 동일
 samples = X_full[:, sc.idx_active]          # 활성 변수만
 n = len(samples)
 fixed = sc.fixed_values()

@@ -67,6 +67,8 @@ DSD_EFFECTS_PATH   = os.path.join(DSD_DIR, "dsd_effects.csv")          # DSD_ana
 SCREENING_PATH     = os.path.join(DSD_DIR, "screening_decision.json")  # DSD_analysis.py 생성
 
 # ── 2단계: OLHD + 적응샘플링 ──
+OLHD_PLAN_PATH      = os.path.join(OLHD_DIR, "olhd_plan.csv")        # OLHD.py 생성 (DOE 실험점, 처음 한 번)
+OLHD_PLAN_META_PATH = os.path.join(OLHD_DIR, "olhd_plan_meta.json")  # 위 실험점을 만든 선별 조건
 RESULTS_PATH = os.path.join(OLHD_DIR, "results_v6.csv")   # ML.py 관리, 실험 결과+예측값
 FAILED_PATH  = os.path.join(OLHD_DIR, "failed_v6.csv")    # ML.py 관리, 실패점
 
