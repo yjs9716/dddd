@@ -42,10 +42,14 @@ V6 1단계 — DSD 29회 결과 분석 → 선별 판정 → screening_decision.
   영향 없음 판정 변수 중 PROTECTED 에 없는 것을 고정한다(MAX_DROP 이 정해져 있으면
   분산 기여율 최댓값이 작은 순으로 그 개수까지만).
 
-고정값 규칙 (사전 고정)
-  "열성능에 무관한 변수는 중량이 최소가 되는 수준으로 고정"
-    중량 모델 ŵ(ℓ) = b_w·ℓ + c_w·ℓ² 을 ℓ ∈ {−1, 0, +1} 에서 비교해 최소인 수준을 고른다.
-    단 그 변수가 중량에서도 영향 없음(위 규칙)이면 FALLBACK_LEVEL.
+고정값 규칙
+  "목적함수 중 주효과가 유의한 것이 있으면 그 목적함수가 유리한 끝값, 없으면 범위 중앙"
+    목적함수(OBJ_NAMES, 모두 작을수록 좋음) 중 p_main ≤ ALPHA 인 것만 본다(기여율 문턱은 안 씀
+    — 탈락은 이미 기여율로 정해졌고, 여기서는 어느 끝이 나은지 방향만 정한다).
+      · 유의한 목적함수들이 모두 같은 끝을 가리키면 그 끝(b>0 → ℓ=−1, b<0 → ℓ=+1)
+      · 방향이 엇갈리거나 유의한 목적함수가 없으면 FALLBACK_LEVEL(범위 중앙)
+    곡률은 쓰지 않는다 — DSD 곡률 추정은 검정력이 낮아 중간값이 나은지는 판단할 수 없음.
+    중량은 제약조건이고 해석 모델의 중량은 살빼기 이전 형상 기준이라 쓰지 않는다.
   고정은 단위 좌표 u = (ℓ+1)/2 로 기록한다(핀 개수처럼 두께에 따라 범위가 바뀌는 변수도
   항상 만들 수 있는 형상이 되도록 — params.py 참고).
 """
@@ -59,15 +63,15 @@ from scipy import stats
 
 from DSD import COLUMN_ORDER, FAKE_NAMES, M, N_RUNS, N_FAKE, get_plan
 from params import CANDIDATES, N_CAND_DIM, decode
-from responses import MODELED_NAMES, LOG_RESP, UNIT
+from responses import MODELED_NAMES, OBJ_NAMES, LOG_RESP, UNIT
 from paths import DSD_RESULTS_PATH, DSD_EFFECTS_PATH, SCREENING_PATH
 
 # ══════════════ 사전 고정 규칙 — DSD 실행 전에 확정할 것 ══════════════
-ALPHA          = 0.10    # 유의수준 (선별 단계라 0.05보다 느슨하게 — 중요한 변수를 놓치지 않는 쪽)
+ALPHA          = 0.05    # 유의수준
 SHARE_MIN      = 0.02    # 실무 문턱 = 응답 분산의 2% (V5 Sobol 둔감 판정 기준과 동일)
 PROTECTED      = ()      # 판정과 무관하게 항상 남길 변수 (예: ("input_thick",)) — 실험 전에만 수정
 MAX_DROP       = None    # 고정할 최대 개수 (None = 영향 없음 판정 변수 전부)
-FALLBACK_LEVEL = 0       # 중량으로도 구분이 안 될 때 고정 수준 (0 = 범위 중앙)
+FALLBACK_LEVEL = 0       # 유의한 목적함수가 없거나 방향이 엇갈릴 때 고정 수준 (0 = 범위 중앙)
 # ═══════════════════════════════════════════════════════════════════════
 
 REAL_IDX = [COLUMN_ORDER.index(n) for n in CANDIDATES]
@@ -173,18 +177,19 @@ def run_analysis(write=True, verbose=True):
     dropped = cand_drop if MAX_DROP is None else cand_drop[:MAX_DROP]
     active = [v for v in CANDIDATES if v not in dropped]
 
-    # 고정값: 중량 최소 수준
-    w = eff[(eff["response"] == "weight")].set_index("variable")
+    # 고정값: 주효과가 유의한 목적함수가 유리한 끝값, 없거나 엇갈리면 범위 중앙
+    obj = eff[eff["response"].isin(OBJ_NAMES)]
     fixed_level, fixed_u, why = {}, {}, {}
     for v in dropped:
-        bw = w.loc[v, "b_main"] if w.loc[v, "p_main"] <= ALPHA else 0.0
-        cw = w.loc[v, "c_quad"] if w.loc[v, "p_quad"] <= ALPHA else 0.0
-        levels = np.array([-1, 0, 1])
-        wl = bw * levels + cw * levels ** 2
-        if bw == 0.0 and cw == 0.0:
-            lv, why[v] = FALLBACK_LEVEL, "중량 차이도 구분 불가 → 사전 지정 수준"
+        sig = obj[(obj["variable"] == v) & (obj["p_main"] <= ALPHA)]
+        prefer = {r: (-1 if b > 0 else 1) for r, b in zip(sig["response"], sig["b_main"])}
+        if not prefer:
+            lv, why[v] = FALLBACK_LEVEL, "유의한 목적함수 없음 → 범위 중앙"
+        elif len(set(prefer.values())) > 1:
+            lv, why[v] = FALLBACK_LEVEL, f"목적함수 간 방향 엇갈림({', '.join(prefer)}) → 범위 중앙"
         else:
-            lv, why[v] = int(levels[np.argmin(wl)]), "중량 최소 수준"
+            lv = next(iter(prefer.values()))
+            why[v] = f"{', '.join(prefer)} 유리한 끝값"
         fixed_level[v] = int(lv)
         fixed_u[v] = (lv + 1) / 2.0
 
@@ -200,7 +205,7 @@ def run_analysis(write=True, verbose=True):
         "n_runs": N_RUNS, "n_fake": N_FAKE,
         "rule": {"ALPHA": ALPHA, "SHARE_MIN": SHARE_MIN, "PROTECTED": list(PROTECTED),
                  "MAX_DROP": MAX_DROP, "FALLBACK_LEVEL": FALLBACK_LEVEL,
-                 "fixed_value_rule": "min_weight"},
+                 "fixed_value_rule": "significant_objective_end_else_center"},
         "active": active,
         "dropped": dropped,
         "inactive_but_kept": [v for v in cand_drop if v not in dropped],
