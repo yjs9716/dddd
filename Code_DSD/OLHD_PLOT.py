@@ -7,8 +7,8 @@ V5(Code/OLHD_PLOT.py) 대비 변경점
     활성 변수만 그리고, 고정 변수와 그 값은 제목에 적는다.
   · main.py(ML.py)와 같은 generate_olhd(screening, seed=42)를 써서 실제로 돌릴 점과 똑같은 점을 그린다.
   · 거리는 OLHD 생성 때와 같은 "활성 변수 박스 정규화 공간"에서 잰다.
-  · 핀 개수는 두께에 따라 상한이 접히므로(params.decode) 실제값 히스토그램이 균일하지 않을 수 있다
-    — 정상이다. 단위 좌표에서는 균일하다.
+  · 2단계는 핀 두께를 개수에 따라 접으므로(params.STAGE2_FOLD) 핀 두께 히스토그램은 얇은 쪽으로
+    치우친다 — 정상이다(많은 개수는 얇은 핀으로만 가능). 핀 개수는 10~24에 고르게 퍼진다.
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -56,7 +56,7 @@ def _bins(i):
 
 
 def _title(name):
-    return f"{name} (두께에 따라 상한 접힘)" if name.startswith("fin_count") else name
+    return f"{name} (개수에 따라 상한 접힘)" if name.startswith("fin_thick") else name
 
 
 def _style(ax):
@@ -144,7 +144,7 @@ print(f"최소 샘플 간 거리: {dists_norm.min():.4f}")
 print(f"평균 샘플 간 거리: {dists_norm.mean():.4f}")
 
 # 변수쌍 상관계수 — 0에 가까울수록 변수끼리 독립적으로 퍼져 있음
-#   같은 뱅크의 핀 두께-개수는 개수 상한이 두께에 따라 접혀서(두꺼우면 덜 들어감) 음의 상관이
+#   같은 뱅크의 핀 두께-개수는 두께 상한이 개수에 따라 접혀서(많으면 얇아야 함) 음의 상관이
 #   생긴다 — 설계 제약 때문이라 정상. 그 쌍을 뺀 값을 같이 출력한다.
 r = np.corrcoef(samples_norm, rowvar=False)
 pairs = [(a, b) for a in range(n_dim) for b in range(a + 1, n_dim)]

@@ -22,7 +22,7 @@ V5 대비 바뀐 것
   · GPR 입력 차원이 9로 고정이 아니라 선별 후 활성 변수 수(params.Screening).
   · 결과 CSV에는 후보 11개를 전부 기록한다(고정 변수는 상수 열) — 형상 재현용.
   · 후보점은 활성 변수 공간의 Sobol → Screening.decode_active (고정 변수 끼워 넣기 +
-    뱅크별 핀 개수 접어 넣기)로 만든다.
+    뱅크별 핀 두께를 개수에 맞춰 접어 넣기, params.STAGE2_FOLD)로 만든다.
 """
 import os
 

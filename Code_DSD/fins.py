@@ -20,6 +20,7 @@ V5(Code/fins.py) 대비 변경점
 ⚠ FIN_SPAN_MM(86.5)은 두 뱅크가 같은 길이라는 전제다(V5 형상 기준).
   뱅크 길이가 다르면 BANK_SPAN_MM 을 뱅크별로 바꿀 것.
 """
+import math
 
 FIN_SPAN_MM = 86.5          # 핀뱅크 안목 길이 [mm]
 MIN_GAP_MM  = 2.0           # 유로 최소 갭 [mm] — V5 2.5 → V6 2.0
@@ -47,6 +48,14 @@ def fin_gap(fin_thick, fin_count, span=FIN_SPAN_MM):
 def max_fin_count(fin_thick, span=FIN_SPAN_MM):
     """이 두께에서 갭 제약을 지킬 수 있는 최대 핀 개수 (is_feasible과 같은 여유 적용)."""
     return int((span - MIN_GAP_MM) / (float(fin_thick) + MIN_GAP_MM) + _EPS)
+
+
+def max_fin_thick(fin_count, span=FIN_SPAN_MM, step=0.1):
+    """이 개수에서 갭 제약을 지킬 수 있는 최대 핀 두께 — step(0.1mm) 격자로 내림.
+    N·t + (N+1)·g_min ≤ L  →  t ≤ (L − (N+1)·g_min) / N"""
+    n = int(round(fin_count))
+    t = (span - (n + 1) * MIN_GAP_MM) / n
+    return round(math.floor(t / step + _EPS) * step, 10)
 
 
 def is_feasible(fin_thick, fin_count, span=FIN_SPAN_MM):

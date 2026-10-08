@@ -9,8 +9,9 @@ V6 설계변수 정의 — 후보 11개, 선별(DSD) 결과에 따라 활성/고
 
 좌표 체계
   · 단위 좌표 u ∈ [0,1]^11 : 샘플링(DSD 수준, LHS, Sobol 후보)은 전부 이 좌표에서 한다.
-  · 실제 설계값 x           : decode(u). 반올림 + 핀 개수 접어 넣기(V5 OLHD.decode 와 같은 방식,
-                              뱅크별로 각자 적용) 때문에 decode 는 역함수가 없다.
+  · 실제 설계값 x           : decode(u). 반올림 + 핀 두께·개수 접어 넣기(뱅크별로 각자 적용) 때문에
+                              decode 는 역함수가 없다. 1단계 DSD는 개수를 두께에 맞춰 접고(V5와 같음),
+                              2단계는 두께를 개수에 맞춰 접는다(STAGE2_FOLD, decode 주석 참고).
   · GPR 입력                : normalize_active(x) = 활성 변수만 박스 정규화.
   고정 변수는 "실제값"이 아니라 "단위 좌표 u"로 고정한다. 핀 개수처럼 다른 변수(두께)에
   따라 허용 범위가 바뀌는 변수도 u 로 고정하면 어떤 두께에서도 항상 만들 수 있는 형상이 된다.
@@ -22,7 +23,7 @@ import os
 
 import numpy as np
 
-from fins import max_fin_count, BANK_PARAMS, BANK_SPAN_MM
+from fins import max_fin_count, max_fin_thick, BANK_PARAMS, BANK_SPAN_MM
 
 # ── 후보 설계변수 11개 (이름, 하한, 상한) — 이름은 SolidWorks 전역변수명과 일치해야 함 ──
 CANDIDATE_SPEC = [
@@ -38,7 +39,7 @@ CANDIDATE_SPEC = [
     ("mid_input_thick",    10.0,  25.0),   # mm — 위와 동일
     ("output_thick",       13.0,  35.0),   # mm
     ("fin_thick_1",         1.5,   3.0),   # mm — 1차 통과 핀 두께
-    ("fin_count_1",        10.0,  24.0),   # 개 — 1차 통과 핀 개수 (두께에 따라 상한이 접힘)
+    ("fin_count_1",        10.0,  24.0),   # 개 — 1차 통과 핀 개수 (DSD: 두께에 따라 상한이 접힘 / 2단계: 두께가 개수에 따라 접힘)
                                             #   상한 21→24: 최소 갭 2.0mm에서 두께 1.5mm일 때 최대 개수
     ("fin_thick_2",         1.5,   3.0),   # mm — 2차 통과 핀 두께
     ("fin_count_2",        10.0,  24.0),   # 개 — 2차 통과 핀 개수 (상한 근거 위와 같음)
@@ -56,23 +57,38 @@ C_HI = np.array([p[2] for p in CANDIDATE_SPEC], dtype=float)
 N_CAND_DIM = len(CANDIDATES)
 
 INT_PARAMS = ("fin_count_1", "fin_count_2")
+# 2단계(OLHD·적응샘플링 후보)의 핀 두께·개수 접기 방식 — decode() 참고. 1단계 DSD는 thick_first 그대로.
+STAGE2_FOLD = "count_first"
 # 뱅크별 (두께 인덱스, 개수 인덱스)
 BANK_IDX = {b: (CANDIDATES.index(t), CANDIDATES.index(n)) for b, (t, n) in BANK_PARAMS.items()}
 
 
-def decode(unit):
+def decode(unit, fold="thick_first"):
     """단위 좌표 [0,1]^11 → 실제 설계값 (11개). 뱅크별 갭 제약을 항상 만족한다.
 
-    V5 OLHD.decode()와 같은 규칙을 뱅크마다 적용한다:
-      ① 먼저 0.1 단위로 반올림 (허용 핀 개수는 실제로 쓸 두께로 계산해야 하므로)
-      ② 핀 개수 = round(N_lo + u·(min(N_hi, N_max(t)) − N_lo))  — 그 두께의 허용 범위로 접어 넣음
+    먼저 전부 0.1 단위로 반올림한 뒤, 뱅크마다 핀 두께·개수 중 하나를 다른 하나의 허용 범위로 접어 넣는다.
+      fold="thick_first" (1단계 DSD, V5 OLHD.decode 와 같음)
+          두께는 전 범위 그대로, 핀 개수 = round(N_lo + u·(min(N_hi, N_max(t)) − N_lo))
+      fold="count_first" (2단계 OLHD·적응샘플링 — STAGE2_FOLD)
+          핀 개수는 전 범위 그대로, 두께 = round(t_lo + u·(min(t_hi, t_max(N)) − t_lo), 0.1)
+          핀 개수가 응답 변동을 가장 많이 설명하므로(DSD) 개수를 10~24 전 범위에 고르게 둔다.
+          thick_first 로는 22~24개가 두께 1.5~1.8mm 모서리에만 있어 80점 중 1~2점밖에 안 뽑힌다.
     """
     u = np.atleast_2d(np.asarray(unit, dtype=float))
     x = np.round(C_LO + u * (C_HI - C_LO), 1)
     for b, (it, iN) in BANK_IDX.items():
-        nmax = np.array([max_fin_count(t, BANK_SPAN_MM[b]) for t in x[:, it]], float)
-        n_hi = np.maximum(np.minimum(C_HI[iN], nmax), C_LO[iN])
-        x[:, iN] = np.round(C_LO[iN] + u[:, iN] * (n_hi - C_LO[iN]))
+        span = BANK_SPAN_MM[b]
+        if fold == "thick_first":
+            nmax = np.array([max_fin_count(t, span) for t in x[:, it]], float)
+            n_hi = np.maximum(np.minimum(C_HI[iN], nmax), C_LO[iN])
+            x[:, iN] = np.round(C_LO[iN] + u[:, iN] * (n_hi - C_LO[iN]))
+        elif fold == "count_first":
+            x[:, iN] = np.round(C_LO[iN] + u[:, iN] * (C_HI[iN] - C_LO[iN]))
+            tmax = np.array([max_fin_thick(n, span) for n in x[:, iN]], float)
+            t_hi = np.maximum(np.minimum(C_HI[it], tmax), C_LO[it])
+            x[:, it] = np.minimum(np.round(C_LO[it] + u[:, it] * (t_hi - C_LO[it]), 1), t_hi)
+        else:
+            raise ValueError(f"fold 는 thick_first / count_first 중 하나: {fold}")
     return x[0] if np.ndim(unit) == 1 else x
 
 
@@ -123,7 +139,7 @@ class Screening:
 
     def decode_active(self, u_active):
         """활성 변수 단위 좌표 → 실제 설계값 11개."""
-        x = decode(self.full_unit(u_active))
+        x = decode(self.full_unit(u_active), fold=STAGE2_FOLD)
         return x[0] if np.ndim(u_active) == 1 else x
 
     def normalize_active(self, x_full):
