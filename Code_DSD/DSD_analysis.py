@@ -221,6 +221,14 @@ def run_analysis(write=True, verbose=True):
     return eff, decision
 
 
+def _p_cell(p, f):
+    """p값 한 칸(9자). 성분이 인정되면 *, 아니면 ·"""
+    if np.isnan(p):
+        return f"{'-':>9s}"
+    s = "<0.001" if p < 0.001 else f"{p:.3f}"
+    return f"{s:>8s}{'*' if (p <= ALPHA and f >= SHARE_MIN) else '·'}"
+
+
 def _report(eff, summary, fake_floor, decision):
     print(f"\n=== DSD 선별 결과 ({N_RUNS}회, 가짜 인자 {N_FAKE}개) ===")
     print(f"규칙: 효과 성분은 p ≤ {ALPHA} 이고 분산 기여율 ≥ {SHARE_MIN:.0%} 일 때만 인정 — 모든 응답에서 없으면 영향 없음\n")
@@ -242,7 +250,19 @@ def _report(eff, summary, fake_floor, decision):
         else:
             tag = "활성"
         print(f"{v:>18s} | {cells} | {tag}")
-    print("\n  숫자 = 분산 기여율(주효과·곡률 중 큰 값),  * = 그 응답에서 영향 있음,  · = 영향 없음")
+    print("\n  숫자 = 분산 기여율(주효과·곡률 중 큰 값),  * = 그 응답에서 영향 있음(p·기여율 둘 다 통과),  · = 영향 없음")
+
+    # 성분별 p값 — * 는 그 성분이 p ≤ ALPHA 이고 기여율 ≥ SHARE_MIN 인 경우
+    for comp, title in (("main", "주효과 p"), ("quad", "곡률 p")):
+        pp = eff.pivot(index="variable", columns="response", values=f"p_{comp}")
+        ff = eff.pivot(index="variable", columns="response", values=f"f_{comp}")
+        print(f"\n[{title}]")
+        print(f"{'변수':>18s} | " + " ".join(f"{r[:9]:>9s}" for r in resp))
+        for v in CANDIDATES + FAKE_NAMES:
+            cells = " ".join(_p_cell(pp.loc[v, r], ff.loc[v, r]) for r in resp)
+            print(f"{v:>18s} | {cells}")
+    print(f"\n  숫자 = p값,  * = 그 성분 인정(p ≤ {ALPHA} 이고 기여율 ≥ {SHARE_MIN:.0%}),"
+          "  · = 불인정,  - = 추정 안 함(가짜 인자 곡률)")
     print(f"\n2단계 활성 변수 {len(decision['active'])}개: {decision['active']}")
     print(f"고정 변수 {len(decision['dropped'])}개: {decision['dropped']}")
 
