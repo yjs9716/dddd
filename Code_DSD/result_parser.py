@@ -3,14 +3,14 @@ V6 — Icepak 결과 CSV 파싱 (V5 Code/result_parser.py 기반)
 
 V5 대비 변경점
   · 1차·2차 통과의 유로 개수가 다르다: n1 = fin_count_1 + 1, n2 = fin_count_2 + 1.
-    행 구조가 아래처럼 바뀐다(icepak.py 의 Calculation 추가 순서와 1:1 대응):
-      행 0~8                 : source01~09 온도
-      행 9                   : Fan1_Passage 차압
-      행 10 ~ 10+n1−1        : V_inlet_00~(n1−1)   (1차 통과)
-      행 10+n1 ~ 10+n1+n2−1  : V_inlet2_00~(n2−1)  (2차 통과)
-      행 10+n1+n2            : Rectangle1 (전원모듈 분기 입구)
-      행 10+n1+n2+1          : T_pass1 온도 (1차 통과 후 PAO, OLHD부터)
-      행 10+n1+n2+2          : Opening1 온도 (출구 PAO, OLHD부터)
+    행 구조가 아래처럼 바뀐다(icepak.py 의 Calculation 추가 순서와 1:1 대응, S = N_SOURCE):
+      행 0 ~ S−1               : source01~ 온도 (S = 17, DSD 29회는 9)
+      행 S                     : Fan1_Passage 차압
+      행 S+1 ~ S+n1            : V_inlet_00~(n1−1)   (1차 통과)
+      행 S+1+n1 ~ S+n1+n2      : V_inlet2_00~(n2−1)  (2차 통과)
+      행 S+1+n1+n2             : Rectangle1 (전원모듈 분기 입구)
+      행 S+1+n1+n2+1           : T_pass1 온도 (1차 통과 후 PAO, OLHD부터)
+      행 S+1+n1+n2+2           : Opening1 온도 (출구 PAO, OLHD부터)
   · 결과에 뱅크별 갭(fin_gap_1, fin_gap_2)을 기록한다.
   · (OLHD부터) 분기비 power_module_flow = 분기 유량 ÷ (분기 유량 + 2차 통과 유로 합계).
     단면(Mean×Area) 유량은 벽 쪽 굵은 z 셀에서 속도가 0으로 보간돼 작게 잡힌다 — 1차 통과 유로
@@ -36,8 +36,8 @@ from responses import STD_NAMES  # noqa: F401  (V5와 같은 이름으로 다른
 FULL_SOLID_VOLUME_MM3 = 2341073.1
 
 ROW_SOURCE = 0
-ROW_DP     = ROW_SOURCE + N_SOURCE    # 9
-ROW_LANE1  = ROW_DP + 1               # 10
+ROW_DP     = ROW_SOURCE + N_SOURCE
+ROW_LANE1  = ROW_DP + 1
 
 COL_MAX  = 8
 COL_MEAN = 9
@@ -46,7 +46,7 @@ COL_AREA = 11
 TOTAL_FLOW_LPM = 4.0
 # 4 LPM 전체를 1 °C 올리는 데 드는 열 [W/K] (≈117.5)
 HEAT_CAPACITY_W_PER_K = PAO_DENSITY * PAO_SPECIFIC_HEAT * TOTAL_FLOW_LPM / 60000.0
-TOTAL_HEAT_W = N_SOURCE * SOURCE_POWER_W     # 360 W
+TOTAL_HEAT_W = N_SOURCE * SOURCE_POWER_W     # 17 × 40 = 680 W (DSD 29회는 9 × 40 = 360 W)
 HEAT_BALANCE_TOL = 0.05                     # 출구 열수지 허용 오차 (경고 기준)
 
 

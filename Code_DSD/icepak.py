@@ -4,14 +4,18 @@ V6 — Icepak 해석 (V5 Code/icepak.py 기반)
 V5 대비 변경점 (나머지 AEDT 스크립트는 V5와 한 줄도 다르지 않다)
   · 핀뱅크 측정면을 뱅크별 두께·개수(fin_*_1 / fin_*_2)로 만든다
     → 1차 통과 유로 n1 = fin_count_1 + 1 개, 2차 통과 유로 n2 = fin_count_2 + 1 개.
-  · Fields Summary 행 순서: source 9 → 차압 → V_inlet_00~(n1−1) → V_inlet2_00~(n2−1) → Rectangle1
-    → T_pass1 온도 → Opening1 온도  (result_parser.py 가 같은 n1, n2 로 행 위치를 계산한다)
+  · Fields Summary 행 순서: source N_SOURCE개 → 차압 → V_inlet_00~(n1−1) → V_inlet2_00~(n2−1)
+    → Rectangle1 → T_pass1 온도 → Opening1 온도  (result_parser.py 가 같은 n1, n2 로 행 위치를 계산한다)
   · run_icepak(…, phase, idx, params): 결과 CSV 경로와 설계 이름을 단계(dsd/olhd)별로 분리.
   · (OLHD부터) Opening1 역류 차단(No Reverse Flow). 역류를 허용하면 오프닝 온도(AmbientTemp
     43 °C)의 PAO가 출구로 들어와 열수지가 틀어졌다(시험: 냉각수 흡열 739 W, 발열은 360 W).
     차단 시 열수지 오차 2.9%, 차압 변화 −0.8%. DSD 29회는 역류 허용 상태로 돌렸다.
   · (OLHD부터) 1차 통과 후 PAO 온도 측정면(T_pass1)과 출구(Opening1) 온도 — 분기 전 흡열과
     열수지 점검용 (result_parser.py 참고)
+  · (OLHD부터) 발열채널을 슬롯 17개 전부에 둔다(N_SOURCE 참고). DSD 29회와 격자 시험은 한 칸
+    건너 9개(360 W)였다. 유량 응답은 발열과 무관하고, 고정한 3변수는 온도 응답에서도 유의하지
+    않아(DSD p ≥ 0.10) 선별 결과는 그대로 쓴다.
+  · (OLHD부터) 유로 깊이 방향 메시 z 2.0 → 1.6 mm (MESH_REGION_Z, PM_MESH_Z 참고)
 """
 from ansys.aedt.core import Desktop, Icepak
 import os, shutil, time
@@ -39,11 +43,15 @@ SOURCE_POWER_W    = 40.0     # 발열채널(CCA) 하나의 발열 [W]
 #   메시(MESH_REGION_X/Z)를 바꾸면 다시 맞춰 볼 것.
 MID_PASSAGE_Y      = -86.25    # 1차 뱅크 상단벽(-91.25)과 2차 뱅크 하단벽(-81.25) 사이 가운데
 MID_PASSAGE_X_WALL = -195.0    # 통로 바깥벽 x (Rectangle1 시작점과 같음)
-T_PASS1_INSET_MM   = 1.0
+T_PASS1_INSET_MM   = 1.0       # ⚠ z 2.0 mm 메시에서 맞춘 값 — z 1.6 mm 로 바꿨으니 캠페인 전에 다시 맞출 것
 
 # ── 측정 대상 개수 — CSV 행 구조를 결정하므로 result_parser가 이 값을 import해서 씀 ──
 #   여기를 바꾸면 파싱 쪽 행 인덱스가 자동으로 따라감 (두 파일이 어긋날 일 없게)
-N_SOURCE = 9   # 발열채널(source01~) 개수 — 양 끝에 하나씩 추가되어 8→9
+N_SOURCE = 17  # 발열채널(source01~) 개수 = 슬롯 전부 (20.8 mm 간격)
+#   DSD·격자 시험은 한 칸 건너 9개였다. 범용 냉각판이라 전 슬롯 실장을 설계 기준으로 삼는다 —
+#   유동은 발열과 무관하고 온도는 발열에 선형이라(층류, 중력·복사 끔, 물성 일정) 발열원을 더하면
+#   모든 지점의 온도가 오르거나 그대로다. 따라서 슬롯당 SOURCE_POWER_W 이하로 일부만 꽂은 장비는
+#   전 지점에서 이 조건보다 낮은 온도가 된다.
 #   레인 측정 개수는 통과당 유로 전체(fin_count+1)라 설계마다 다르다 — 고정 상수
 #   없음. result_parser가 params["fin_count_1"/"fin_count_2"]로 매 idx마다 직접 계산한다.
 
@@ -72,14 +80,18 @@ CHANNEL_DEPTH_MM = 8.0               # 유로 깊이 = fin_height(고정값, fin
 #   틀어질 수 있음 (README 4-(3) 참고)
 MESH_REGION_X = 2.0
 MESH_REGION_Y = 0.3   # V6: 격자 시험(grid_convergence.py, y 0.75~0.25, x·z 2.0 고정)으로 확정
-MESH_REGION_Z = 2.0
+MESH_REGION_Z = 1.6   # V6: 격자 시험 z(유로 8 mm당 2~6셀)에서 6셀 대비 차압 −1.6%, 최고온도 −0.04 K,
+#                       분기비 −0.2%로 통과한 가장 성긴 5셀. DSD 29회는 2.0 mm(4셀)였다.
 
 # 전원분기 입구 국소 메시 (MeshRegion2) — 입구 폭(power_input_thick, x방향)이 3mm까지 내려가는데
 #   MESH_REGION_X=2.0이면 1.5셀뿐이라 메시가 입구를 막아 분기 유량이 0이 됨(DSD run 4,7~10에서 확인).
 #   입구를 감싸는 박스(x폭 = power_input_thick)에만 x를 촘촘하게 건다. 값은 GUI 시험에서 확인한 설정.
+#   PM_MESH_Z 는 MESH_REGION_Z 와 같게 둔다 — 분기 유량 측정면(Rectangle1, y = 9 mm)이 이 박스 안에
+#   있어서, z 가 다르면 정규화 분기비의 분자(분기)와 분모(2차 유로)가 서로 다른 단면 편향을 갖는다.
+#   (격자 시험 z 에서는 2.0 고정이었다 — 분기비가 z 셀 수에 거의 반응하지 않은 이유로 보임)
 PM_MESH_X = 0.5
-PM_MESH_Y = 2.0
-PM_MESH_Z = 2.0
+PM_MESH_Y = 2.0   # 분기 통로의 흐름 방향
+PM_MESH_Z = MESH_REGION_Z
 
 # 유체 서브리전 메시의 최소 분할 수 — 갭 해상도 시험용으로 여기서 바꿀 수 있게 상수로 뺐다
 #   MIN_ELEMENTS_IN_GAP  : 서로 다른 물체 사이 틈을 최소 N셀로 (핀 사이 유로에는 안 먹는 것으로 확인됨)
@@ -438,11 +450,11 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
         ])
 
     # %%
-    base_x = -172.9   # 기존 -152.1에서 step의 절반(20.8mm)만큼 이동 — 양 끝 채널 추가분
-    step = 20.8*2
+    base_x = -172.9   # 슬롯 1 (가장 왼쪽)
+    step = 20.8       # 슬롯 간격 — DSD·격자 시험은 20.8*2(한 칸 건너, 9개)였다
     for i in range(N_SOURCE):
         x_pos = base_x + i * step
-        box_name = f"source{i + 1:02d}"   # source01 ~ source09
+        box_name = f"source{i + 1:02d}"   # source01 ~ source{N_SOURCE}
 
         oEditor.CreateBox(
             [
@@ -615,7 +627,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
     oModule.AssignBlockBoundary(
         [
             "NAME:Block1",
-            "Objects:="		, ["source01","source02","source03","source04","source05","source06","source07","source08","source09"],
+            "Objects:="		, [f"source{i + 1:02d}" for i in range(N_SOURCE)],
             "Block Type:="		, "Solid",
             "Use External Conditions:=", False,
             "Use Total Power:="	, True,
@@ -1161,13 +1173,14 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
 
     # Calculation 추가 순서 = CSV 행 순서. result_parser의 ROW_* 인덱스가 이 순서를
     # 그대로 전제하므로, 여기 순서를 바꾸면 파싱이 통째로 어긋난다.
-    #   행 0~8           : source01~09 온도
-    #   행 9             : Fan1_Passage 차압
-    #   행 10~(10+n-1)   : V_inlet_00~(n-1)   (1차 통과, n=fin_count+1, 설계마다 가변)
-    #   행 (10+n)~(10+2n-1): V_inlet2_00~(n-1) (2차 통과)
-    #   행 (10+2n)       : Rectangle1 (전원모듈 분기 입구)
-    #   행 (10+2n)+1     : T_pass1 온도 (1차 통과 후 PAO)
-    #   행 (10+2n)+2     : Opening1 온도 (출구 PAO, 열수지 점검용)
+    #   (S = N_SOURCE)
+    #   행 0~(S-1)         : source01~ 온도
+    #   행 S               : Fan1_Passage 차압
+    #   행 (S+1)~(S+n)     : V_inlet_00~(n-1)   (1차 통과, n=fin_count+1, 설계마다 가변)
+    #   행 (S+1+n)~(S+2n)  : V_inlet2_00~(n-1) (2차 통과)
+    #   행 (S+1+2n)        : Rectangle1 (전원모듈 분기 입구)
+    #   행 (S+1+2n)+1      : T_pass1 온도 (1차 통과 후 PAO)
+    #   행 (S+1+2n)+2      : Opening1 온도 (출구 PAO, 열수지 점검용)
     # V4는 레인 14줄을 손으로 나열했지만, V5는 유로 전체(개수 가변)를 다 재므로
     # 반복문으로 만든다 — result_parser도 같은 개수(뱅크별 fin_count_b+1)를 계산해서
     # 행 위치를 맞춘다.
