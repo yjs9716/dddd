@@ -27,7 +27,6 @@ V5(`Code/`, 9변수, 핀 공유)를 대체하는 새 캠페인이다. V5 코드�
 | 진행 확인 | `python ML.py` | 캠페인 상태, 적응샘플링 오차 추이 |
 
 `main.py`는 캠페인 상태를 보고 이어서 진행한다. DSD가 끝나면 멈추고 선별 판정을 요구한다.
-OLHD 점이 실패하면 `failed_v6.csv`에 기록되고, 해석이 끝나 결과 CSV가 나온 경우 그 CSV는 `result_XXX_failedN.csv`로 옮겨 보존된다(다음 점이 같은 번호를 쓰므로). 파싱만 실패한 점은 main.py를 멈춘 상태에서 `python recover_failed.py`로 재해석 없이 기록할 수 있다.
 DSD run이 실패하면 `failed_dsd.csv`에 기록된다. 원인을 고친 뒤 `python -c "import ML; ML.retry_failed_dsd()"`로 재시도한다.
 
 ## 파일
