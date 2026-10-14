@@ -17,7 +17,8 @@ V5(`Code/`, 9변수, 핀 공유)를 대체하는 새 캠페인이다. V5 코드�
 
 | 단계 | 명령 | 산출물 (`Result/DSD`, `Result/OLHD`) |
 |---|---|---|
-| 격자 민감도 (DSD 전) | `python grid_convergence.py` | `Result/GCI/gci_y_results.csv`, `gci_y_summary.json` → `icepak.py`의 `MESH_REGION_Y` 확정 (y 0.75~0.25 mm 비교, x·z 2.0 mm 고정) |
+| 격자 민감도 y (DSD 전) | `python grid_convergence.py` | `Result/GCI/gci_y_results.csv`, `gci_y_summary.json` → `icepak.py`의 `MESH_REGION_Y` 확정 (핀 1.5 mm당 셀 3~6개 = y 0.5~0.25 mm, x·z 2.0 mm 고정) |
+| 격자 민감도 z (OLHD 전) | `python grid_convergence.py` (y가 끝났으면 z만 돈다) | `Result/GCI/gci_z_results.csv`, `gci_z_summary.json` → `MESH_REGION_Z` 확인 (유로 8 mm당 셀 4~7개, y 0.3·x 2.0 mm 고정) |
 | 실험표 확인 | `python DSD.py` | `dsd_plan.csv` (첫 실행 시 자동 생성) |
 | 1단계 해석 | `python main.py` | `results_dsd.csv`, `result_dsd_000.csv`… |
 | 선별 판정 | `python DSD_analysis.py` | `dsd_effects.csv`, `screening_decision.json` |

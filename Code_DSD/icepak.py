@@ -5,8 +5,13 @@ V5 대비 변경점 (나머지 AEDT 스크립트는 V5와 한 줄도 다르지 �
   · 핀뱅크 측정면을 뱅크별 두께·개수(fin_*_1 / fin_*_2)로 만든다
     → 1차 통과 유로 n1 = fin_count_1 + 1 개, 2차 통과 유로 n2 = fin_count_2 + 1 개.
   · Fields Summary 행 순서: source 9 → 차압 → V_inlet_00~(n1−1) → V_inlet2_00~(n2−1) → Rectangle1
-    (result_parser.py 가 같은 n1, n2 로 행 위치를 계산한다)
+    → T_pass1 온도 → Opening1 온도  (result_parser.py 가 같은 n1, n2 로 행 위치를 계산한다)
   · run_icepak(…, phase, idx, params): 결과 CSV 경로와 설계 이름을 단계(dsd/olhd)별로 분리.
+  · (OLHD부터) Opening1 역류 차단(No Reverse Flow). 역류를 허용하면 오프닝 온도(AmbientTemp
+    43 °C)의 PAO가 출구로 들어와 열수지가 틀어졌다(시험: 냉각수 흡열 739 W, 발열은 360 W).
+    차단 시 열수지 오차 2.9%, 차압 변화 −0.8%. DSD 29회는 역류 허용 상태로 돌렸다.
+  · (OLHD부터) 1차 통과 후 PAO 온도 측정면(T_pass1)과 출구(Opening1) 온도 — 분기 전 흡열과
+    열수지 점검용 (result_parser.py 참고)
 """
 from ansys.aedt.core import Desktop, Icepak
 import os, shutil, time
@@ -19,8 +24,22 @@ from fins import channel_offsets, describe_bank, bank_values, BANK_SPAN_MM
 #   어긋날 수 있어서) 이 상수는 사각형 생성에만 쓰임 — result_parser는 참조하지 않음
 PM_INLET_WIDTH_MM = 8.0
 
-# PAO 밀도 [kg/m^3] — AddMaterial의 mass_density와 동일해야 함
-PAO_DENSITY = 794.0
+# PAO 물성·운전 조건 — 해석 설정과 result_parser 의 열수지 계산이 같은 값을 쓰도록 여기서만 정한다
+PAO_DENSITY       = 794.0    # [kg/m^3]  AddMaterial mass_density
+PAO_SPECIFIC_HEAT = 2219.0   # [J/(kg·K)] AddMaterial specific_heat
+INLET_TEMP_C      = 20.0     # 팬 흡입 PAO 온도 [°C] (외기 AmbientTemp 와 별개)
+SOURCE_POWER_W    = 40.0     # 발열채널(CCA) 하나의 발열 [W]
+
+# ── 1차 통과 후 PAO 온도 측정면 (T_pass1) ──────────────────────
+#   1차 핀뱅크 출구와 2차 핀뱅크 입구 사이 가운데 통로(법선 y). 분기 전이라 4 LPM 전부가 지난다.
+#   통로: x = MID_PASSAGE_X_WALL ~ (mid_input_thick + MID_PASSAGE_X_WALL), z = 0 ~ CHANNEL_DEPTH_MM.
+#   벽에서 T_PASS1_INSET_MM 만큼 띄운 사각형의 면적평균을 쓴다 — 시험 설계(mid_input_thick 24.9)에서
+#   유량가중 평균(Temp·Vy 격자 내보내기) 22.5 °C와 1 mm 띄움 면적평균 22.45 °C가 일치했다
+#   (0.5 mm 22.95, 2 mm 21.84 °C). 벽 쪽 셀(z 2 mm)에서 판 온도로 보간되는 값을 빼기 위한 띄움이라
+#   메시(MESH_REGION_X/Z)를 바꾸면 다시 맞춰 볼 것.
+MID_PASSAGE_Y      = -86.25    # 1차 뱅크 상단벽(-91.25)과 2차 뱅크 하단벽(-81.25) 사이 가운데
+MID_PASSAGE_X_WALL = -195.0    # 통로 바깥벽 x (Rectangle1 시작점과 같음)
+T_PASS1_INSET_MM   = 1.0
 
 # ── 측정 대상 개수 — CSV 행 구조를 결정하므로 result_parser가 이 값을 import해서 씀 ──
 #   여기를 바꾸면 파싱 쪽 행 인덱스가 자동으로 따라감 (두 파일이 어긋날 일 없게)
@@ -305,8 +324,8 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
                             "set:="			, ["Thermal"]
                         ],
                         "thermal_conductivity:=", "0.142",
-                        "mass_density:="	, "794",
-                        "specific_heat:="	, "2219",
+                        "mass_density:="	, f"{PAO_DENSITY:g}",
+                        "specific_heat:="	, f"{PAO_SPECIFIC_HEAT:g}",
                         "thermal_expansion_coefficient:=", "0.00083",
                         [
                             "NAME:thermal_material_type",
@@ -549,7 +568,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
                     "X:="			, ["0","1","2","3"],
                     "Y:="			, ["1","10","100","0"]
                 ],
-                "IntakeTemp:="		, "20cel",
+                "IntakeTemp:="		, f"{INLET_TEMP_C:g}cel",
                 "Volumetric:="		, "4ltr_per_min",
                 "Swirl:="		, "0",
                 "OperatingRPM:="	, "0",
@@ -587,7 +606,8 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
             "External Rad. Temperature:=", "AmbientRadTemp",
             "Inlet Type:=", "Pressure",
             "Total Pressure:=", "AmbientPressure",
-            "No Reverse Flow:=", False
+            # 역류 차단 — 허용하면 AmbientTemp(43 °C) PAO가 출구로 들어와 열수지가 틀어짐 (모듈 설명 참고)
+            "No Reverse Flow:=", True
         ])
 
     # %%
@@ -599,7 +619,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
             "Block Type:="		, "Solid",
             "Use External Conditions:=", False,
             "Use Total Power:="	, True,
-            "Total Power:="		, "40W"
+            "Total Power:="		, f"{SOURCE_POWER_W:g}W"
         ])
 
 
@@ -970,6 +990,42 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
         ])
 
     # %%
+    # 1차 통과 후 PAO 온도 측정면 (T_pass1) — 가운데 통로 단면에서 벽마다 T_PASS1_INSET_MM 띄움
+    #   (상단 상수 주석 참고). WhichAxis y 에서 Width 는 z 방향, Height 는 x 방향(Rectangle1 과 같음).
+    #   통로 폭이 mid_input_thick 이라 사각형 폭도 설계마다 따라간다.
+    t1_inset = T_PASS1_INSET_MM
+    oEditor.CreateRectangle(
+        [
+            "NAME:RectangleParameters",
+            "IsCovered:="		, True,
+            "XStart:="		, f"{round(MID_PASSAGE_X_WALL + t1_inset, 6)}mm",
+            "YStart:="		, f"{MID_PASSAGE_Y}mm",
+            "ZStart:="		, f"{round(CHANNEL_Z_TOP - CHANNEL_DEPTH_MM + t1_inset, 6)}mm",
+            "Width:="		, f"{round(CHANNEL_DEPTH_MM - 2 * t1_inset, 6)}mm",
+            "Height:="		, f"{round(params['mid_input_thick'] - 2 * t1_inset, 6)}mm",
+            "WhichAxis:="		, "y"
+        ],
+        [
+            "NAME:Attributes",
+            "Name:="		, "T_pass1",
+            "Flags:="		, "NonModel#",
+            "Color:="		, "(143 175 143)",
+            "Transparency:="	, 0,
+            "PartCoordinateSystem:=", "Global",
+            "UDMId:="		, "",
+            "MaterialValue:="	, "\"Al-Extruded\"",
+            "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
+            "SolveInside:="		, True,
+            "ShellElement:="	, False,
+            "ShellElementThickness:=", "0mm",
+            "ReferenceTemperature:=", "20cel",
+            "IsMaterialEditable:="	, True,
+            "IsSurfaceMaterialEditable:=", True,
+            "UseMaterialAppearance:=", False,
+            "IsLightweight:="	, False
+        ])
+
+    # %%
     oEditor.Unite(
         [
             "NAME:Selections",
@@ -1110,6 +1166,8 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
     #   행 10~(10+n-1)   : V_inlet_00~(n-1)   (1차 통과, n=fin_count+1, 설계마다 가변)
     #   행 (10+n)~(10+2n-1): V_inlet2_00~(n-1) (2차 통과)
     #   행 (10+2n)       : Rectangle1 (전원모듈 분기 입구)
+    #   행 (10+2n)+1     : T_pass1 온도 (1차 통과 후 PAO)
+    #   행 (10+2n)+2     : Opening1 온도 (출구 PAO, 열수지 점검용)
     # V4는 레인 14줄을 손으로 나열했지만, V5는 유로 전체(개수 가변)를 다 재므로
     # 반복문으로 만든다 — result_parser도 같은 개수(뱅크별 fin_count_b+1)를 계산해서
     # 행 위치를 맞춘다.
@@ -1137,6 +1195,15 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
 
     calc_args += ["Calculation:=",
                   ["Object", "Surface", "Rectangle1", "Speed", "0.00,-1.00,0.00",
+                   "Default", "Reduced", "Nominal", False]]
+
+    # 1차 통과 후 PAO 온도, 출구 PAO 온도 — 맨 뒤에 붙여 기존 행 위치를 바꾸지 않는다.
+    #   Opening1 행은 GUI 스크립트 리코더 기록 그대로 (Boundary 로 선택)
+    calc_args += ["Calculation:=",
+                  ["Object", "Surface", "T_pass1", "Temperature", "",
+                   "Default", "Reduced", "Nominal", True]]
+    calc_args += ["Calculation:=",
+                  ["Boundary", "Surface", "Opening1", "Temperature", "0.00,0.00,1.00",
                    "Default", "Reduced", "Nominal", False]]
 
     oModule.EditFieldsSummarySetting(calc_args)
