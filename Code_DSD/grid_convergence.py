@@ -19,7 +19,9 @@ V6 격자 민감도 시험 — y(핀 갭 방향) → z(유로 깊이 방향) 순
      ※ y 시험은 Opening1 역류 허용 상태(DSD 와 같은 설정)로 돌렸다.
 2) z 시험 (OLHD 전) — 유로 깊이(8 mm)에 셀 2 / 3 / 4 / 5 / 6개 (y 시험과 같은 셀 수)
      z = 4.0 / 2.667 / 2.0 / 1.6 / 1.333 mm,  y = 0.3(채택값), x = 2.0 mm 고정. 현재 캠페인 값은 4셀(2.0 mm).
-     OLHD 캠페인과 같은 설정(Opening1 역류 차단, T_pass1·출구 온도 행)으로 돌린다.
+     z = 2.0 mm(4셀) 레벨은 y 시험의 y = 0.3 mm 결과와 같은 메시·설계라, y 결과가 있으면 해석 없이
+     그 값을 가져다 쓴다 — 단 y 시험과 같은 코드(Opening1 역류 허용)일 때만. 역류 차단이 들어간
+     icepak.py 로 돌리면 설정이 달라지므로 재사용하지 않고 해석한다.
      z 를 가늘게 하면 단면 유량의 측정 편향(벽 쪽 굵은 셀에서 속도가 0으로 보간)도 줄어드는지
      함께 본다 — 1차 통과 유로 합계(sum_pass1)가 4 LPM 에 가까워지는지.
 
@@ -257,6 +259,27 @@ def report(axis, params):
     print(f"\n요약 저장: {a['summary']}")
 
 
+def _reuse_y_baseline(h):
+    """z = Y_TEST_Z_MM 레벨은 y 시험의 y = Z_TEST_Y_MM 결과와 같은 해석이다(x·y·z 메시, 설계 동일).
+    y 결과가 있고 icepak.py 가 y 시험 당시 설정(역류 허용 — T_pass1 측정면이 없는 버전)이면
+    그 행을 z 결과로 복사하고 True. 참고값(DIAG_Z)은 y 결과에 없어 빈칸으로 남는다."""
+    if abs(h - Y_TEST_Z_MM) > 1e-9:
+        return False
+    if hasattr(icepak, "T_PASS1_INSET_MM"):
+        print(f"[격자 시험 z] z = {h:.4g} mm — icepak.py 가 역류 차단 버전이라 y 결과를 재사용하지 않고 해석함")
+        return False
+    y = _load("y")
+    if not len(y):
+        return False
+    hit = y[(y[AXES["y"]["col"]] - Z_TEST_Y_MM).abs() < 1e-9]
+    if not len(hit):
+        return False
+    row = hit.iloc[0]
+    _save("z", h, float(row["minutes"]), {k: row[k] for k in RESP})
+    print(f"[격자 시험 z] z = {h:.4g} mm — y 시험의 y = {Z_TEST_Y_MM:.4g} mm 결과와 같은 해석이라 재사용 (해석 생략)")
+    return True
+
+
 def main(axes=("y", "z")):
     params = test_design()
     sw = aedt = None
@@ -264,6 +287,8 @@ def main(axes=("y", "z")):
         a = AXES[axis]
         done = _done_levels(axis, _load(axis))
         todo = [(k, h) for k, h in enumerate(a["levels"]) if round(h, 4) not in done]
+        if axis == "z":
+            todo = [(k, h) for k, h in todo if not _reuse_y_baseline(h)]
         if not todo:
             print(f"[격자 시험 {axis}] 모든 레벨 완료 — 건너뜀")
             continue
