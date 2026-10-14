@@ -35,7 +35,7 @@ from params import CANDIDATES, Screening, to_dict
 from fins import BANKS, bank_gap, all_banks_feasible
 from responses import OBJECTIVES, OBJ_NAMES, MODELED, MODELED_NAMES, RECORD_ONLY
 from paths import (DSD_RESULTS_PATH, DSD_FAILED_PATH, SCREENING_PATH,
-                   RESULTS_PATH, FAILED_PATH)
+                   RESULTS_PATH, FAILED_PATH, icepak_result_path)
 import DSD
 
 # ── 실험 설정 (V5와 동일) ──
@@ -166,15 +166,23 @@ def record(phase, idx, params, results):
         _record_olhd(params, results)
 
 
-def log_failure(phase, idx, params, reason):
+def log_failure(phase, idx, params, reason, result_path=None):
+    """실패 기록. OLHD 는 실패해도 다음 점이 같은 idx 를 쓰므로(idx = 성공 건수), 이번 해석이 남긴
+    결과 CSV(result_path)를 result_XXX_failedN.csv 로 옮겨 덮어쓰기를 막고 그 경로를 기록한다
+    — 파싱만 실패한 점은 recover_failed.py 로 재해석 없이 되살릴 수 있다."""
     if phase == "dsd":
         df = _dsd_failed()
         row = {"run": idx, **_row_params(params), "reason": str(reason)[:300]}
         path, cols = DSD_FAILED_PATH, ["run"] + CANDIDATES + ["reason"]
     else:
         df = _load_failed()
-        row = {**_row_params(params), "reason": str(reason)[:300]}
-        path, cols = FAILED_PATH, CANDIDATES + ["reason"]
+        kept = np.nan
+        if result_path and os.path.exists(result_path):
+            kept = result_path[:-4] + f"_failed{len(df) + 1}.csv"
+            os.replace(result_path, kept)
+            print(f"  결과 CSV 보존: {kept}")
+        row = {**_row_params(params), "reason": str(reason)[:300], "result_file": kept}
+        path, cols = FAILED_PATH, _FAILED_COLUMNS
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     _write(df, path, cols)
     print(f"  ⚠ [{phase}] 실패 기록 ({len(df)}건 누적): {reason}")
@@ -214,8 +222,11 @@ def _load_results():
     return _read(RESULTS_PATH, _COLUMNS)
 
 
+_FAILED_COLUMNS = CANDIDATES + ["reason", "result_file"]
+
+
 def _load_failed():
-    return _read(FAILED_PATH, CANDIDATES + ["reason"])
+    return _read(FAILED_PATH, _FAILED_COLUMNS)
 
 
 def current_idx():

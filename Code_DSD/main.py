@@ -111,6 +111,7 @@ while True:
 
     results = None
     for attempt in range(1, MAX_AEDT_RETRY + 1):
+        result_path = None      # 이번 시도에서 해석이 끝나 CSV 가 나왔을 때만 값이 생김 (실패 기록에 보존)
         try:
             ipk, result_path, _ = run_icepak(desktop, ipk, step_file, phase, idx, params)
             results = extract_and_save(tag, params, result_path, aluminum_mass_kg, aluminum_volume_mm3)
@@ -120,7 +121,7 @@ while True:
             ipk = None
             if not any(h in str(e) for h in AEDT_CRASH_HINTS):
                 print(f"  ⚠ 해석 실패 (형상/설정 문제로 판단, 재시도 없이 다음 점으로): {e}")
-                ML.log_failure(phase, idx, params, e)
+                ML.log_failure(phase, idx, params, e, result_path)
                 break
             print(f"  ⚠ AEDT 크래시 ({attempt}/{MAX_AEDT_RETRY}회차, 재연결 후 같은 점 재시도): {e}")
             desktop, ipk = connect_aedt()
