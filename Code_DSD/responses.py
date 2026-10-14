@@ -31,7 +31,8 @@ CONSTRAINT_NAMES = [c[0] for c in CONSTRAINTS]
 #   T_pass1: 1차 통과 후 PAO 온도 — 분기 후 흡열 = 발열 합계 − ρ·c_p·Q·(T_pass1 − 입구)로
 #            전원모듈 필요 분기비를 최적화 단계에서 계산 (PSU 손실을 바꿔도 다시 계산 가능)
 #   T_outlet: 출구 PAO 온도 — 열수지 점검용
-RECORD_ONLY = ["mean_pass1", "mean_pass2", "power_module_flow_raw", "T_pass1", "T_outlet"]
+#   T_pass2: 2차 통과 후·합류 전 PAO 온도 — 분기 과다로 2차 통과가 유량을 못 받는 설계를 사후에 거르는 용도
+RECORD_ONLY = ["mean_pass1", "mean_pass2", "power_module_flow_raw", "T_pass1", "T_outlet", "T_pass2"]
 
 MODELED = OBJECTIVES + CONSTRAINTS
 MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
@@ -41,5 +42,5 @@ UNIT = {
     "pressure_drop": "Pa", "temp_std": "°C", "max_temp": "°C",
     "std_pass1": "LPM", "std_pass2": "LPM", "power_module_flow": "-", "weight": "kg",
     "mean_pass1": "LPM", "mean_pass2": "LPM",
-    "power_module_flow_raw": "-", "T_pass1": "°C", "T_outlet": "°C",
+    "power_module_flow_raw": "-", "T_pass1": "°C", "T_outlet": "°C", "T_pass2": "°C",
 }

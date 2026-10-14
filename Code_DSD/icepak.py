@@ -5,13 +5,16 @@ V5 대비 변경점 (나머지 AEDT 스크립트는 V5와 한 줄도 다르지 �
   · 핀뱅크 측정면을 뱅크별 두께·개수(fin_*_1 / fin_*_2)로 만든다
     → 1차 통과 유로 n1 = fin_count_1 + 1 개, 2차 통과 유로 n2 = fin_count_2 + 1 개.
   · Fields Summary 행 순서: source N_SOURCE개 → 차압 → V_inlet_00~(n1−1) → V_inlet2_00~(n2−1)
-    → Rectangle1 → T_pass1 온도 → Opening1 온도  (result_parser.py 가 같은 n1, n2 로 행 위치를 계산한다)
+    → Rectangle1 → T_pass1 온도 → Opening1 온도 → T_pass2 온도
+    (result_parser.py 가 같은 n1, n2 로 행 위치를 계산한다)
   · run_icepak(…, phase, idx, params): 결과 CSV 경로와 설계 이름을 단계(dsd/olhd)별로 분리.
   · (OLHD부터) Opening1 역류 차단(No Reverse Flow). 역류를 허용하면 오프닝 온도(AmbientTemp
     43 °C)의 PAO가 출구로 들어와 열수지가 틀어졌다(시험: 냉각수 흡열 739 W, 발열은 360 W).
     차단 시 열수지 오차 2.9%, 차압 변화 −0.8%. DSD 29회는 역류 허용 상태로 돌렸다.
   · (OLHD부터) 1차 통과 후 PAO 온도 측정면(T_pass1)과 출구(Opening1) 온도 — 분기 전 흡열과
     열수지 점검용 (result_parser.py 참고)
+  · (OLHD부터) 2차 통과 후·합류 전 PAO 온도 측정면(T_pass2) — 기록 전용. 분기를 너무 많이 빼
+    2차 통과가 유량을 못 받는 설계를 사후에 걸러내는 데 쓴다(분기비 상한 대신 물리량으로)
   · (OLHD부터) 발열채널을 슬롯 17개 전부에 둔다(N_SOURCE 참고). DSD 29회와 격자 시험은 한 칸
     건너 9개(360 W)였다. 유량 응답은 발열과 무관하고, 고정한 3변수는 온도 응답에서도 유의하지
     않아(DSD p ≥ 0.10) 선별 결과는 그대로 쓴다.
@@ -44,6 +47,13 @@ SOURCE_POWER_W    = 40.0     # 발열채널(CCA) 하나의 발열 [W]
 MID_PASSAGE_Y      = -86.25    # 1차 뱅크 상단벽(-91.25)과 2차 뱅크 하단벽(-81.25) 사이 가운데
 MID_PASSAGE_X_WALL = -195.0    # 통로 바깥벽 x (Rectangle1 시작점과 같음)
 T_PASS1_INSET_MM   = 1.0       # ⚠ z 2.0 mm 메시에서 맞춘 값 — z 1.6 mm 로 바꿨으니 캠페인 전에 다시 맞출 것
+
+# ── 2차 통과 후·합류 전 PAO 온도 측정면 (T_pass2) ─────────────
+#   2차 핀뱅크 출구 쪽 통로(법선 y, y = PASS2_EXIT_Y). 통로 폭은 mid_thick(x 방향, 벽 x = PASS2_EXIT_X_WALL
+#   에서 −x 쪽으로), 깊이는 유로 전체(z 0~8). T_pass1 과 같이 벽마다 T_PASS1_INSET_MM 띄운 면적평균.
+#   GUI 에서 확인한 사각형: 시작 (155.8, 10, 7), 크기 x −(mid_thick − 2), z −6.
+PASS2_EXIT_Y       = 10.0
+PASS2_EXIT_X_WALL  = 156.8
 
 # ── 측정 대상 개수 — CSV 행 구조를 결정하므로 result_parser가 이 값을 import해서 씀 ──
 #   여기를 바꾸면 파싱 쪽 행 인덱스가 자동으로 따라감 (두 파일이 어긋날 일 없게)
@@ -1037,6 +1047,38 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
             "IsLightweight:="	, False
         ])
 
+    # 2차 통과 후·합류 전 PAO 온도 측정면 (T_pass2) — 상단 상수 주석 참고. 크기는 음수(−x, −z 방향)로 그린다.
+    oEditor.CreateRectangle(
+        [
+            "NAME:RectangleParameters",
+            "IsCovered:="		, True,
+            "XStart:="		, f"{round(PASS2_EXIT_X_WALL - t1_inset, 6)}mm",
+            "YStart:="		, f"{PASS2_EXIT_Y}mm",
+            "ZStart:="		, f"{round(CHANNEL_Z_TOP - t1_inset, 6)}mm",
+            "Width:="		, f"{-round(CHANNEL_DEPTH_MM - 2 * t1_inset, 6)}mm",
+            "Height:="		, f"{-round(params['mid_thick'] - 2 * t1_inset, 6)}mm",
+            "WhichAxis:="		, "y"
+        ],
+        [
+            "NAME:Attributes",
+            "Name:="		, "T_pass2",
+            "Flags:="		, "NonModel#",
+            "Color:="		, "(143 175 143)",
+            "Transparency:="	, 0,
+            "PartCoordinateSystem:=", "Global",
+            "UDMId:="		, "",
+            "MaterialValue:="	, "\"Al-Extruded\"",
+            "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
+            "SolveInside:="		, True,
+            "ShellElement:="	, False,
+            "ShellElementThickness:=", "0mm",
+            "ReferenceTemperature:=", "20cel",
+            "IsMaterialEditable:="	, True,
+            "IsSurfaceMaterialEditable:=", True,
+            "UseMaterialAppearance:=", False,
+            "IsLightweight:="	, False
+        ])
+
     # %%
     oEditor.Unite(
         [
@@ -1181,6 +1223,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
     #   행 (S+1+2n)        : Rectangle1 (전원모듈 분기 입구)
     #   행 (S+1+2n)+1      : T_pass1 온도 (1차 통과 후 PAO)
     #   행 (S+1+2n)+2      : Opening1 온도 (출구 PAO, 열수지 점검용)
+    #   행 (S+1+2n)+3      : T_pass2 온도 (2차 통과 후·합류 전 PAO)
     # V4는 레인 14줄을 손으로 나열했지만, V5는 유로 전체(개수 가변)를 다 재므로
     # 반복문으로 만든다 — result_parser도 같은 개수(뱅크별 fin_count_b+1)를 계산해서
     # 행 위치를 맞춘다.
@@ -1218,6 +1261,10 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
     calc_args += ["Calculation:=",
                   ["Boundary", "Surface", "Opening1", "Temperature", "0.00,0.00,1.00",
                    "Default", "Reduced", "Nominal", False]]
+    # 2차 통과 후 PAO 온도 — Opening1 뒤에 붙여 앞 행 위치를 그대로 둔다
+    calc_args += ["Calculation:=",
+                  ["Object", "Surface", "T_pass2", "Temperature", "",
+                   "Default", "Reduced", "Nominal", True]]
 
     oModule.EditFieldsSummarySetting(calc_args)
     print(f"[T7] Fields Summary 설정 끝, export 시작: {time.strftime('%H:%M:%S')}")

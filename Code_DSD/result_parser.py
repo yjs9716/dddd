@@ -11,6 +11,7 @@ V5 대비 변경점
       행 S+1+n1+n2             : Rectangle1 (전원모듈 분기 입구)
       행 S+1+n1+n2+1           : T_pass1 온도 (1차 통과 후 PAO, OLHD부터)
       행 S+1+n1+n2+2           : Opening1 온도 (출구 PAO, OLHD부터)
+      행 S+1+n1+n2+3           : T_pass2 온도 (2차 통과 후·합류 전 PAO, OLHD부터)
   · 결과에 뱅크별 갭(fin_gap_1, fin_gap_2)을 기록한다.
   · (OLHD부터) 분기비 power_module_flow = 분기 유량 ÷ (분기 유량 + 2차 통과 유로 합계).
     단면(Mean×Area) 유량은 벽 쪽 굵은 z 셀에서 속도가 0으로 보간돼 작게 잡힌다 — 1차 통과 유로
@@ -21,6 +22,8 @@ V5 대비 변경점
   · (OLHD부터) T_pass1, T_outlet 을 기록하고 열수지를 점검한다(경고만):
       분기 전 흡열 = ρ·c_p·Q·(T_pass1 − 입구),  ρ·c_p·Q·(T_outlet − 입구) ≈ 발열 합계
     분기 후 흡열(= 발열 합계 − 분기 전 흡열)로 전원모듈 필요 분기비를 최적화 단계에서 계산한다.
+  · (OLHD부터) T_pass2(2차 통과 후·합류 전)를 기록한다 — 분기 과다로 2차 통과가 유량을 못 받는
+    설계를 사후에 걸러내는 데 쓴다(2차 통과 냉각수 온도 상승 = T_pass2 − T_pass1).
 
 그대로 유지 (근거는 V5 주석): Mean×Area 유량, 통과별 유로 유량 표준편차(std_pass1/2),
 전원모듈 분기 유량비, 중량 = 알루미늄(SolidWorks) + PAO(전체 부피 − 알루미늄 부피).
@@ -55,7 +58,8 @@ def _row_layout(n1, n2):
     row_pmflow = row_lane2 + n2
     row_t1     = row_pmflow + 1
     row_out    = row_pmflow + 2
-    return row_lane2, row_pmflow, row_t1, row_out, row_out + 1
+    row_t2     = row_pmflow + 3
+    return row_lane2, row_pmflow, row_t1, row_out, row_t2, row_t2 + 1
 
 
 def _area_m2(cell):
@@ -97,10 +101,10 @@ def _check_heat_balance(tag_idx, t_outlet):
 def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3):
     """반환 dict: pressure_drop, temp_std, max_temp, std_pass1, std_pass2,
     power_module_flow(0~1, 정규화), weight(kg), fin_gap_1, fin_gap_2,
-    기록 전용: mean_pass1/2, power_module_flow_raw, T_pass1, T_outlet"""
+    기록 전용: mean_pass1/2, power_module_flow_raw, T_pass1, T_outlet, T_pass2"""
     n1 = bank_values(params, 1)[1] + 1
     n2 = bank_values(params, 2)[1] + 1
-    row_lane2, row_pmflow, row_t1, row_out, n_rows = _row_layout(n1, n2)
+    row_lane2, row_pmflow, row_t1, row_out, row_t2, n_rows = _row_layout(n1, n2)
 
     df = pd.read_csv(result_path, header=None, skiprows=5, sep=None, engine="python",
                      on_bad_lines="skip")
@@ -129,6 +133,7 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
 
     t_pass1 = float(df.iloc[row_t1, COL_MEAN])
     t_outlet = float(df.iloc[row_out, COL_MEAN])
+    t_pass2 = float(df.iloc[row_t2, COL_MEAN])
     q_before = HEAT_CAPACITY_W_PER_K * (t_pass1 - INLET_TEMP_C)    # 분기 전 흡열 [W]
     q_out = _check_heat_balance(tag_idx, t_outlet)
 
@@ -151,6 +156,7 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
         "power_module_flow_raw": power_module_flow_raw,
         "T_pass1": t_pass1,
         "T_outlet": t_outlet,
+        "T_pass2": t_pass2,
     }
     results.update({f"fin_gap_{b}": bank_gap(params, b) for b in BANKS})
 
@@ -161,4 +167,5 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
           f"/  분기 {pm_lpm:.4f} LPM")
     print(f"      1차 통과 후 {t_pass1:.3f}°C (분기 전 흡열 {q_before:.1f} W, 분기 후 {TOTAL_HEAT_W - q_before:.1f} W)  "
           f"출구 {t_outlet:.3f}°C (흡열 {q_out:.1f} W / 발열 {TOTAL_HEAT_W:.0f} W)")
+    print(f"      2차 통과 후 {t_pass2:.3f}°C (2차 통과 냉각수 상승 {t_pass2 - t_pass1:.2f} K)")
     return results

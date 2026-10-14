@@ -19,7 +19,7 @@ V5(`Code/`, 9변수, 핀 공유)를 대체하는 새 캠페인이다. V5 코드�
 |---|---|---|
 | 격자 민감도 y (DSD 전) | `python grid_convergence.py` | `Result/GCI/gci_y_results.csv`, `gci_y_summary.json` → `icepak.py`의 `MESH_REGION_Y` 확정 (핀 1.5 mm당 셀 2~6개 = y 0.75~0.25 mm, x·z 2.0 mm 고정) |
 | 격자 민감도 z (OLHD 전) | `python grid_convergence.py z` | `Result/GCI/gci_z_results.csv`, `gci_z_summary.json` → `MESH_REGION_Z` = 1.6 mm(5셀) 채택 (유로 8 mm당 셀 2~6개 = z 4.0~1.333 mm, y 0.3·x 2.0 mm 고정, GCI 3/4/6셀). 판정은 차압·최고온도·분기비만. z 시험은 기존 `icepak.py`(역류 허용·발열 9개)로 돌렸으므로 4셀 재해석도 그 버전으로 한다 — 조건이 다르면 멈춘다 |
-| OLHD 준비 | — | `icepak.py`: 발열 17개(전 슬롯, 680 W), z 1.6 mm, 출구 역류 차단. 시험 설계 GUI 해석 1회로 발열 블록 위치, 출구 온도(≈ 25.8 °C), T_pass1 띄움 거리(유량가중 평균과 비교), 분기 입구 z 메시를 확인한다 |
+| OLHD 준비 | — | `icepak.py`: 발열 17개(전 슬롯, 680 W), z 1.6 mm, 출구 역류 차단. 시험 설계 GUI 해석 1회로 발열 블록 위치, 출구 온도(≈ 25.8 °C), T_pass1 띄움 거리(유량가중 평균과 비교), T_pass2 사각형이 2차 통과 출구 통로 안(합류 전)에 있는지, 분기 입구 z 메시를 확인한다. 기존 `results_v6.csv`는 열 구성이 바뀌었으니 지우고 시작한다 |
 | 실험표 확인 | `python DSD.py` | `dsd_plan.csv` (첫 실행 시 자동 생성) |
 | 1단계 해석 | `python main.py` | `results_dsd.csv`, `result_dsd_000.csv`… |
 | 선별 판정 | `python DSD_analysis.py` | `dsd_effects.csv`, `screening_decision.json` |
