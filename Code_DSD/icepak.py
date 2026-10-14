@@ -49,11 +49,14 @@ MID_PASSAGE_X_WALL = -195.0    # 통로 바깥벽 x (Rectangle1 시작점과 같
 T_PASS1_INSET_MM   = 1.0       # ⚠ z 2.0 mm 메시에서 맞춘 값 — z 1.6 mm 로 바꿨으니 캠페인 전에 다시 맞출 것
 
 # ── 2차 통과 후·합류 전 PAO 온도 측정면 (T_pass2) ─────────────
-#   2차 핀뱅크 출구 쪽 통로(법선 y, y = PASS2_EXIT_Y). 통로 폭은 mid_thick(x 방향, 벽 x = PASS2_EXIT_X_WALL
-#   에서 −x 쪽으로), 깊이는 유로 전체(z 0~8). T_pass1 과 같이 벽마다 T_PASS1_INSET_MM 띄운 면적평균.
-#   GUI 에서 확인한 사각형: 시작 (155.8, 10, 7), 크기 x −(mid_thick − 2), z −6.
-PASS2_EXIT_Y       = 10.0
-PASS2_EXIT_X_WALL  = 156.8
+#   2차 핀뱅크 출구 쪽 통로(법선 y, y = PASS2_EXIT_Y). 판 오른쪽 끝 입구 통로(폭 input_thick) 안쪽에 있어
+#   input_thick 에 따라 움직인다: 통로 벽 x = 오른쪽 바깥 벽(195) − input_thick − 15.
+#   통로 폭은 mid_thick(벽에서 −x 쪽으로), 깊이는 유로 전체(z 0~8).
+#   T_pass1 과 같이 벽마다 T_PASS1_INSET_MM 띄운 면적평균.
+#   예: input_thick 23.2 → 사각형 시작 (155.8, 10, 7), 크기 x −(mid_thick − 2), z −6 (GUI 에서 확인한 값)
+PASS2_EXIT_Y          = 10.0
+PLATE_X_RIGHT_WALL    = 195.0    # 판 오른쪽 바깥 벽 x (입구 통로 시작) — 왼쪽 바깥 벽 −195 와 대칭
+PASS2_EXIT_FROM_INPUT = 15.0     # 입구 통로 안쪽 벽에서 2차 통과 출구 통로 벽까지 [mm]
 
 # ── 측정 대상 개수 — CSV 행 구조를 결정하므로 result_parser가 이 값을 import해서 씀 ──
 #   여기를 바꾸면 파싱 쪽 행 인덱스가 자동으로 따라감 (두 파일이 어긋날 일 없게)
@@ -1048,11 +1051,12 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
         ])
 
     # 2차 통과 후·합류 전 PAO 온도 측정면 (T_pass2) — 상단 상수 주석 참고. 크기는 음수(−x, −z 방향)로 그린다.
+    t2_wall_x = PLATE_X_RIGHT_WALL - params['input_thick'] - PASS2_EXIT_FROM_INPUT
     oEditor.CreateRectangle(
         [
             "NAME:RectangleParameters",
             "IsCovered:="		, True,
-            "XStart:="		, f"{round(PASS2_EXIT_X_WALL - t1_inset, 6)}mm",
+            "XStart:="		, f"{round(t2_wall_x - t1_inset, 6)}mm",
             "YStart:="		, f"{PASS2_EXIT_Y}mm",
             "ZStart:="		, f"{round(CHANNEL_Z_TOP - t1_inset, 6)}mm",
             "Width:="		, f"{-round(CHANNEL_DEPTH_MM - 2 * t1_inset, 6)}mm",
