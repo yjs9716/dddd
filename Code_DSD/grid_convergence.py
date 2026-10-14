@@ -37,11 +37,17 @@ V6 격자 민감도 시험 — y(핀 갭 방향) → z(유로 깊이 방향) 순
   · GCI (Celik et al. 2008, 공통비가 일정하지 않을 때의 반복식)는 축마다 세 레벨로 계산한다.
       y: 3 / 4 / 6 셀 (격자 비 1.33, 1.5)
       z: 3 / 4 / 6 셀 (격자 비 1.33, 1.5 — y 와 같음. 현재 캠페인 값 4셀이 GCI 레벨에 들어간다)
-  · 총 요소 수와 갭·핀 셀 수는 코드가 기록하지 않는다 — 레벨마다 AEDT 메시 정보에서 직접 적을 것.
+  · 레벨마다 시간과 총 요소 수를 결과 파일에 기록한다.
+      minutes        : 레벨 전체 (SolidWorks 갱신·STEP 내보내기 포함)
+      minutes_icepak : Icepak 부분만 (형상 불러오기·메싱·해석·Fields Summary 내보내기)
+      elements       : 총 요소 수 — AEDT 메시 통계 파일, 안 되면 메시지 창에서 읽는다. 둘 다 실패하면
+                       빈칸(해석은 계속)이니 그 레벨만 AEDT 메시 정보에서 직접 적을 것.
+                       첫 레벨에서 출력된 값이 AEDT 화면의 요소 수와 같은지 한 번 확인할 것.
 """
 import json
 import math
 import os
+import re
 import sys
 import time
 
@@ -79,6 +85,10 @@ RESP = ["pressure_drop", "temp_std", "max_temp", "std_pass1", "std_pass2", "powe
 # weight 는 SolidWorks 형상에서 나오므로 격자와 무관 — 비교에서 제외
 # z 시험에서 같이 기록하는 참고값 (판정에는 쓰지 않음)
 DIAG_Z = ["sum_pass1", "power_module_flow_raw", "T_pass1", "T_outlet"]
+
+
+# 레벨마다 같이 기록하는 실행 정보 (판정에는 쓰지 않음)
+INFO = ["minutes_icepak", "elements"]
 
 
 def _z_mm(cells):
@@ -126,7 +136,7 @@ def _load(axis):
     a = AXES[axis]
     if os.path.exists(a["results"]):
         return pd.read_csv(a["results"])
-    return pd.DataFrame(columns=[a["col"], "minutes"] + a["resp"] + a["diag"])
+    return pd.DataFrame(columns=[a["col"], "minutes"] + INFO + a["resp"] + a["diag"])
 
 
 def _done_levels(axis, df):
@@ -134,15 +144,56 @@ def _done_levels(axis, df):
     return {round(float(v), 4) for v in df[col]} if len(df) else set()
 
 
-def _save(axis, h, minutes, results):
+def _save(axis, h, minutes, results, info=None):
     a = AXES[axis]
     df = _load(axis)
     if len(df):
         df = df[(df[a["col"]] - h).abs() > 1e-9]
-    row = {a["col"]: h, "minutes": minutes, **{k: results.get(k, np.nan) for k in a["resp"] + a["diag"]}}
+    info = info or {}
+    row = {a["col"]: h, "minutes": minutes, **{k: info.get(k, np.nan) for k in INFO},
+           **{k: results.get(k, np.nan) for k in a["resp"] + a["diag"]}}
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True).sort_values(a["col"], ascending=False)
     os.makedirs(GCI_DIR, exist_ok=True)
     df.to_csv(a["results"], index=False)
+
+
+_ELEMENT_PATTERNS = [
+    r"(?i)total\s*(?:number\s*of\s*)?(?:elements|cells)\D{0,20}?([\d,]{4,})",
+    r"(?i)(?:number\s*of\s*)?(?:elements|cells)\s*[:=]\s*([\d,]{4,})",
+    r"(?i)([\d,]{4,})\s*(?:elements|cells)",
+]
+
+
+def _parse_elements(text):
+    """글에서 요소 수로 보이는 숫자를 찾는다 (패턴 순서대로, 각 패턴의 마지막 일치값)."""
+    for pat in _ELEMENT_PATTERNS:
+        hits = [int(m.replace(",", "")) for m in re.findall(pat, text)]
+        hits = [n for n in hits if n >= 1000]
+        if hits:
+            return hits[-1]
+    return None
+
+
+def _mesh_elements(ipk, idx):
+    """총 요소 수 [개] 와 출처. AEDT 버전마다 되는 방법이 달라 순서대로 시도하고, 다 실패하면 nan."""
+    try:
+        path = os.path.join(GCI_DIR, f"meshstats_gci_{idx:03d}.txt")
+        ipk.odesign.ExportMeshStats("Setup1", "", path)
+        if os.path.exists(path):
+            with open(path, encoding="utf-8", errors="ignore") as f:
+                n = _parse_elements(f.read())
+            if n:
+                return n, f"메시 통계 파일 {os.path.basename(path)}"
+    except Exception as e:
+        print(f"  (메시 통계 파일 내보내기 실패: {e})")
+    try:
+        msgs = ipk.odesktop.GetMessages(ipk.project_name, ipk.design_name, 0)
+        n = _parse_elements("\n".join(str(m) for m in msgs))
+        if n:
+            return n, "AEDT 메시지 창"
+    except Exception as e:
+        print(f"  (AEDT 메시지 읽기 실패: {e})")
+    return np.nan, ""
 
 
 def run_level(app, errors, warnings_, desktop, ipk, params, axis, k, h):
@@ -156,14 +207,19 @@ def run_level(app, errors, warnings_, desktop, ipk, params, axis, k, h):
     t0 = time.time()
     al_mass, al_vol = update_sw(app, errors, warnings_, params)
     step_file = export_step(app, errors, "gci", idx)
+    t1 = time.time()
     ipk, result_path, _ = run_icepak(desktop, ipk, step_file, "gci", idx, params)
+    t2 = time.time()
     results = extract_and_save(f"gci:{axis}{h:.4g}", params, result_path, al_mass, al_vol)
     # 1차 통과 유로 유량 합계 — 입구 4 LPM 에 얼마나 가까운지 (단면 유량 측정 편향 확인용)
     results["sum_pass1"] = results["mean_pass1"] * (params["fin_count_1"] + 1)
+    elements, source = _mesh_elements(ipk, idx)
     minutes = (time.time() - t0) / 60
-    _save(axis, h, minutes, results)
-    print(f"[격자 시험 {axis}] {axis} = {h:.4g} mm 완료 ({minutes:.0f}분) "
-          f"— AEDT 메시에서 총 요소 수, 갭·핀 셀 수를 기록해 둘 것")
+    info = {"minutes_icepak": (t2 - t1) / 60, "elements": elements}
+    _save(axis, h, minutes, results, info)
+    el_txt = f"{elements:,.0f}개 ({source})" if elements == elements else "읽기 실패 — AEDT 메시 정보에서 직접 적을 것"
+    print(f"[격자 시험 {axis}] {axis} = {h:.4g} mm 완료 — 전체 {minutes:.0f}분 "
+          f"(Icepak {info['minutes_icepak']:.0f}분), 총 요소 수 {el_txt}")
     return ipk
 
 
@@ -205,7 +261,8 @@ def report(axis, params):
     fixed = {"y": f"x = {mx}, z = {mz:.4g} mm", "z": f"x = {mx}, y = {my:.4g} mm"}[axis]
 
     print(f"\n{'='*112}\n[격자 시험 {axis}] 결과 — 기준: 가장 촘촘한 {axis} = {ref_h:.4g} mm  ({fixed})\n{'='*112}")
-    print(f"{axis+'(mm)':>7s} {'셀':>3s} {'시간(분)':>8s} " + " ".join(f"{k[:14]:>16s}" for k in a["resp"]) + "  판정")
+    print(f"{axis+'(mm)':>7s} {'셀':>3s} {'전체(분)':>8s} {'해석(분)':>8s} {'요소 수':>11s} "
+          + " ".join(f"{k[:14]:>16s}" for k in a["resp"]) + "  판정")
     verdict = {}
     for h, row in df.iterrows():
         ok = True
@@ -220,7 +277,10 @@ def report(axis, params):
                 ok &= abs(d) <= TOL_PCT
                 cells.append(f"{row[k]:.4g}({d:+.1f}%)")
         verdict[float(h)] = bool(ok)
-        print(f"{h:7.4f} {a['cells'](h):3.0f} {row['minutes']:8.0f} " + " ".join(c.rjust(16) for c in cells)
+        n_el = row.get("elements", np.nan)
+        el = f"{n_el:,.0f}" if n_el == n_el else "-"
+        print(f"{h:7.4f} {a['cells'](h):3.0f} {row['minutes']:8.0f} {row.get('minutes_icepak', np.nan):8.0f} {el:>11s} "
+              + " ".join(c.rjust(16) for c in cells)
               + f"  {'기준' if h == ref_h else ('통과' if ok else '초과')}")
 
     if a["diag"]:
@@ -275,7 +335,8 @@ def _reuse_y_baseline(h):
     if not len(hit):
         return False
     row = hit.iloc[0]
-    _save("z", h, float(row["minutes"]), {k: row[k] for k in RESP})
+    _save("z", h, float(row["minutes"]), {k: row[k] for k in RESP},
+          {k: row.get(k, np.nan) for k in INFO})
     print(f"[격자 시험 z] z = {h:.4g} mm — y 시험의 y = {Z_TEST_Y_MM:.4g} mm 결과와 같은 해석이라 재사용 (해석 생략)")
     return True
 
