@@ -42,7 +42,6 @@ ROW_SOURCE = 0
 ROW_DP     = ROW_SOURCE + N_SOURCE
 ROW_LANE1  = ROW_DP + 1
 
-COL_NAME = 2
 COL_MAX  = 8
 COL_MEAN = 9
 COL_AREA = 11
@@ -63,58 +62,18 @@ def _row_layout(n1, n2):
     return row_lane2, row_pmflow, row_t1, row_out, row_t2, row_t2 + 1
 
 
-def _num(cell):
-    """CSV 칸 → float. AEDT 가 계산하지 못한 값('-nan(ind)' 등)은 nan."""
-    try:
-        return float(str(cell).strip().split()[0])
-    except (ValueError, IndexError):
-        return np.nan
-
-
 def _area_m2(cell):
-    return _num(cell)
+    return float(str(cell).strip().split()[0])
 
 
-def _row_value(df, row, col, tag_idx, what):
-    """목적함수·제약에 쓰는 값 하나. 계산되지 않았으면(nan) 행 이름을 밝히고 실패 처리."""
-    v = _num(df.iloc[row, col])
-    if not np.isfinite(v):
-        raise ValueError(f"[{tag_idx}] {what} 값이 계산되지 않음(nan): 행 {row} {df.iloc[row, COL_NAME]}")
-    return v
+def _lane_flows_signed(df, row0, n_channels):
+    speeds = df.iloc[row0:row0 + n_channels, COL_MEAN].astype(float).values
+    areas  = df.iloc[row0:row0 + n_channels, COL_AREA].map(_area_m2).values
+    return speeds * areas * 60000.0
 
 
-def _record_value(df, row, tag_idx, what):
-    """기록 전용 값 하나. 계산되지 않았으면 nan 으로 남기고 경고만 한다(해석 결과는 살림)."""
-    v = _num(df.iloc[row, COL_MEAN])
-    if not np.isfinite(v):
-        print(f"  ⚠ [{tag_idx}] {what} 값이 계산되지 않음(nan) — 빈칸으로 기록: {df.iloc[row, COL_NAME]}")
-    return v
-
-
-def _lane_flows_signed(df, row0, n_channels, tag_idx=""):
-    """유로별 유량 [LPM, 부호 있음].
-
-    유로 측정면은 테두리가 핀·천장·바닥 표면과 딱 겹치게 만들어져, 드물게 AEDT 가 한 면의 넓이를
-    계산하지 못해 Mean·Area 가 nan 으로 나온다(Max·Min 은 정상). 한 통과에서 1개면 그 유로를 이웃
-    유로 평균 유량으로 메우고 경고한다 — 유로 유량은 이웃과 매끄럽게 이어진다. 2개 이상이면 실패.
-    """
-    rows = df.iloc[row0:row0 + n_channels]
-    flows = np.array([_num(v) for v in rows[COL_MEAN]]) * np.array([_area_m2(v) for v in rows[COL_AREA]]) * 60000.0
-    bad = np.flatnonzero(~np.isfinite(flows))
-    if len(bad) == 0:
-        return flows
-    names = [str(rows.iloc[k, COL_NAME]) for k in bad]
-    if len(bad) > 1:
-        raise ValueError(f"[{tag_idx}] 유로 측정면 {len(bad)}개가 계산되지 않음(nan): {names}")
-    k = int(bad[0])
-    nbr = [flows[j] for j in (k - 1, k + 1) if 0 <= j < n_channels]
-    flows[k] = float(np.mean(nbr))
-    print(f"  ⚠ [{tag_idx}] {names[0]} 측정면이 계산되지 않음(nan) → 이웃 유로 평균 {flows[k]:.4f} LPM 으로 메움")
-    return flows
-
-
-def _lane_flows_lpm(df, row0, n_channels, tag_idx=""):
-    return np.abs(_lane_flows_signed(df, row0, n_channels, tag_idx))
+def _lane_flows_lpm(df, row0, n_channels):
+    return np.abs(_lane_flows_signed(df, row0, n_channels))
 
 
 def _check_closure(tag_idx, flows1, flows2, pm_lpm):
@@ -154,27 +113,27 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
             f"CSV 행이 {len(df)}개뿐 — {n_rows}개 기대(유로 1차 {n1}개 / 2차 {n2}개 기준).\n"
             "  icepak.py 의 Calculation 순서, 또는 params 의 fin_count_1/2 가 이 설계와 같은지 확인할 것")
 
-    src = range(ROW_SOURCE, ROW_SOURCE + N_SOURCE)
-    max_temp = max(_row_value(df, r, COL_MAX, tag_idx, "CCA 최고 온도") for r in src)
-    temp_std = float(np.std([_row_value(df, r, COL_MEAN, tag_idx, "CCA 평균 온도") for r in src]))
-    pressure_drop = _row_value(df, ROW_DP, COL_MEAN, tag_idx, "차압")
+    temp_rows = df.iloc[ROW_SOURCE:ROW_SOURCE + N_SOURCE]
+    max_temp = float(temp_rows[COL_MAX].astype(float).max())
+    temp_std = float(temp_rows[COL_MEAN].astype(float).std(ddof=0))
+    pressure_drop = float(df.iloc[ROW_DP, COL_MEAN])
 
-    flows1 = _lane_flows_lpm(df, ROW_LANE1, n1, tag_idx)
-    signed2 = _lane_flows_signed(df, row_lane2, n2, tag_idx)
-    flows2 = np.abs(signed2)
+    flows1 = _lane_flows_lpm(df, ROW_LANE1, n1)
+    flows2 = _lane_flows_lpm(df, row_lane2, n2)
+    signed2 = _lane_flows_signed(df, row_lane2, n2)
     if np.ptp(np.sign(signed2)) > 1 and np.abs(signed2).min() > 1e-6:
         print(f"  ⚠ [{tag_idx}] 2차 통과 레인 부호가 섞임(일부 역류 의심): {np.round(signed2, 4).tolist()}")
 
-    pm_speed = abs(_row_value(df, row_pmflow, COL_MEAN, tag_idx, "분기 유속"))
-    pm_area = _row_value(df, row_pmflow, COL_AREA, tag_idx, "분기 측정면 넓이")
+    pm_speed = abs(float(df.iloc[row_pmflow, COL_MEAN]))
+    pm_area = _area_m2(df.iloc[row_pmflow, COL_AREA])
     pm_lpm = pm_speed * pm_area * 60000.0
     power_module_flow_raw = pm_lpm / TOTAL_FLOW_LPM
     power_module_flow = pm_lpm / (pm_lpm + float(np.sum(flows2)))   # 정규화 (모듈 설명)
     _check_closure(tag_idx, flows1, flows2, pm_lpm)
 
-    t_pass1 = _record_value(df, row_t1, tag_idx, "1차 통과 후 온도")
-    t_outlet = _record_value(df, row_out, tag_idx, "출구 온도")
-    t_pass2 = _record_value(df, row_t2, tag_idx, "2차 통과 후 온도")
+    t_pass1 = float(df.iloc[row_t1, COL_MEAN])
+    t_outlet = float(df.iloc[row_out, COL_MEAN])
+    t_pass2 = float(df.iloc[row_t2, COL_MEAN])
     q_before = HEAT_CAPACITY_W_PER_K * (t_pass1 - INLET_TEMP_C)    # 분기 전 흡열 [W]
     q_out = _check_heat_balance(tag_idx, t_outlet)
 
