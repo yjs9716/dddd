@@ -240,40 +240,67 @@ def current_idx():
     return len(_load_results())
 
 
-def _olhd_next():
-    """DOE 실험점 중 아직 성공하지 못했고 실패가 MAX_FAIL_PER_POINT 회 미만인 첫 점. 없으면 적응샘플링.
-    순서 대신 설계값으로 성공·실패를 대조하므로, 실패한 점을 나중에 다시 돌려도 중복·건너뜀이 없다."""
-    df = _load_results()
-    failed = _load_failed()
-    plan = _get_doe_samples()
-    N = len(plan)
-    for k in range(N):
-        x = to_dict(plan[k])
-        xv = [x[n] for n in CANDIDATES]
+# ── DOE 점 판별 — 행 번호(idx)가 아니라 "설계값이 OLHD 실험계획에 있는가"로 가른다 ──
+#   실패한 DOE 점이 영구히 빠지면 행 번호가 당겨져, idx < N 으로 가르면 첫 적응샘플링 점이 DOE 로 분류된다
+#   (예측오차 미기록, S_j 에 섞임). 설계값 대조는 실패·재실행 순서와 무관하다.
+def _plan_vectors():
+    """OLHD 실험계획 N점의 설계값 (N, 11) — 기록에 저장되는 값과 같은 형태(to_dict, 핀 개수 정수)."""
+    return np.array([[to_dict(r)[n] for n in CANDIDATES] for r in _get_doe_samples()], dtype=float)
+
+
+def _in_plan_mask(df):
+    """기록(df) 각 행이 OLHD 실험계획의 점인지 (bool 배열)."""
+    if not len(df):
+        return np.zeros(0, dtype=bool)
+    X = df[CANDIDATES].values.astype(float)
+    P = _plan_vectors()
+    return np.array([np.any(np.all(np.isclose(P, x, rtol=0, atol=1e-6), axis=1)) for x in X])
+
+
+def _is_plan_point(params):
+    x = np.array([params[n] for n in CANDIDATES], dtype=float)
+    return bool(np.any(np.all(np.isclose(_plan_vectors(), x, rtol=0, atol=1e-6), axis=1)))
+
+
+def _next_doe(df, failed):
+    """아직 성공하지 못했고 실패가 MAX_FAIL_PER_POINT 회 미만인 첫 DOE 점 → (k, params, 실패 횟수). 없으면 None."""
+    for k, xv in enumerate(_plan_vectors()):
         if _n_matches(df, xv):
             continue
         n_fail = _n_matches(failed, xv)
         if n_fail >= MAX_FAIL_PER_POINT:
             continue
+        return k, to_dict(xv), n_fail
+    return None
+
+
+def _olhd_next():
+    """DOE 실험점 중 아직 성공하지 못했고 실패가 MAX_FAIL_PER_POINT 회 미만인 첫 점. 없으면 적응샘플링.
+    순서 대신 설계값으로 성공·실패를 대조하므로, 실패한 점을 나중에 다시 돌려도 중복·건너뜀이 없다."""
+    df = _load_results()
+    nxt = _next_doe(df, _load_failed())
+    if nxt is not None:
+        k, x, n_fail = nxt
         retry = f"  (재실행 — 앞선 실패 {n_fail}회)" if n_fail else ""
-        print(f"[DOE {k+1}/{N}]{retry} " + _fmt(x))
+        print(f"[DOE {k+1}/{n_doe()}]{retry} " + _fmt(x))
         return len(df), x
-    n_doe_rows = sum(_n_matches(df, [to_dict(r)[n] for n in CANDIDATES]) > 0 for r in plan)
     params = _gpr_suggest(df)
-    print(f"[적응샘플링 {len(df) - n_doe_rows + 1}회차] " + _fmt(params))
+    print(f"[적응샘플링 {int((~_in_plan_mask(df)).sum()) + 1}회차] " + _fmt(params))
     return len(df), params
 
 
 def _get_S_j(df):
+    """DOE 점들의 설계공간 표준편차 (종료 판정 기준). DOE 단계가 끝난 뒤(남은 DOE 점 없음)에만 정하고 고정한다."""
     global _S_J_CACHE
     if _S_J_CACHE:
         return _S_J_CACHE
-    N = n_doe()
-    doe_rows = df[df["idx"] < N]
-    if len(doe_rows) < N:
+    if _next_doe(df, _load_failed()) is not None:
+        return None
+    doe_rows = df[_in_plan_mask(df)]
+    if len(doe_rows) < 2:
         return None
     _S_J_CACHE = {name: float(doe_rows[name].std(ddof=0)) for name in OBJ_NAMES}
-    print(f"\n[S_j 고정] DOE {N}점 기준 설계공간 표준편차:")
+    print(f"\n[S_j 고정] DOE {len(doe_rows)}점 기준 설계공간 표준편차 (계획 {n_doe()}점):")
     for name, s in _S_J_CACHE.items():
         print(f"    {name:16s} S_j={s:.5f}  threshold={ALPHA*s:.5f}")
     return _S_J_CACHE
@@ -292,7 +319,8 @@ def _record_olhd(params, results):
     idx = len(df)
     preds = {n: np.nan for n in MODELED_NAMES}
     errs = {n: np.nan for n in MODELED_NAMES}
-    if idx >= n_doe():
+    adaptive = not _is_plan_point(params)      # DOE 점은 예측 없이 기록, 적응샘플링 점만 해석 전 예측과 비교
+    if adaptive:
         cached = _PENDING_PREDICTION
         if cached is not None and cached["idx"] == idx and cached["params"] == params:
             preds = cached["preds"]
@@ -316,7 +344,7 @@ def _record_olhd(params, results):
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     _write(df, RESULTS_PATH, _COLUMNS)
 
-    if idx >= n_doe():
+    if adaptive:
         g = _group_values(df.tail(1))
         print(f"[{idx}] 예측오차(절대): " + "  ".join(f"{k} {g[k][0]:.4f}{GROUP_UNIT[k]}" for k in GROUP_NAMES))
     print(f"[{idx}] 결과 저장 완료")
