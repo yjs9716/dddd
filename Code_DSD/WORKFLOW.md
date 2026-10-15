@@ -25,6 +25,7 @@ V5(`Code/`, 9변수, 핀 공유)를 대체하는 새 캠페인이다. V5 코드�
 | 선별 판정 | `python DSD_analysis.py` | `dsd_effects.csv`, `screening_decision.json` |
 | 2단계 해석 | `python main.py` | `results_v6.csv`, `result_000.csv`… |
 | 진행 확인 | `python ML.py` | 캠페인 상태, 적응샘플링 오차 추이 |
+| 무인 운전 (주말 등) | `python run_forever.py` (main.py 대신) | main.py 가 죽거나 2시간 출력 없이 멈추면 AEDT·SolidWorks 를 정리하고 다시 띄움. 해석 도중 죽은 점은 실패로 기록(점당 2회면 건너뜀). 기록: `run_forever.log`, `campaign_console.log` |
 
 `main.py`는 캠페인 상태를 보고 이어서 진행한다. DSD가 끝나면 멈추고 선별 판정을 요구한다.
 OLHD 실패는 `failed_v6.csv`에 지우지 않고 쌓인다(시각·몇 번째 시도). 실패한 DOE 점은 실패가 2회(`ML.MAX_FAIL_PER_POINT`)가 될 때까지 다음 실험으로 다시 돈다. AEDT 통신 오류(gRPC)는 그 자리에서 재연결 후 같은 점을 최대 3회 재시도한다.

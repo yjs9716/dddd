@@ -29,6 +29,8 @@ V6 메인 루프 — DSD 선별 → OLHD + GPR 적응샘플링 (SW → Icepak �
      DSD run 0 을 AEDT 화면으로 직접 볼 것 (뱅크별 핀 개수가 달라짐)
   3) result_parser.py 의 FULL_SOLID_VOLUME_MM3 — 판재 외형이 바뀌었으면 다시 실측
 """
+import os
+import sys
 import time
 
 from Solidworks import connect_sw, update_sw, export_step
@@ -47,6 +49,11 @@ MAX_AEDT_RETRY = 3
 #   gRPC: "Failed to execute gRPC AEDT command: AnalyzeAll" — 해석 도중 AEDT 와의 통신이 끊긴 경우
 AEDT_CRASH_HINTS = ("GetName", "objectID", "Desktop", "CreateObject", "COM", "gRPC")
 consecutive_fail = 0
+
+# 종료 코드 — run_forever.py(무인 운전)가 보고 다시 띄울지 정한다
+EXIT_DONE, EXIT_RESTART, EXIT_NEED_HUMAN = 0, 2, 3
+exit_code = EXIT_RESTART
+SUPERVISED = os.environ.get("CAMPAIGN_SUPERVISED") == "1"   # run_forever.py 아래에서 돌 때
 
 
 def reconnect_sw(app):
@@ -72,17 +79,22 @@ def cleanup_projects(desktop):
 
 
 while True:
+    ML.clear_running()
     phase, idx, params = ML.next_job()
     if phase == "need_screening":
         print("\nDSD 29회 완료. `python DSD_analysis.py` 로 선별 판정을 확정한 뒤 main.py 를 다시 실행하세요.")
+        exit_code = EXIT_NEED_HUMAN
         break
     if phase == "dsd_blocked":
         print(f"\nDSD 남은 run 이 모두 실패 기록 상태입니다: {ML.dsd_missing_runs()}\n"
               "  원인을 고친 뒤 ML.retry_failed_dsd() 로 재시도 목록에 올리세요.")
+        exit_code = EXIT_NEED_HUMAN
         break
     if phase == "done":
         print("\n종료기준 충족 — 2단계 완료.")
+        exit_code = EXIT_DONE
         break
+    ML.mark_running(phase, idx, params)    # 이 실험 도중 프로세스가 죽으면 run_forever.py 가 실패로 기록
 
     t_round = time.time()
     tag = f"{phase}:{idx}"
@@ -107,6 +119,7 @@ while True:
                 ML.log_failure(phase, idx, params, e)
 
     if step_file is None:
+        ML.clear_running()                  # 실패는 이미 기록됨
         consecutive_fail += 1
         if consecutive_fail >= MAX_CONSECUTIVE_FAIL:
             print(f"\n연속 {MAX_CONSECUTIVE_FAIL}회 형상 실패 — 변수 범위나 설정을 점검하세요.")
@@ -135,6 +148,7 @@ while True:
                 ML.log_failure(phase, idx, params, e)
 
     if results is None:
+        ML.clear_running()                  # 실패는 이미 기록됨
         consecutive_fail += 1
         if consecutive_fail >= MAX_CONSECUTIVE_FAIL:
             print(f"\n연속 {MAX_CONSECUTIVE_FAIL}회 실패 — 변수 범위나 설정을 점검하세요.")
@@ -143,7 +157,11 @@ while True:
 
     consecutive_fail = 0
     ML.record(phase, idx, params, results)
+    ML.clear_running()
     print(f"[{tag}] 이번 회차 총 소요 {time.time() - t_round:.0f}초\n")
 
+ML.clear_running()
 print("종료.")
-input("종료하려면 엔터.")
+if not SUPERVISED:
+    input("종료하려면 엔터.")
+sys.exit(exit_code)

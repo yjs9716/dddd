@@ -24,6 +24,7 @@ V5 대비 바뀐 것
   · 후보점은 활성 변수 공간의 Sobol → Screening.decode_active (고정 변수 끼워 넣기 +
     뱅크별 핀 두께를 개수에 맞춰 접어 넣기, params.STAGE2_FOLD)로 만든다.
 """
+import json
 import os
 import time
 
@@ -71,10 +72,43 @@ def _read(path, columns):
 
 
 def _write(df, path, columns):
+    """임시 파일에 쓴 뒤 바꿔치기 — 쓰는 도중 프로세스가 강제 종료돼도 기존 파일이 깨지지 않는다."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     ordered = [c for c in columns if c in df.columns]
     extras = [c for c in df.columns if c not in columns]
-    df[ordered + extras].to_csv(path, index=False)
+    tmp = path + ".tmp"
+    df[ordered + extras].to_csv(tmp, index=False)
+    os.replace(tmp, path)
+
+
+# ── 지금 해석 중인 점 (무인 운전용, run_forever.py) ──
+#   main.py 가 실험 하나를 시작할 때 적고, 결과든 실패든 기록을 마치면 지운다. 프로세스가 도중에 죽거나
+#   멈춰서 강제 종료되면 이 파일이 남으므로, run_forever.py 가 그 점을 실패로 기록한다
+#   → MAX_FAIL_PER_POINT 규칙으로 같은 점에서 계속 죽는 경우 건너뛴다.
+def _running_path():
+    return os.path.join(os.path.dirname(RESULTS_PATH), "running_job.json")
+
+
+def mark_running(phase, idx, params):
+    path = _running_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        json.dump({"phase": phase, "idx": idx, "params": params,
+                   "start": time.strftime("%Y-%m-%d %H:%M:%S")}, f, ensure_ascii=False, default=float)
+    os.replace(path + ".tmp", path)
+
+
+def load_running():
+    path = _running_path()
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def clear_running():
+    if os.path.exists(_running_path()):
+        os.remove(_running_path())
 
 
 def _row_params(params):
