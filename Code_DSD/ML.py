@@ -25,6 +25,7 @@ V5 대비 바뀐 것
     뱅크별 핀 두께를 개수에 맞춰 접어 넣기, params.STAGE2_FOLD)로 만든다.
 """
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -173,8 +174,10 @@ def log_failure(phase, idx, params, reason):
         path, cols = DSD_FAILED_PATH, ["run"] + CANDIDATES + ["reason"]
     else:
         df = _load_failed()
-        row = {**_row_params(params), "reason": str(reason)[:300]}
-        path, cols = FAILED_PATH, CANDIDATES + ["reason"]
+        attempt = _n_matches(df, [params[n] for n in CANDIDATES]) + 1
+        row = {**_row_params(params), "reason": str(reason)[:300],
+               "time": time.strftime("%Y-%m-%d %H:%M:%S"), "attempt": attempt}
+        path, cols = FAILED_PATH, _FAILED_COLUMNS
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     _write(df, path, cols)
     print(f"  ⚠ [{phase}] 실패 기록 ({len(df)}건 누적): {reason}")
@@ -214,8 +217,23 @@ def _load_results():
     return _read(RESULTS_PATH, _COLUMNS)
 
 
+# 실패 기록은 지우지 않고 이력으로 쌓는다(시각·몇 번째 시도). DOE 점은 실패 횟수가 이 값보다 적으면
+# 다음 실험으로 다시 돌린다 — 통신 오류 같은 일시적 실패는 재실행으로 살리고, 형상 자체가 안 되는
+# 점이 무한 반복되지 않게 막는다.
+MAX_FAIL_PER_POINT = 2
+_FAILED_COLUMNS = CANDIDATES + ["reason", "time", "attempt"]
+
+
 def _load_failed():
-    return _read(FAILED_PATH, CANDIDATES + ["reason"])
+    return _read(FAILED_PATH, _FAILED_COLUMNS)
+
+
+def _n_matches(df, x):
+    """기록(df)에서 설계값이 x(11개, CANDIDATES 순서)와 같은 행 수."""
+    if not len(df):
+        return 0
+    X = df[CANDIDATES].values.astype(float)
+    return int(np.all(np.isclose(X, np.asarray(x, dtype=float), rtol=0, atol=1e-6), axis=1).sum())
 
 
 def current_idx():
@@ -223,15 +241,26 @@ def current_idx():
 
 
 def _olhd_next():
+    """DOE 실험점 중 아직 성공하지 못했고 실패가 MAX_FAIL_PER_POINT 회 미만인 첫 점. 없으면 적응샘플링.
+    순서 대신 설계값으로 성공·실패를 대조하므로, 실패한 점을 나중에 다시 돌려도 중복·건너뜀이 없다."""
     df = _load_results()
-    cursor = len(df) + len(_load_failed())
-    N = n_doe()
-    if cursor < N:
-        params = to_dict(_get_doe_samples()[cursor])
-        print(f"[DOE {cursor+1}/{N}] " + _fmt(params))
-    else:
-        params = _gpr_suggest(df)
-        print(f"[적응샘플링 {cursor-N+1}회차] " + _fmt(params))
+    failed = _load_failed()
+    plan = _get_doe_samples()
+    N = len(plan)
+    for k in range(N):
+        x = to_dict(plan[k])
+        xv = [x[n] for n in CANDIDATES]
+        if _n_matches(df, xv):
+            continue
+        n_fail = _n_matches(failed, xv)
+        if n_fail >= MAX_FAIL_PER_POINT:
+            continue
+        retry = f"  (재실행 — 앞선 실패 {n_fail}회)" if n_fail else ""
+        print(f"[DOE {k+1}/{N}]{retry} " + _fmt(x))
+        return len(df), x
+    n_doe_rows = sum(_n_matches(df, [to_dict(r)[n] for n in CANDIDATES]) > 0 for r in plan)
+    params = _gpr_suggest(df)
+    print(f"[적응샘플링 {len(df) - n_doe_rows + 1}회차] " + _fmt(params))
     return len(df), params
 
 

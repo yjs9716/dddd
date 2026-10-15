@@ -16,8 +16,10 @@ V6 메인 루프 — DSD 선별 → OLHD + GPR 적응샘플링 (SW → Icepak �
 실패 처리
   · 형상 검증 실패(갭 제약·변수 누락 등) : 기록하고 다음 점
   · SolidWorks 오류(라이선스 회수·COM 끊김 등) : SW를 다시 띄워 같은 점 재시도 (MAX_SW_RETRY회)
-  · AEDT 크래시      : 재연결 후 같은 점 재시도 (MAX_AEDT_RETRY회)
+  · AEDT 크래시·통신 오류(gRPC) : 재연결 후 같은 점 재시도 (MAX_AEDT_RETRY회)
   · 그 외 해석 실패  : 기록하고 다음 점
+  · OLHD 실패 기록은 지우지 않고 쌓인다. 실패한 DOE 점은 실패가 ML.MAX_FAIL_PER_POINT 회가 될 때까지
+    다음 실험으로 다시 돌린다(ML._olhd_next)
   ⚠ DSD 단계는 한 run 이라도 빠지면 분석할 수 없다. 실패한 run 은 failed_dsd.csv 에 남고,
     원인을 고친 뒤 `python -c "import ML; ML.retry_failed_dsd()"` 로 다시 시도 목록에 올린다.
 
@@ -41,7 +43,9 @@ MAX_CONSECUTIVE_FAIL = 5
 MAX_SW_RETRY = 3
 SW_RETRY_WAIT_SEC = 30
 MAX_AEDT_RETRY = 3
-AEDT_CRASH_HINTS = ("GetName", "objectID", "Desktop", "CreateObject", "COM")
+# 이 문구가 오류에 있으면 AEDT 쪽 일시 장애로 보고 재연결 후 같은 점을 재시도한다.
+#   gRPC: "Failed to execute gRPC AEDT command: AnalyzeAll" — 해석 도중 AEDT 와의 통신이 끊긴 경우
+AEDT_CRASH_HINTS = ("GetName", "objectID", "Desktop", "CreateObject", "COM", "gRPC")
 consecutive_fail = 0
 
 
@@ -122,8 +126,11 @@ while True:
                 print(f"  ⚠ 해석 실패 (형상/설정 문제로 판단, 재시도 없이 다음 점으로): {e}")
                 ML.log_failure(phase, idx, params, e)
                 break
-            print(f"  ⚠ AEDT 크래시 ({attempt}/{MAX_AEDT_RETRY}회차, 재연결 후 같은 점 재시도): {e}")
-            desktop, ipk = connect_aedt()
+            print(f"  ⚠ AEDT 크래시·통신 오류 ({attempt}/{MAX_AEDT_RETRY}회차, 재연결 후 같은 점 재시도): {e}")
+            try:
+                desktop, ipk = connect_aedt()
+            except Exception as e2:
+                print(f"  ⚠ AEDT 재연결 실패 (다음 시도에서 다시): {e2}")
             if attempt == MAX_AEDT_RETRY:
                 ML.log_failure(phase, idx, params, e)
 
