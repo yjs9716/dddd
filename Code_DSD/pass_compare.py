@@ -5,15 +5,11 @@
 세 형상을 V6 icepak.run_icepak 그대로 다시 돌린다. 해석 설정(메시·물성·경계조건)은 캠페인과 같다.
 
 사용법
-  1) 아래 CASES 를 채운다 — 형상마다 둘 중 하나:
-       · "step"  : 이미 만든 STEP 파일 경로 → 그대로 임포트
-       · "sw_part"/"sw_asm"/"sw_vars" : SolidWorks 모델을 열어 전역변수를 써넣고 STEP 저장 후 임포트
-         (sw_vars 는 그 모델의 Equation Manager 전역변수 이름 그대로. 적은 것만 바꾼다)
-     "meas_params" 는 icepak.run_icepak 이 만드는 측정면·국소 메시에 쓰인다.
-       · 유로 단면·T_pass 측정면은 NonModel(격자·해석에 영향 없음)이라 1·4패스에서는 아무 값이어도 된다.
-         여기서는 발열원 온도와 차압만 읽는다.
-       · power_input_thick 은 전원분기 입구 국소 메시 박스 폭(x = −195 mm 부터)이다. 분기 입구는
-         1·2·4패스 모두 같은 자리에 있으므로 형상마다 실제 값을 넣는다 — 비워 두면 실행하지 않는다.
+  1) 아래 STEP 경로 3개와 POWER_INPUT_THICK(전원분기 입구 폭, 세 형상 공통)을 채운다.
+     · 해석 설정은 캠페인과 완전히 같다. 형상만 STEP 으로 받는다.
+     · POWER_INPUT_THICK 은 전원분기 입구 국소 메시 박스 폭(x = −195 mm 부터) — STEP 형상의 실제 폭과 같게.
+     · 나머지 측정면(유로 단면·T_pass)은 NonModel(격자·해석에 영향 없음)이라 기본값 그대로 둔다.
+       여기서는 발열원 온도와 차압만 읽는다.
   2) python pass_compare.py            → 세 형상 전부
      python pass_compare.py 2pass      → 이름을 준 형상만
   3) 결과: Result/PASS/results_pass.csv (형상별 최고온도·온도편차·차압 + 발열원별 평균·최고 온도)
@@ -40,80 +36,34 @@ from paths import RESULT_DIR
 PASS_DIR = os.path.join(RESULT_DIR, "PASS")
 SUMMARY_PATH = os.path.join(PASS_DIR, "results_pass.csv")
 
-# 2패스 측정면용 기본값 (설계범위 중앙 — 1·4패스는 측정면 위치에만 쓰이므로 아무 유효값이면 된다)
+# ── 아침에 채울 곳 ─────────────────────────────────────────────
+#   None 이 남아 있으면 실행하지 않는다.
+POWER_INPUT_THICK = None          # 전원분기 입구 폭 [mm] — 1·2·4패스 공통 (예: 5.0)
+STEPS = {
+    "1pass": None,                # 예: r"E:\...\flowpath_1pass.STEP"
+    "2pass": None,
+    "4pass": None,
+}
+
+# run_icepak 이 만드는 측정면용 값 — 전원분기 폭 말고는 결과에 영향 없음 (설계범위 중앙)
 MEAS_DEFAULT = {
-    "input_thick": 19.0, "input_angle": 150.0, "power_input_thick": 6.5, "mid_thick": 17.5,
+    "input_thick": 19.0, "input_angle": 150.0, "power_input_thick": None, "mid_thick": 17.5,
     "mid_angle": 115.0, "mid_input_thick": 17.5, "output_thick": 35.0,
     "fin_thick_1": 2.2, "fin_count_1": 15, "fin_thick_2": 2.2, "fin_count_2": 15,
 }
-
-# ── 아침에 채울 곳 ─────────────────────────────────────────────
-#   None 이 남아 있으면 실행하지 않는다.
-CASES = [
-    {"name": "1pass",
-     "step": None,                 # 예: r"E:\...\flowpath_1pass.STEP"
-     "sw_part": None, "sw_asm": None, "sw_vars": None,
-     "meas_params": {**MEAS_DEFAULT, "power_input_thick": None}},   # 실제 분기 입구 폭
-    {"name": "2pass",
-     "step": None,
-     "sw_part": None, "sw_asm": None, "sw_vars": None,
-     "meas_params": {**MEAS_DEFAULT, "power_input_thick": None}},   # 실제 분기 입구 폭
-    {"name": "4pass",
-     "step": None,
-     "sw_part": None, "sw_asm": None, "sw_vars": None,
-     "meas_params": {**MEAS_DEFAULT, "power_input_thick": None}},   # 실제 분기 입구 폭
-]
 
 # Fields Summary 열 (result_parser 와 같음)
 COL_NAME, COL_MAX, COL_MEAN = 2, 8, 9
 
 
-def _check_case(c):
-    has_step = bool(c.get("step"))
-    has_sw = all(c.get(k) for k in ("sw_part", "sw_asm", "sw_vars"))
-    if not (has_step or has_sw):
-        raise ValueError(f"[{c['name']}] 'step' 또는 'sw_part'·'sw_asm'·'sw_vars' 를 채울 것")
-    if has_step and not os.path.exists(c["step"]):
-        raise FileNotFoundError(f"[{c['name']}] STEP 파일 없음: {c['step']}")
-    mp = c.get("meas_params")
-    missing = [k for k in MEAS_DEFAULT if not mp or mp.get(k) is None]
-    if missing:
-        raise ValueError(f"[{c['name']}] meas_params 에 빠진 값: {missing}")
-
-
-# ── SolidWorks: 지정한 모델의 전역변수만 바꿔 STEP 저장 ─────────────
-def _sw_export(c):
-    import pythoncom
-    import win32com.client
-
-    pythoncom.CoInitialize()
-    app = win32com.client.Dispatch("SldWorks.Application")
-    app.Visible = False
-    errors = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
-    warnings = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
-    app.OpenDoc6(c["sw_asm"], 2, 1, "", errors, warnings)          # 2 = 어셈블리
-
-    part = app.OpenDoc6(c["sw_part"], 1, 1, "", errors, warnings)  # 1 = 파트
-    part = app.ActivateDoc3(c["sw_part"], False, 0, errors)
-    eq = part.GetEquationMgr
-    dispid = eq._oleobj_.GetIDsOfNames("Equation")
-    name_to_i = {eq.Equation(i).split("=")[0].strip().strip('"'): i for i in range(eq.GetCount)}
-    missing = [n for n in c["sw_vars"] if n not in name_to_i]
-    if missing:
-        raise KeyError(f"[{c['name']}] SolidWorks에 없는 전역변수: {missing}\n  현재 변수: {sorted(name_to_i)}")
-    for n, v in c["sw_vars"].items():
-        text = str(int(v)) if float(v).is_integer() and "count" in n else str(v)
-        eq._oleobj_.Invoke(dispid, 0, pythoncom.DISPATCH_PROPERTYPUT, False, name_to_i[n], f'"{n}" = {text}')
-    part.EditRebuild3
-    part.Save3(1, errors, warnings)
-
-    asm = app.ActivateDoc3(c["sw_asm"], False, 0, errors)
-    asm.ForceRebuild3(False)
-    asm.Save3(1, errors, warnings)
-    step = os.path.join(PASS_DIR, f"flowpath_pass_{c['name']}.STEP")
-    asm.SaveAs3(step, 0, 0)
-    print(f"[{c['name']}] SW 변수 반영 후 STEP 저장: {step}  " + "  ".join(f"{k}={v}" for k, v in c["sw_vars"].items()))
-    return step
+def _check(names):
+    if POWER_INPUT_THICK is None:
+        raise ValueError("POWER_INPUT_THICK(전원분기 입구 폭)을 채울 것")
+    for n in names:
+        if not STEPS[n]:
+            raise ValueError(f"[{n}] STEP 경로를 채울 것")
+        if not os.path.exists(STEPS[n]):
+            raise FileNotFoundError(f"[{n}] STEP 파일 없음: {STEPS[n]}")
 
 
 # ── 결과 읽기: 발열원 온도 + 차압만 ───────────────────────────────
@@ -150,26 +100,27 @@ def _save(row):
 
 
 def main(names):
-    cases = [c for c in CASES if not names or c["name"] in names]
-    if not cases:
-        raise SystemExit(f"해당 형상 없음: {names} (가능: {[c['name'] for c in CASES]})")
-    for c in cases:
-        _check_case(c)
+    names = names or list(STEPS)
+    unknown = [n for n in names if n not in STEPS]
+    if unknown:
+        raise SystemExit(f"해당 형상 없음: {unknown} (가능: {list(STEPS)})")
+    _check(names)
     os.makedirs(PASS_DIR, exist_ok=True)
+    params = {**MEAS_DEFAULT, "power_input_thick": POWER_INPUT_THICK}
 
     # 결과 CSV 를 캠페인 폴더(Result/OLHD/result_000.csv 등)와 섞지 않도록 경로만 바꾼다
     out = {}
     icepak.icepak_result_path = lambda phase, idx: out["path"]
 
     desktop, ipk = connect_aedt()
-    for k, c in enumerate(cases):
-        step = c["step"] or _sw_export(c)
-        out["path"] = os.path.join(PASS_DIR, f"result_pass_{c['name']}.csv")
-        print(f"\n===== {c['name']} 해석 시작 ({k + 1}/{len(cases)}) {time.strftime('%H:%M:%S')} =====")
-        ipk, path, _ = run_icepak(desktop, ipk, step, "pass", k, dict(c["meas_params"]))
-        row = _parse(c["name"], path)
+    for k, n in enumerate(names):
+        out["path"] = os.path.join(PASS_DIR, f"result_pass_{n}.csv")
+        print(f"\n===== {n} 해석 시작 ({k + 1}/{len(names)}) {time.strftime('%H:%M:%S')} =====")
+        ipk, path, _ = run_icepak(desktop, ipk, STEPS[n], "pass", k, dict(params))
+        row = _parse(n, path)
+        row["power_input_thick"] = POWER_INPUT_THICK
         _save(row)
-        print(f"[{c['name']}] 최고온도 {row['max_temp']:.2f} °C  온도편차 {row['temp_std']:.3f} K  "
+        print(f"[{n}] 최고온도 {row['max_temp']:.2f} °C  온도편차 {row['temp_std']:.3f} K  "
               f"차압 {row['pressure_drop']:.0f} Pa  → {SUMMARY_PATH}")
 
     print("\n완료:")
