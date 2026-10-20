@@ -11,8 +11,8 @@
      · power_input_thick 은 전원모듈 입구 국소 메시 박스 폭(x = −195 mm 부터) — STEP 형상의 실제 폭과 같게.
        통과 유량에 맞춰 정한다: 전원모듈이 직렬(전체 유량)이면 주 통로와 같은 19 mm, 분기면 5 mm.
      · 이름은 자유롭게 붙인다(예: "1pass_19mm"). 같은 이름을 다시 돌리면 그 줄만 덮어쓴다.
-  2) python pass_compare.py                  → CASES 전부
-     python pass_compare.py 1pass_19mm       → 이름을 준 형상만
+  2) F5(인자 없이)                            → 아래 RUN 에 적은 형상만 (RUN 이 비어 있으면 CASES 전부)
+     python pass_compare.py 1pass_19mm       → 이름을 준 형상만 (RUN 무시)
   3) 결과: Result/PASS/results_pass.csv (형상별 최고온도·온도편차·차압 + 발열원별 평균·최고 온도)
            Result/PASS/result_pass_<이름>.csv (Icepak Fields Summary 원본)
 
@@ -46,6 +46,9 @@ CASES = {
     "2pass":      {"step": None, "power_input_thick": 5.0},
     "4pass":      {"step": None, "power_input_thick": 5.0},
 }
+
+# F5(인자 없이) 실행할 형상 — 비워 두면 CASES 전부
+RUN = ["1pass_19mm"]
 
 # Fields Summary 열 (result_parser 와 같음)
 COL_NAME, COL_MAX, COL_MEAN = 2, 8, 9
@@ -96,7 +99,7 @@ def _save(row):
 
 
 def main(names):
-    names = names or list(CASES)
+    names = names or RUN or list(CASES)
     unknown = [n for n in names if n not in CASES]
     if unknown:
         raise SystemExit(f"해당 형상 없음: {unknown} (가능: {list(CASES)})")
