@@ -6,11 +6,13 @@
 해석 설정(메시·물성·경계조건)은 캠페인과 같고, 발열원 온도와 팬 차압만 저장한다. 캠페인 코드는 건드리지 않는다.
 
 사용법
-  1) 아래 STEP 경로 3개와 POWER_INPUT_THICK(전원분기 입구 폭, 세 형상 공통)을 채운다.
+  1) 아래 CASES 에 형상마다 STEP 경로와 전원모듈 입구 폭(power_input_thick)을 채운다.
      · 해석 설정은 캠페인과 완전히 같다. 형상만 STEP 으로 받는다.
-     · POWER_INPUT_THICK 은 전원분기 입구 국소 메시 박스 폭(x = −195 mm 부터) — STEP 형상의 실제 폭과 같게.
-  2) python pass_compare.py            → 세 형상 전부
-     python pass_compare.py 2pass      → 이름을 준 형상만
+     · power_input_thick 은 전원모듈 입구 국소 메시 박스 폭(x = −195 mm 부터) — STEP 형상의 실제 폭과 같게.
+       통과 유량에 맞춰 정한다: 전원모듈이 직렬(전체 유량)이면 주 통로와 같은 19 mm, 분기면 5 mm.
+     · 이름은 자유롭게 붙인다(예: "1pass_19mm"). 같은 이름을 다시 돌리면 그 줄만 덮어쓴다.
+  2) python pass_compare.py                  → CASES 전부
+     python pass_compare.py 1pass_19mm       → 이름을 준 형상만
   3) 결과: Result/PASS/results_pass.csv (형상별 최고온도·온도편차·차압 + 발열원별 평균·최고 온도)
            Result/PASS/result_pass_<이름>.csv (Icepak Fields Summary 원본)
 
@@ -37,11 +39,12 @@ SUMMARY_PATH = os.path.join(PASS_DIR, "results_pass.csv")
 
 # ── 아침에 채울 곳 ─────────────────────────────────────────────
 #   None 이 남아 있으면 실행하지 않는다.
-POWER_INPUT_THICK = None          # 전원분기 입구 폭 [mm] — 1·2·4패스 공통 (예: 5.0)
-STEPS = {
-    "1pass": None,                # 예: r"E:\...\flowpath_1pass.STEP"
-    "2pass": None,
-    "4pass": None,
+#   형상 이름: {"step": STEP 경로, "power_input_thick": 전원모듈 입구 폭 [mm]}
+CASES = {
+    "1pass":      {"step": None, "power_input_thick": 5.0},    # 예: r"E:\...\flowpath_1pass.STEP"
+    "1pass_19mm": {"step": None, "power_input_thick": 19.0},   # 1패스는 전원모듈 직렬 → 주 통로와 같은 폭
+    "2pass":      {"step": None, "power_input_thick": 5.0},
+    "4pass":      {"step": None, "power_input_thick": 5.0},
 }
 
 # Fields Summary 열 (result_parser 와 같음)
@@ -49,13 +52,14 @@ COL_NAME, COL_MAX, COL_MEAN = 2, 8, 9
 
 
 def _check(names):
-    if POWER_INPUT_THICK is None:
-        raise ValueError("POWER_INPUT_THICK(전원분기 입구 폭)을 채울 것")
     for n in names:
-        if not STEPS[n]:
+        c = CASES[n]
+        if c.get("power_input_thick") is None:
+            raise ValueError(f"[{n}] power_input_thick(전원모듈 입구 폭)을 채울 것")
+        if not c.get("step"):
             raise ValueError(f"[{n}] STEP 경로를 채울 것")
-        if not os.path.exists(STEPS[n]):
-            raise FileNotFoundError(f"[{n}] STEP 파일 없음: {STEPS[n]}")
+        if not os.path.exists(c["step"]):
+            raise FileNotFoundError(f"[{n}] STEP 파일 없음: {c['step']}")
 
 
 # ── 결과 읽기: 발열원 온도 + 차압만 ───────────────────────────────
@@ -92,10 +96,10 @@ def _save(row):
 
 
 def main(names):
-    names = names or list(STEPS)
-    unknown = [n for n in names if n not in STEPS]
+    names = names or list(CASES)
+    unknown = [n for n in names if n not in CASES]
     if unknown:
-        raise SystemExit(f"해당 형상 없음: {unknown} (가능: {list(STEPS)})")
+        raise SystemExit(f"해당 형상 없음: {unknown} (가능: {list(CASES)})")
     _check(names)
     os.makedirs(PASS_DIR, exist_ok=True)
 
@@ -103,15 +107,17 @@ def main(names):
     for k, n in enumerate(names):
         csv_path = os.path.join(PASS_DIR, f"result_pass_{n}.csv")
         print(f"\n===== {n} 해석 시작 ({k + 1}/{len(names)}) {time.strftime('%H:%M:%S')} =====")
-        ipk, path = run_icepak_pass(desktop, ipk, STEPS[n], k, POWER_INPUT_THICK, csv_path)
+        c = CASES[n]
+        ipk, path = run_icepak_pass(desktop, ipk, c["step"], k, c["power_input_thick"], csv_path)
         row = _parse(n, path)
-        row["power_input_thick"] = POWER_INPUT_THICK
+        row["power_input_thick"] = c["power_input_thick"]
         _save(row)
         print(f"[{n}] 최고온도 {row['max_temp']:.2f} °C  온도편차 {row['temp_std']:.3f} K  "
               f"차압 {row['pressure_drop']:.0f} Pa  → {SUMMARY_PATH}")
 
     print("\n완료:")
-    print(pd.read_csv(SUMMARY_PATH)[["name", "max_temp", "temp_std", "pressure_drop", "time"]].to_string(index=False))
+    print(pd.read_csv(SUMMARY_PATH)[["name", "power_input_thick", "max_temp", "temp_std", "pressure_drop", "time"]]
+          .to_string(index=False))
 
 
 if __name__ == "__main__":
