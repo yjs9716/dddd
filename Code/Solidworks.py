@@ -1,46 +1,93 @@
 """
-V2 유로 8변수 — SolidWorks COM 자동화 (글로벌 변수 제어 + STEP 저장)
+V5 유로+방열핀 9변수 — SolidWorks COM 자동화 (글로벌 변수 제어 + STEP 저장)
 
-V1 대비 변경점
-  - 글로벌 변수 2개(각도/유로두께) → 8개, params dict로 일괄 처리
-  - set_value 실패(해당 이름의 수식이 없음)를 감지해서 예외 발생
-    · V1은 이름이 안 맞아도 조용히 넘어가서, 형상이 안 바뀐 채 해석이 도는 사고가 가능했음
-  - STEP 파일명: 파라미터 8개를 다 넣으면 경로가 너무 길어져 idx 기준으로 변경
-    · 형상↔파라미터 대응은 results_v2.csv가 유일한 기록 → ⚠ 이 파일 삭제 금지
+V4(Code3) 대비 변경점
+  - 글로벌 변수 8개 → 9개, **자유변수만** SolidWorks 전역변수로 관리
+    (power_output_thick, fin_height는 고정값이라 SolidWorks가 아니라 파이썬
+    쪽 상수(OLHD.FIXED_PARAMS)로만 존재함 — 아래 ⚠ 참고)
+  - fin_count는 정수로 써야 함 — 선형패턴 인스턴스 개수라 소수가 들어가면 리빌드가
+    실패하거나 조용히 내림 처리된다. OLHD.to_dict()가 이미 int로 만들어 주지만,
+    여기서도 한 번 더 확인해서 float가 흘러들어오면 바로 예외를 낸다.
+  - 리빌드 후 핀 개수/갭을 로그에 남긴다 — 형상이 의도대로 나왔는지 눈으로 확인하려고.
+
+⚠ 고정 파라미터는 SolidWorks 전역변수로 만들지 않는다
+  처음엔 고정값(power_output_thick, fin_height)도 다른 자유변수와 똑같이 이름
+  붙은 전역변수로 만들어서 매 회차 파이썬이 값을 써넣게 짰었는데, 이건 과한
+  설계였다 — 캠페인 내내 절대 안 바뀌는 값을 굳이 "매번 값을 써넣는" 방식으로
+  관리할 이유가 없다. 사용자가 이미 해당 치수를 스케치에 직접 숫자로 넣어뒀으므로,
+  그 상태 그대로 두고 파이썬은 이 두 값을 전혀 건드리지 않는다(검증도, 쓰기도 안 함).
+  나중에 최종 후보 검증 단계에서 fin_height를 7.5mm로 바꿔야 할 때는, 그건
+  1회성 수작업이라 SolidWorks에서 직접 스케치 치수를 고치면 된다 — 자동화 불필요.
+
+⚠ SolidWorks 쪽 준비 (Equation Manager) — 자유변수 9개만 해당
+  핀 간격은 설계변수가 아니라 두께·개수에서 종속 계산되는 값이다. 파이썬이 갭을
+  직접 써넣지 않고, SolidWorks가 수식으로 스스로 계산하게 둔다 — 두 곳에서 각각
+  계산하면 언젠가 반드시 어긋나기 때문. paths.py 상단 주석의 수식을 참고할 것.
 """
 import os
 
 import pythoncom
 import win32com.client
 
-from OLHD import PARAM_NAMES
+from OLHD import PARAM_NAMES, INT_PARAMS
+from fins import fin_gap, is_feasible, describe
 from paths import PART_PATH, ASM_PATH, STEP_DIR
+
+# SolidWorks에 실제로 써넣어야 하는 전역변수 — 자유변수 9개만.
+#   고정값(power_output_thick, fin_height)은 스케치에 직접 숫자로 들어있으므로
+#   여기서 이름으로 찾거나 값을 써넣지 않는다 (위 ⚠ 참고).
+SW_PARAM_NAMES = list(PARAM_NAMES)
 
 
 def connect_sw():
     """SW 연결 및 어셈블리 열기"""
     pythoncom.CoInitialize()
     app = win32com.client.Dispatch("SldWorks.Application")
-    app.Visible = True
+    app.Visible = False   # 무인 장기구동 안정성 + 리소스 절약
     errors   = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     warnings = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     swDocASSEMBLY = 2
     model = app.OpenDoc6(ASM_PATH, swDocASSEMBLY, 1, "", errors, warnings)
+    app.Visible = False   # OpenDoc6가 창을 다시 보이게 리셋하는 경우가 있어 재적용
     print("SW 연결 완료:", model.GetTitle)
     return app, errors, warnings
 
 
+def _validate(params):
+    """SolidWorks에 넣기 전 값 검증 — 잘못된 형상을 만들고 나서 알아채면 늦으므로."""
+    missing = [n for n in SW_PARAM_NAMES if n not in params]
+    if missing:
+        raise KeyError(f"params에 빠진 변수: {missing}")
+
+    for n in INT_PARAMS:
+        v = params[n]
+        if int(v) != v:
+            raise ValueError(
+                f"{n}={v} — 정수여야 함(선형패턴 인스턴스 개수). "
+                "OLHD.to_dict()를 거치지 않고 만든 params일 가능성이 높음"
+            )
+
+    if not is_feasible(params["fin_thick"], params["fin_count"]):
+        raise ValueError(
+            f"갭 제약 위반: {describe(params['fin_thick'], params['fin_count'])} — "
+            "이 조합은 애초에 제안되면 안 됨(OLHD.decode / ML 후보필터 확인)"
+        )
+
+
 def update_sw(app, errors, warnings, params):
     """
-    글로벌 변수 8개 업데이트 및 리빌드.
-      params : {변수명: 값} — 키는 SolidWorks 글로벌 변수명과 정확히 일치해야 함
+    글로벌 변수 업데이트 및 리빌드.
+      params : {변수명: 값} — 자유변수 9개(SW_PARAM_NAMES)는 키가 SolidWorks
+               전역변수명과 정확히 일치해야 함. 고정값(power_output_thick,
+               fin_height)이 params에 더 들어있어도 무시하고 안 씀(위 ⚠ 참고).
 
     반환: (aluminum_mass_kg, aluminum_volume_mm3)
       유로(빈 공간)를 채운 PAO는 형상에 없는 개념이라 여기선 알 수 없음.
       대신 "채널이 하나도 안 뚫린 완전히 채워진 형상"의 부피(상수, FULL_SOLID_VOLUME_MM3)에서
       이번 알루미늄 부피를 빼면 PAO 부피가 나옴 — result_parser.py 참고.
-      (Icepak을 따로 안 돌려도 SolidWorks만으로 총 중량 계산 가능)
     """
+    _validate(params)
+
     part  = app.ActivateDoc3(PART_PATH, False, 0, errors)
     eqMgr = part.GetEquationMgr
     dispid = eqMgr._oleobj_.GetIDsOfNames("Equation")
@@ -51,7 +98,7 @@ def update_sw(app, errors, warnings, params):
         lhs = eqMgr.Equation(i).split("=")[0].strip()
         name_to_i[lhs.strip('"')] = i
 
-    missing = [n for n in params if n not in name_to_i]
+    missing = [n for n in SW_PARAM_NAMES if n not in name_to_i]
     if missing:
         raise KeyError(
             f"SolidWorks에 없는 글로벌 변수: {missing}\n"
@@ -59,10 +106,13 @@ def update_sw(app, errors, warnings, params):
             f"  → Equation Manager의 변수명과 OLHD.PARAM_SPEC 이름을 일치시킬 것"
         )
 
-    for name, value in params.items():
+    for name in SW_PARAM_NAMES:
         i = name_to_i[name]
+        value = params[name]
+        # fin_count는 "21.0"이 아니라 "21"로 써야 패턴 개수로 해석됨
+        text = str(int(value)) if name in INT_PARAMS else str(value)
         eqMgr._oleobj_.Invoke(dispid, 0, pythoncom.DISPATCH_PROPERTYPUT,
-                              False, i, '"%s" = %s' % (name, value))
+                              False, i, '"%s" = %s' % (name, text))
 
     part.EditRebuild3
     part.Save3(1, errors, warnings)
@@ -70,7 +120,9 @@ def update_sw(app, errors, warnings, params):
     asm = app.ActivateDoc3(ASM_PATH, False, 0, errors)
     asm.ForceRebuild3(False)
     asm.Save3(1, errors, warnings)
-    print("SW 업데이트 완료: " + "  ".join(f"{k}={v}" for k, v in params.items()))
+
+    print("SW 업데이트 완료: " + "  ".join(f"{k}={params[k]}" for k in SW_PARAM_NAMES))
+    print(f"  {describe(params['fin_thick'], params['fin_count'])}")
 
     # 질량 특성 — 리빌드 직후 값이라 이번 params에 대응하는 형상의 질량/부피임
     #   asm.Extension.CreateMassProperty()는 이 환경에서 Extension 객체가 깨진 프록시로
@@ -86,7 +138,10 @@ def update_sw(app, errors, warnings, params):
 
 
 def export_step(app, errors, idx):
-    """STEP 파일 저장 후 경로 반환 (파일명은 idx 기준)"""
+    """STEP 파일 저장 후 경로 반환 (파일명은 idx 기준)
+
+    형상↔파라미터 대응은 results_v5.csv가 유일한 기록 → ⚠ 이 파일 삭제 금지
+    """
     os.makedirs(STEP_DIR, exist_ok=True)
     step_path = os.path.join(STEP_DIR, f"flowpath_{idx:03d}.STEP")
     asm = app.ActivateDoc3(ASM_PATH, False, 0, errors)
