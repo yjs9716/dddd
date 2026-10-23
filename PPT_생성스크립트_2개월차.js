@@ -156,7 +156,7 @@ function downArrow(s, cx, y, h, color = MUTED) {
   s.background = { color: BG };
   s.addText("목   차", { x: M, y: 0.55, w: 6, h: 0.5, fontSize: 26, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0, charSpacing: 3 });
   const items = [
-    ["01", SEC1, "1.  후보 설계변수 재정의\n2.  선별 실험(DSD) 설계\n3.  선별 결과 및 활성 변수 확정"],
+    ["01", SEC1, "1.  후보 설계변수 정의\n2.  선별 실험(DSD) 설계\n3.  선별 결과 및 활성 변수 확정"],
     ["02", SEC2, "1.  활성 변수 실험계획(OLHD)\n2.  가우시안 프로세스 회귀(GPR)\n3.  코드 구성 갱신"],
     ["03", SEC3, "1.  예측값 · 실측값 비교\n2.  지배 변수 교차 확인\n3.  한계 및 차월 계획"]
   ];
@@ -173,16 +173,16 @@ function downArrow(s, cx, y, h, color = MUTED) {
   s.addNotes("01은 어떤 변수가 실제로 영향을 주는지 먼저 걸러낸 과정, 02는 남은 변수로 대리모델을 만든 과정, 03은 그 모델이 얼마나 정확한지와 어떤 변수가 성능을 좌우하는지 확인한 결과다.");
 }
 
-/* ───────────── 3. [01] 후보 설계변수 재정의 ───────────── */
+/* ───────────── 3. [01] 후보 설계변수 정의 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "01", SEC1, "후보 설계변수 재정의");
+  header(s, "01", SEC1, "후보 설계변수 정의");
   const y0 = 1.30, ch = 4.55;
 
-  // 좌 — 1개월차에서 확인한 것
+  // 좌 — 핀을 통과별로 나눈 이유
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "1개월차 데이터에서 확인한 것");
+  cardTitle(s, M, y0, "핀을 통과별로 나눈 이유");
   const cx = M + CW / 2;
   chip(s, cx - 1.5, y0 + 0.78, 3.0, 0.4, "입구  ·  총 유량 4 LPM", "EEF2F7", NAVY, 10);
   downArrow(s, cx, y0 + 1.18, 0.2);
@@ -197,36 +197,36 @@ function downArrow(s, cx, y, h, color = MUTED) {
   s.addText("통과마다 지나는 유량이 달라, 핀 하나의 조건으로\n1차 · 2차 통과를 동시에 맞출 수 없음",
     { x: M + 0.34, y: y0 + 3.08, w: 5.3, h: 0.56, fontSize: 9.8, color: TXT, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
   s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y0 + 3.76, w: 5.3, h: 0.54, rectRadius: 0.06, fill: { color: NAVY }, line: { color: NAVY } });
-  s.addText("→  핀 두께 · 개수를 1차 · 2차 통과별로 분리", { x: M + 0.34, y: y0 + 3.76, w: 5.3, h: 0.54, fontSize: 11.5, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("→  핀 두께 · 개수를 1차 · 2차 통과별로 독립 변수화", { x: M + 0.34, y: y0 + 3.76, w: 5.3, h: 0.54, fontSize: 11.5, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
-  // 우 — 설계공간 변경
+  // 우 — 후보 설계변수 11개
   card(s, CX2, y0, CW, ch);
-  cardTitle(s, CX2, y0, "설계공간 변경");
-  const nb = (t) => ({ text: t, options: { bold: true, color: NAVY } });
-  tbl(s, CX2 + 0.34, y0 + 0.74, 5.3, [
-    [hdr("항목"), hdr("1개월차"), hdr("2개월차")],
-    ["핀 두께", "공유 1개", nb("1차 · 2차 분리")],
-    ["핀 개수", "공유 1개 (10~21)", nb("1차 · 2차 분리 (10~24)")],
-    ["분기 입구 두께", "3 ~ 20 mm", nb("3 ~ 10 mm")],
-    ["최소 핀 갭", "2.5 mm", nb("2.0 mm")],
-    ["후보 변수", "9개", nb("11개")]
-  ], [1.45, 1.75, 2.1], { rowH: 0.31 });
-  s.addText([
-    { text: "분기 입구 두께 — 목표 분기비(20~30%)를 만족한 설계가 모두 6.1 mm 이하 → 상한 축소", options: { bullet: true, breakLine: true } },
-    { text: "최소 핀 갭 — 실험 범위는 넓히고, 제작 한계(2.5 mm)는 최적화 단계의 제약으로 적용", options: { bullet: true } }
-  ], { x: CX2 + 0.34, y: y0 + 2.70, w: 5.3, h: 0.7, fontSize: 8.8, color: MUTED, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 3, lineSpacingMultiple: 1.15 });
-  s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: y0 + 3.48, w: 5.3, h: 0.86, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
-  s.addText([
-    { text: "해석 조건 갱신", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "발열원 17개(전 슬롯, 680 W) · 출구 역류 차단 · 높이 방향 메시 1.6 mm\n→ 1개월차 수치와 직접 비교하지 않음", options: { color: TXT } }
-  ], { x: CX2 + 0.5, y: y0 + 3.48, w: 5.0, h: 0.86, fontSize: 9.3, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+  cardTitle(s, CX2, y0, "후보 설계변수  —  11개");
+  const grp = (t, n) => ({ text: t, options: { rowspan: n, bold: true, color: NAVY, fill: { color: "F7F9FC" }, valign: "middle", align: "center" } });
+  const fin = (t) => ({ text: t, options: { bold: true, color: NAVY } });
+  tbl(s, CX2 + 0.34, y0 + 0.72, 5.3, [
+    [hdr("구분"), hdr("설계변수"), hdr("범위")],
+    [grp("유로 형상\n(7)", 7), "입구 유로 두께", "13 ~ 25 mm"],
+    ["입구 각도", "90 ~ 150 °"],
+    ["분기 입구 두께", "3 ~ 10 mm"],
+    ["중간 유로 두께", "10 ~ 25 mm"],
+    ["중간 각도", "90 ~ 140 °"],
+    ["중간 입구 두께", "10 ~ 25 mm"],
+    ["출구 유로 두께", "13 ~ 35 mm"],
+    [grp("1차 통과 핀\n(2)", 2), fin("1차 핀 두께"), fin("1.5 ~ 3.0 mm")],
+    [fin("1차 핀 개수"), fin("10 ~ 24 개")],
+    [grp("2차 통과 핀\n(2)", 2), fin("2차 핀 두께"), fin("1.5 ~ 3.0 mm")],
+    [fin("2차 핀 개수"), fin("10 ~ 24 개")]
+  ], [1.3, 2.2, 1.8], { rowH: 0.262, fontSize: 9.3 });
+  s.addText("핀 갭은 두께 · 개수로 정해지는 종속값 — 최소 2.0 mm (제작 한계 2.5 mm는 최적화 단계 제약으로 적용)",
+    { x: CX2 + 0.34, y: y0 + 4.0, w: 5.3, h: 0.4, fontSize: 8.6, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
 
   bottomStrip(s, [
-    ["통과별 핀 분리", "1·2차 통과 유량 차이를 반영 — 후보 9 → 11개"],
-    ["설계공간 재조정", "1개월차 데이터 근거로 범위 축소 · 확장"],
-    ["해석 조건 갱신", "실제 발열 배치와 출구 조건 반영"]
+    ["후보 11개", "유로 형상 7 + 통과별 핀 두께 · 개수 4"],
+    ["핀 통과별 독립", "1·2차 통과 유량 차이를 설계에 반영"],
+    ["11차원 설계공간", "바로 대리모델을 만들기엔 차원이 큼 → 선별 필요"]
   ]);
-  s.addNotes("1개월차 데이터를 보면 분기 이후 2차 통과로 가는 유량이 1차 통과와 다르다. 그런데 핀 두께와 개수를 하나로 공유하면 한쪽에 맞추는 순간 다른 쪽이 불리해진다. 그래서 핀을 통과별로 분리해 후보 변수를 11개로 늘렸고, 분기 입구 두께 상한은 1개월차 데이터를 근거로 줄였다. 해석 조건도 실제 발열 배치에 맞춰 갱신했으므로 1개월차 수치와는 직접 비교하지 않는다.");
+  s.addNotes("냉각유는 1차 통과를 지난 뒤 분기에서 전원공급모듈 쪽으로 일부가 빠지기 때문에, 2차 통과는 1차 통과보다 적은 유량이 흐른다. 핀을 하나의 변수로 공유하면 한쪽 통과에 맞추는 순간 다른 쪽이 불리해지므로, 핀 두께와 개수를 통과별로 따로 두어 후보 변수는 11개가 된다. 11차원은 대리모델을 바로 만들기에 큰 공간이라, 먼저 영향이 있는 변수를 선별한다.");
 }
 
 /* ───────────── 4. [01] 선별 실험(DSD) 설계 ───────────── */
@@ -474,7 +474,7 @@ function downArrow(s, cx, y, h, color = MUTED) {
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "02", SEC2, "코드 구성 갱신");
+  header(s, "02", SEC2, "코드 구성");
   const y0 = 1.30, ch = 4.55;
   card(s, M, y0, 12.23, ch);
   cardTitle(s, M, y0, "모듈 구성 및 실행 흐름  —  선별 단계 · 학습 모듈 추가");
@@ -538,9 +538,9 @@ function downArrow(s, cx, y, h, color = MUTED) {
   bottomStrip(s, [
     ["단계별 자동 진행", "선별이 끝나면 판정을 확인한 뒤 2단계로 진행"],
     ["판정 규칙 코드화", "사전 고정 규칙을 코드에 명시 — 임의 변경 차단"],
-    ["기존 모듈 재사용", "형상 · 해석 · 결과 모듈은 변수 수만 확장"]
+    ["자동해석 모듈 그대로 활용", "형상 · 해석 · 결과 모듈 위에 선별 · 학습 단계 추가"]
   ]);
-  s.addNotes("1개월차 구조에 선별 실험표 생성(DSD.py)과 선별 판정·대리모델 학습(DSD_analysis.py, ML.py)을 추가했다. 형상 빌드, 해석, 결과 저장 모듈은 그대로 두고 변수 개수만 늘렸다. 선별이 끝나면 프로그램이 멈추고 판정 결과를 사람이 확인한 뒤 2단계로 넘어간다.");
+  s.addNotes("자동해석 구조에 선별 실험표 생성(DSD.py)과 선별 판정·대리모델 학습(DSD_analysis.py, ML.py)을 추가했다. 형상 빌드, 해석, 결과 저장 모듈은 그대로 활용한다. 선별이 끝나면 프로그램이 멈추고 판정 결과를 사람이 확인한 뒤 2단계로 넘어간다.");
 }
 
 /* ───────────── 9. [03] 예측값 · 실측값 비교 ───────────── */
