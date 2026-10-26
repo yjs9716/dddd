@@ -307,93 +307,94 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   s.background = { color: BG };
   header(s, "01", SEC1, "선별 실험 설계  —  DSD (확정적 선별 설계)");
   const y0 = 1.30, ch = 5.55;
-  const X = M + 0.34, W = 5.3;
+  const W = 5.3;
 
-  // 좌 — DSD란
+  // 좌 — DSD 실험표
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "DSD란?");
-  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 0.66, w: W, h: 1.06, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  cardTitle(s, M, y0, "DSD  —  29번 해석으로 변수 11개 선별");
+  const X = M + 0.34;
+  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 0.64, w: W, h: 0.62, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
   s.addText([
-    { text: "Definitive Screening Design  —  Jones & Nachtsheim (2011)", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "3수준 선별 설계 — 변수 m개를 2m + 1회 해석으로 주효과 · 곡률 판정", options: { color: TXT, breakLine: true } },
-    { text: "구성 [ C ; −C ; 0 ]  —  C: 회의 행렬 (대각 0, 나머지 ±1, 열끼리 직교)", options: { color: TXT, breakLine: true } },
-    { text: "−C: 부호를 모두 뒤집은 거울상  ·  0: 모든 변수 중간값 (중심점)", options: { color: TXT } }
-  ], { x: X + 0.16, y: y0 + 0.66, w: W - 0.3, h: 1.06, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+    { text: "Definitive Screening Design  (Jones & Nachtsheim, 2011)", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "영향 있는 변수만 골라내는 3수준 표준 실험표  —  JMP 등 통계 SW에 내장", options: { color: TXT } }
+  ], { x: X + 0.16, y: y0 + 0.64, w: W - 0.3, h: 0.62, fontSize: 9.2, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
-  s.addText("DSD의 특징", { x: X, y: y0 + 1.84, w: W, h: 0.26, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
-  const ft = (t) => ({ text: t, options: { bold: true, color: NAVY } });
-  tbl(s, X, y0 + 2.12, W, [
-    [hdr("항목"), hdr("의미")],
-    [ft("3수준 (−1, 0, +1)"), "행마다 변수 1개만 중간값 → 곡률(2차 효과) 추정"],
-    [ft("주효과끼리 직교"), "각 변수의 주효과를 서로 독립적으로 추정"],
-    [ft("주효과 ⊥ 교호작용 · 곡률"), "거울상 구조로 주효과가 교호작용 · 곡률과 섞이지 않음"],
-    [ft("교호작용끼리 부분 교락"), "2인자 교호작용끼리는 서로 일부 섞임"]
-  ], [1.85, 3.45], { rowH: 0.29, fontSize: 9 });
-
-  s.addText("거울상이 주효과를 지키는 원리", { x: X, y: y0 + 3.7, w: W, h: 0.26, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
-  const hc = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } });
-  const sg = (t) => ({ text: t, options: { align: "center", bold: true, color: NAVY, fontSize: 10 } });
-  const keep = (t, col) => ({ text: t, options: { align: "center", bold: true, color: col, fill: { color: "F7F9FC" } } });
-  tbl(s, X, y0 + 3.98, W, [
-    [hdr(""), hc("주효과 A"), hc("주효과 B"), hc("교호작용 A×B"), hc("곡률 A²")],
-    ["기본 행  x", sg("+"), sg("−"), sg("−"), sg("+")],
-    ["거울상  −x", sg("−"), sg("+"), sg("−"), sg("+")],
-    [{ text: "쌍에서", options: { bold: true, color: NAVY, fill: { color: "F7F9FC" } } }, keep("부호 반전", NAVY), keep("부호 반전", NAVY), keep("부호 유지", "0088A6"), keep("부호 유지", "0088A6")]
-  ], [1.1, 1.0, 1.0, 1.2, 1.0], { rowH: 0.25, fontSize: 9 });
-  s.addText("→ 쌍의 차이에는 주효과만, 쌍의 평균에는 교호작용 · 곡률만 남음 (서로 직교)",
-    { x: X, y: y0 + 5.06, w: W, h: 0.3, fontSize: 9, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-
-  // 우 — 실험표 구조
-  card(s, CX2, y0, CW, ch);
-  cardTitle(s, CX2, y0, "실험표 구조  —  29회 × 14열");
   const L = DATA.plan.L, nC = L[0].length, nR = L.length;
-  const gx = CX2 + 1.32, gy = y0 + 1.0, cw = 0.29, rh = 0.088;
+  const gx = M + 1.6, cw = 0.27, rh = 0.08, gy = y0 + 1.82;
   const colR = { "-1": "E4EBF3", "0": "8FB0D4", "1": NAVY };
   const colF = { "-1": "E2F4F8", "0": "8DD2E2", "1": "0090B0" };
-  // 열 그룹 라벨
-  s.addText("실제 변수 11개", { x: gx, y: y0 + 0.64, w: 11 * cw, h: 0.24, fontSize: 9, bold: true, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
-  s.addText("가짜 인자 3개", { x: gx + 11 * cw, y: y0 + 0.64, w: 3 * cw + 0.3, h: 0.24, fontSize: 9, bold: true, color: "0088A6", align: "center", fontFace: F, isTextBox: true, margin: 0 });
-  s.addShape(pres.ShapeType.line, { x: gx, y: y0 + 0.9, w: 11 * cw - 0.03, h: 0, line: { color: NAVY, width: 1 } });
-  s.addShape(pres.ShapeType.line, { x: gx + 11 * cw + 0.03, y: y0 + 0.9, w: 3 * cw - 0.03, h: 0, line: { color: ACCENT, width: 1 } });
+  s.addText("실제 변수 11개", { x: gx, y: y0 + 1.4, w: 11 * cw, h: 0.22, fontSize: 8.5, bold: true, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("가짜 인자 3개", { x: gx + 11 * cw, y: y0 + 1.4, w: 3 * cw + 0.3, h: 0.22, fontSize: 8.5, bold: true, color: "0088A6", align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  s.addShape(pres.ShapeType.line, { x: gx, y: y0 + 1.66, w: 11 * cw - 0.03, h: 0, line: { color: NAVY, width: 1 } });
+  s.addShape(pres.ShapeType.line, { x: gx + 11 * cw + 0.03, y: y0 + 1.66, w: 3 * cw - 0.03, h: 0, line: { color: ACCENT, width: 1 } });
   for (let r = 0; r < nR; r++) {
     for (let c = 0; c < nC; c++) {
-      const v = String(L[r][c]);
-      const fake = c >= 11;
-      const gap = r >= 14 ? 0.05 : 0, gap2 = r >= 28 ? 0.05 : 0;
-      s.addShape(pres.ShapeType.rect, {
-        x: gx + c * cw, y: gy + r * rh + gap + gap2, w: cw - 0.025, h: rh - 0.018,
-        fill: { color: fake ? colF[v] : colR[v] }, line: { color: fake ? colF[v] : colR[v], width: 0 }
-      });
+      const v = String(L[r][c]), fake = c >= 11;
+      const off = (r >= 14 ? 0.05 : 0) + (r >= 28 ? 0.05 : 0);
+      s.addShape(pres.ShapeType.rect, { x: gx + c * cw, y: gy + r * rh + off, w: cw - 0.025, h: rh - 0.016,
+        fill: { color: fake ? colF[v] : colR[v] }, line: { color: fake ? colF[v] : colR[v], width: 0 } });
     }
   }
-  // 행 그룹 라벨
-  const grp = [["기본 14회  (C)", 0, 14, 0], ["거울상 14회  (−C)", 14, 28, 0.05], ["중심점 1회  (0)", 28, 29, 0.10]];
-  grp.forEach(([t, a, b, off]) => {
+  [["① 기본 14회", 0, 14, 0], ["② 거울상 14회", 14, 28, 0.05], ["③ 중심점 1회", 28, 29, 0.10]].forEach(([t, a, b, off]) => {
     const yy = gy + a * rh + off, hh = (b - a) * rh;
     s.addShape(pres.ShapeType.line, { x: gx - 0.1, y: yy + 0.01, w: 0, h: hh - 0.03, line: { color: MUTED, width: 1 } });
-    s.addText(t, { x: CX2 + 0.1, y: yy + hh / 2 - 0.13, w: 1.12, h: 0.26, fontSize: 8, bold: true, color: NAVY, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(t, { x: X - 0.1, y: yy + hh / 2 - 0.13, w: 1.25, h: 0.26, fontSize: 8.5, bold: true, color: NAVY, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
-  // 범례
-  const ly = gy + 29 * rh + 0.16;
-  [["하한 (−1)", "E4EBF3"], ["중간 (0)", "8FB0D4"], ["상한 (+1)", NAVY]].forEach(([t, c], i) => {
-    const x = gx + i * 1.15;
+  const ly = gy + 29 * rh + 0.14;
+  [["최소값", "E4EBF3"], ["중간값", "8FB0D4"], ["최대값", NAVY]].forEach(([t, c], i) => {
+    const x = gx + i * 1.05;
     s.addShape(pres.ShapeType.rect, { x, y: ly + 0.05, w: 0.2, h: 0.14, fill: { color: c }, line: { color: c } });
-    s.addText(t, { x: x + 0.26, y: ly, w: 0.9, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(t, { x: x + 0.26, y: ly, w: 0.75, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
+  // 읽는 법
+  const ry = ly + 0.36;
+  [["①", "한 줄 = 해석 1회. 매번 변수 하나만 중간값, 나머지는 최소 · 최대값"],
+   ["②", "①을 정반대(최소 ↔ 최대)로 뒤집어 한 번 더"],
+   ["③", "모든 변수 중간값으로 한 번"]].forEach(([n, t], i) => {
+    s.addText([{ text: n + "  ", options: { bold: true, color: NAVY } }, { text: t, options: { color: TXT } }],
+      { x: X, y: ry + i * 0.27, w: W, h: 0.26, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  });
+
+  // 우 — 가짜 인자로 판정
+  card(s, CX2, y0, CW, ch);
+  cardTitle(s, CX2, y0, "가짜 인자로 '우연의 크기' 측정");
+  const RX = CX2 + 0.34;
   s.addText([
-    { text: "각 행 = 해석 1회  ·  행마다 변수 1개만 중간값, 나머지는 하한 · 상한", options: { breakLine: true } },
-    { text: "가짜 인자 = 어떤 치수와도 연결하지 않은 빈 열 → 효과가 0이어야 정상", options: {} }
-  ], { x: CX2 + 0.34, y: ly + 0.28, w: W, h: 0.42, fontSize: 8.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
-  const ry = ly + 0.78;
-  s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: ry, w: W, h: y0 + ch - 0.12 - ry, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+    { text: "가짜 인자", options: { bold: true, color: "0088A6" } },
+    { text: " = 표에 칸만 있고 형상은 바꾸지 않는 빈 변수 → 효과가 0이어야 정상", options: { color: TXT } }
+  ], { x: RX, y: y0 + 0.62, w: W, h: 0.3, fontSize: 9.2, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("최고온도 예시  —  최대값 13회 평균과 최소값 13회 평균의 차이", { x: RX, y: y0 + 0.98, w: W, h: 0.26, fontSize: 9.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  const ex = DATA.dsd_example.items;
+  const NAME = Object.assign({}, VL, { fake_1: "가짜 인자 1", fake_2: "가짜 인자 2", fake_3: "가짜 인자 3" });
+  const BX = RX + 1.3, BW = 3.25, VMAX = 2.6, by0 = y0 + 1.32, bh = 0.33;
+  const noise = Math.max(...ex.filter(e => e[0].startsWith("fake")).map(e => e[1]));
+  ex.forEach(([v, val, sig], i) => {
+    const yy = by0 + i * bh, fake = v.startsWith("fake");
+    const col = fake ? ACCENT : (sig ? NAVY : "B9C7D8");
+    s.addText(NAME[v], { x: RX, y: yy, w: 1.22, h: 0.26, fontSize: 9, bold: !fake && sig, color: fake ? "0088A6" : (sig ? NAVY : MUTED), align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addShape(pres.ShapeType.rect, { x: BX, y: yy + 0.05, w: Math.max(0.025, BW * val / VMAX), h: 0.16, fill: { color: col }, line: { color: col } });
+    s.addText(`${val.toFixed(2)} ℃`, { x: Math.max(BX + BW * val / VMAX, BX + BW * noise / VMAX) + 0.08, y: yy, w: 0.8, h: 0.26, fontSize: 9, bold: true, color: col === "B9C7D8" ? MUTED : col, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  });
+  const nx = BX + BW * noise / VMAX;
+  s.addShape(pres.ShapeType.line, { x: nx, y: by0 - 0.04, w: 0, h: ex.length * bh + 0.04, line: { color: "0088A6", width: 1, dashType: "dash" } });
+  s.addText("우연 수준", { x: nx + 0.04, y: by0 + ex.length * bh - 0.02, w: 1.0, h: 0.22, fontSize: 8, bold: true, color: "0088A6", fontFace: F, isTextBox: true, margin: 0 });
+  const cy = by0 + ex.length * bh + 0.26;
+  s.addText([
+    { text: `가짜 인자도 최대 ${noise.toFixed(2)} ℃ 차이 → 이 정도는 우연`, options: { bullet: true, breakLine: true } },
+    { text: `1차 핀 개수 ${ex[0][1].toFixed(2)} ℃ → 우연보다 훨씬 큼 → 영향 있음`, options: { bullet: true, breakLine: true } },
+    { text: `1차 핀 두께 ${ex[2][1].toFixed(2)} ℃ → 우연과 비슷 → 최고온도에는 영향 없음`, options: { bullet: true } }
+  ], { x: RX, y: cy, w: W, h: 0.8, fontSize: 9, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 2, lineSpacingMultiple: 1.1 });
+
+  const ry2 = cy + 0.9, rh2 = y0 + ch - 0.14 - ry2;
+  s.addShape(pres.ShapeType.roundRect, { x: RX, y: ry2, w: W, h: rh2, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
   s.addText([
     { text: "판정 규칙  —  실험 전에 고정", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "① 통계적 유의성  p ≤ 0.05 : 가짜 인자(효과 0 기준선)보다 확실히 큰가", options: { color: TXT, breakLine: true } },
-    { text: "② 분산 기여율  ≥ 2% : 응답 변동의 2% 이상을 설명하는가", options: { color: TXT, breakLine: true } },
-    { text: "→ ①② 모두 만족해야 '영향 있음', 응답 7개 모두에서 영향 없으면 고정", options: { bold: true, color: "0088A6" } }
-  ], { x: CX2 + 0.5, y: ry, w: W - 0.3, h: y0 + ch - 0.12 - ry, fontSize: 8.8, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+    { text: "① 통계적 유의성  p ≤ 0.05 : 가짜 인자(우연)보다 확실히 큰가", options: { color: TXT, breakLine: true } },
+    { text: "② 분산 기여율  ≥ 2% : 응답 변동의 2% 이상을 차지할 만큼 큰가", options: { color: TXT, breakLine: true } },
+    { text: "→ 둘 다 만족하면 '영향 있음', 응답 7개 모두에서 영향 없으면 고정", options: { bold: true, color: "0088A6" } }
+  ], { x: RX + 0.16, y: ry2, w: W - 0.3, h: rh2, fontSize: 8.8, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
-  s.addNotes("DSD(확정적 선별 설계)는 Jones와 Nachtsheim이 2011년에 제안한 3수준 선별 설계로, 변수 m개를 2m+1회 해석으로 주효과와 곡률을 판정한다. 회의 행렬 C(대각은 0, 나머지는 ±1이고 열끼리 직교)를 기본 14회로 쓰고, 부호를 모두 뒤집은 거울상 14회와 모든 변수가 중간값인 중심점 1회를 더해 29회가 된다. 행마다 변수 1개만 중간값이라 곡률까지 볼 수 있고, 주효과 열끼리는 직교라 각 변수의 효과를 독립적으로 추정한다. 거울상 쌍에서 주효과는 부호가 뒤집히고 교호작용·곡률은 부호가 그대로라, 쌍의 차이에는 주효과만, 평균에는 교호작용·곡률만 남는다. 그래서 주효과가 교호작용·곡률과 섞이지 않는다. 다만 2인자 교호작용끼리는 서로 일부 섞인다. 가짜 인자 3열은 어떤 치수와도 연결하지 않아 효과가 0이어야 하므로 판정의 기준선이 되고, 판정 규칙은 결과를 보기 전에 고정했다.");
+  s.addNotes("후보 변수 11개 중 영향 있는 변수만 골라내기 위해 선별 실험을 했습니다. 기법은 DSD, 확정적 선별 설계로, 29번 해석으로 11개 변수를 판정하는 표준 실험표입니다. 왼쪽 표에서 한 줄이 해석 한 번이고, 매번 변수 하나만 중간값, 나머지는 최소·최대값에 둡니다. 아래 절반은 위 절반을 정반대로 뒤집은 것이고, 마지막 한 번은 전부 중간값입니다. 여기에 형상에 아무 영향도 주지 않는 가짜 인자 3개를 같이 넣었습니다. 오른쪽은 최고온도 예시인데, 가짜 인자에서도 0.15℃ 정도 차이가 나고 이게 우연히 생기는 크기입니다. 1차 핀 개수는 2.5℃로 이보다 훨씬 커서 영향 있는 변수로, 1차 핀 두께는 0.19℃로 우연과 비슷해 최고온도에는 영향 없는 것으로 판정합니다. 판정 규칙은 결과를 보기 전에 고정했습니다.");
 }
 
 /* ───────────── 6. [01] 선별 결과 ───────────── */
@@ -774,6 +775,71 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     s.addText(l, { x, y: by + 1.12, w: 3.6, h: 0.3, fontSize: 10, color: ICE, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
   s.addNotes("가장 정확도가 낮은 응답은 2차 균일도다. 값 자체가 0에 가깝고, 분기 이후 구간이라 교호작용이 응답 중 가장 크다. 80점만으로는 이 영역을 충분히 덮지 못했다. 차월에는 대리모델의 불확실성이 큰 지점을 골라 해석을 추가하는 적응 샘플링으로 이 부분을 보강하고, 그 위에서 다목적 최적화로 파레토 최적해를 찾는다.");
+}
+
+/* ───────────── A-1. 부록 — DSD 구성 원리 ───────────── */
+{
+  const s = pres.addSlide();
+  s.background = { color: BG };
+  header(s, "A-1", "부록", "DSD 구성 원리  (질의응답용)");
+  const y0 = 1.30, ch = 5.55, W = 5.3;
+
+  // 좌 — 회의 행렬
+  card(s, M, y0, CW, ch);
+  cardTitle(s, M, y0, "기본 14회의 정체  —  회의 행렬");
+  const X = M + 0.34;
+  s.addText([
+    { text: "규칙 ①  대각선은 0 (해석마다 변수 하나만 중간값)", options: { breakLine: true } },
+    { text: "규칙 ②  나머지는 +1 또는 −1 (최대값 또는 최소값)", options: { breakLine: true } },
+    { text: "규칙 ③  아무 두 변수를 골라도, 같은 쪽인 횟수 = 반대쪽인 횟수 (직교)", options: { bold: true, color: NAVY } }
+  ], { x: X, y: y0 + 0.66, w: W, h: 0.86, fontSize: 9.3, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
+  s.addText("변수 4개 예시", { x: X, y: y0 + 1.66, w: W, h: 0.26, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  const hc = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } });
+  const z = { text: "0", options: { align: "center", bold: true, color: "FFFFFF", fill: { color: "8FB0D4" } } };
+  const p = { text: "+", options: { align: "center", bold: true, color: NAVY } };
+  const n = { text: "−", options: { align: "center", bold: true, color: NAVY } };
+  tbl(s, X, y0 + 1.96, W, [
+    [hdr("해석"), hc("A"), hc("B"), hc("C"), hc("D")],
+    ["1", z, p, p, p],
+    ["2", n, z, p, n],
+    ["3", n, n, z, p],
+    ["4", n, p, n, z]
+  ], [1.3, 1.0, 1.0, 1.0, 1.0], { rowH: 0.3, fontSize: 10 });
+  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 3.62, w: W, h: 1.7, rectRadius: 0.06, fill: { color: "F7F9FC" }, line: { color: LINE, width: 0.75 } });
+  s.addText([
+    { text: "A와 B가 함께 값을 갖는 해석은 3번 · 4번 두 번뿐", options: { color: TXT, breakLine: true } },
+    { text: "3번: A −, B − → 같은 쪽   /   4번: A −, B + → 반대쪽", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "→ 같은 쪽 1번, 반대쪽 1번 (다른 두 변수도 모두 동일)", options: { color: TXT, breakLine: true } },
+    { text: "1번 행만 정하면 나머지는 규칙 ③을 맞추다 보면 자동으로 채워짐", options: { color: MUTED, breakLine: true } },
+    { text: "본 과제 14 × 14는 Paley 구성법으로 코드가 자동 생성 · 검증", options: { color: MUTED } }
+  ], { x: X + 0.16, y: y0 + 3.62, w: W - 0.3, h: 1.7, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.3 });
+
+  // 우 — 거울상
+  card(s, CX2, y0, CW, ch);
+  cardTitle(s, CX2, y0, "거울상을 붙이는 이유");
+  const RX = CX2 + 0.34;
+  s.addText("주효과 = 변수 하나만의 효과   ·   교호작용 = 두 변수가 함께 바뀔 때의 추가 효과", { x: RX, y: y0 + 0.66, w: W, h: 0.3, fontSize: 9, color: MUTED, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  const sg = (t) => ({ text: t, options: { align: "center", bold: true, color: NAVY, fontSize: 10 } });
+  const keep = (t, col) => ({ text: t, options: { align: "center", bold: true, color: col, fill: { color: "F7F9FC" } } });
+  tbl(s, RX, y0 + 1.1, W, [
+    [hdr(""), hc("주효과 A"), hc("주효과 B"), hc("교호작용 A×B"), hc("곡률 A²")],
+    ["기본 행  x", sg("+"), sg("−"), sg("−"), sg("+")],
+    ["거울상  −x", sg("−"), sg("+"), sg("−"), sg("+")],
+    [{ text: "쌍에서", options: { bold: true, color: NAVY, fill: { color: "F7F9FC" } } }, keep("부호 반전", NAVY), keep("부호 반전", NAVY), keep("부호 유지", "0088A6"), keep("부호 유지", "0088A6")]
+  ], [1.1, 1.0, 1.0, 1.2, 1.0], { rowH: 0.3, fontSize: 9 });
+  s.addShape(pres.ShapeType.roundRect, { x: RX, y: y0 + 2.5, w: W, h: 1.3, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  s.addText([
+    { text: "쌍의 차이 → 주효과만 남음", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "쌍의 평균 → 교호작용 · 곡률만 남음", options: { bold: true, color: "0088A6", breakLine: true } },
+    { text: "→ 주효과가 교호작용 · 곡률과 섞이지 않음", options: { color: TXT } }
+  ], { x: RX + 0.16, y: y0 + 2.5, w: W - 0.3, h: 1.3, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.35 });
+  s.addText([
+    { text: "중심점 1회", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "모든 변수 중간값 → 곡률(중간값이 나은지) 판단의 기준점", options: { color: TXT, breakLine: true } },
+    { text: "한계", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "교호작용끼리는 서로 일부 섞임 (부분 교락)", options: { color: TXT } }
+  ], { x: RX, y: y0 + 4.0, w: W, h: 1.3, fontSize: 9.3, valign: "top", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.3 });
+  s.addNotes("질문이 나올 때만 쓰는 부록이다. 기본 14회는 회의 행렬이라는 표로, 대각선은 0, 나머지는 ±1이고, 아무 두 변수를 골라도 같은 쪽인 횟수와 반대쪽인 횟수가 같다. 거울상은 기본 14회의 부호를 모두 뒤집은 것으로, 쌍에서 주효과는 부호가 뒤집히고 교호작용·곡률은 그대로라 주효과가 교호작용·곡률과 섞이지 않는다.");
 }
 
 pres.writeFile({ fileName: (process.env.M2OUT || __dirname + "/2개월차_변수선별_및_대리모델구축.pptx") }).then(f => console.log("생성 완료:", f));
