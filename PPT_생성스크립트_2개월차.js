@@ -307,48 +307,57 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   s.background = { color: BG };
   header(s, "01", SEC1, "선별 실험 설계  —  DSD (확정적 선별 설계)");
   const y0 = 1.30, ch = 5.55;
+  const X = M + 0.34, W = 5.3;
 
-  // 좌 — 왜 먼저 골라내나
+  // 좌 — DSD란
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "왜 선별부터 하는가");
-  const why = [
-    ["대리모델 차원 축소", "변수가 늘수록 학습에 필요한 해석이 크게 늘어남 → 영향 없는 변수는 미리 고정"],
-    ["통계 판정으로 고정", "감이 아니라 사전에 정한 규칙으로 고정 여부 결정"],
-    ["지배 변수 사전 파악", "본 실험 전에 어떤 변수가 성능을 좌우하는지 확인"]
-  ];
-  why.forEach(([h, d], i) => {
-    const yy = y0 + 0.78 + i * 0.62;
-    s.addShape(pres.ShapeType.ellipse, { x: M + 0.36, y: yy + 0.08, w: 0.32, h: 0.32, fill: { color: NAVY }, line: { color: NAVY } });
-    s.addText(String(i + 1), { x: M + 0.36, y: yy + 0.08, w: 0.32, h: 0.32, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-    s.addText(h, { x: M + 0.82, y: yy, w: 4.8, h: 0.27, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0, valign: "middle" });
-    s.addText(d, { x: M + 0.82, y: yy + 0.27, w: 4.8, h: 0.24, fontSize: 9.3, color: MUTED, fontFace: F, isTextBox: true, margin: 0, valign: "middle" });
-  });
-
-  s.addText("판정 규칙  —  실험 전에 고정", { x: M + 0.34, y: y0 + 2.75, w: 5.3, h: 0.3, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
-  tbl(s, M + 0.34, y0 + 3.10, 5.3, [
-    [hdr("조건"), hdr("기준"), hdr("의미")],
-    ["통계적 유의성", { text: "p ≤ 0.05", options: { bold: true, color: NAVY } }, "가짜 인자(효과 0 기준선)보다 확실히 큰 효과인가"],
-    ["분산 기여율", { text: "≥ 2%", options: { bold: true, color: NAVY } }, "응답 변동의 2% 이상을 설명하는가"]
-  ], [1.45, 0.95, 2.9], { rowH: 0.34, fontSize: 9 });
-  s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y0 + 4.26, w: 5.3, h: 0.98, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  cardTitle(s, M, y0, "DSD란?");
+  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 0.68, w: W, h: 0.86, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
   s.addText([
-    { text: "두 조건을 모두 만족해야 '영향 있음'", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "응답 7개 어디에서도 영향이 없으면 → 비활성 변수로 고정", options: { color: TXT, breakLine: true } },
-    { text: "결과를 본 뒤 기준을 바꾸지 않도록 실험 전에 확정", options: { color: MUTED } }
-  ], { x: M + 0.5, y: y0 + 4.26, w: 5.0, h: 0.98, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+    { text: "Definitive Screening Design  —  Jones & Nachtsheim (2011)", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "3수준 선별 설계: 변수 m개를 약 2m + 1회 해석으로 주효과 · 곡률 판정", options: { color: TXT, breakLine: true } },
+    { text: "구성: 회의 행렬 C (대각 0, 나머지 ±1, 열끼리 직교) → [ C ; −C ; 0 ]", options: { color: MUTED } }
+  ], { x: X + 0.16, y: y0 + 0.68, w: W - 0.3, h: 0.86, fontSize: 9.2, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+
+  s.addText("선별 설계 비교  —  변수 11개 기준", { x: X, y: y0 + 1.66, w: W, h: 0.26, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  const hl = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color: "E8F6FA" } } });
+  const hc = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } });
+  const c = (t) => ({ text: t, options: { align: "center" } });
+  tbl(s, X, y0 + 1.96, W, [
+    [hdr("설계"), hdr("해석 횟수"), hc("곡률"), hdr("주효과 – 교호작용")],
+    ["3수준 완전요인", "177,147회 (약 5.7년)", c("○"), "섞이지 않음"],
+    ["Plackett-Burman", "12회", c("✕ (2수준)"), "부분적으로 섞임"],
+    [hl("DSD (본 과제)"), hl("29회 (약 8시간)"), { text: "○", options: { bold: true, color: NAVY, fill: { color: "E8F6FA" }, align: "center" } }, hl("섞이지 않음")]
+  ], [1.45, 1.6, 0.8, 1.45], { rowH: 0.3, fontSize: 9 });
+  s.addText("해석 1회 약 17분 기준  ·  DSD 29회 = 실제 변수 11열 + 가짜 인자 3열 (최소 25회)",
+    { x: X, y: y0 + 3.2, w: W, h: 0.22, fontSize: 8, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
+
+  s.addText("거울상이 주효과를 지키는 원리", { x: X, y: y0 + 3.5, w: W, h: 0.26, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  const sg = (t) => ({ text: t, options: { align: "center", bold: true, color: NAVY, fontSize: 10 } });
+  const keep = (t, col) => ({ text: t, options: { align: "center", bold: true, color: col, fill: { color: "F7F9FC" } } });
+  tbl(s, X, y0 + 3.8, W, [
+    [hdr(""), hc("주효과 A"), hc("주효과 B"), hc("교호작용 A×B"), hc("곡률 A²")],
+    ["기본 행  x", sg("+"), sg("−"), sg("−"), sg("+")],
+    ["거울상  −x", sg("−"), sg("+"), sg("−"), sg("+")],
+    [{ text: "쌍에서", options: { bold: true, color: NAVY, fill: { color: "F7F9FC" } } }, keep("부호 반전", NAVY), keep("부호 반전", NAVY), keep("부호 유지", "0088A6"), keep("부호 유지", "0088A6")]
+  ], [1.1, 1.0, 1.0, 1.2, 1.0], { rowH: 0.26, fontSize: 9 });
+  s.addText([
+    { text: "→ 쌍의 차이에는 주효과만, 쌍의 평균에는 교호작용 · 곡률만 남음 (서로 직교)", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "단, 교호작용끼리는 부분 교락 → 교호작용의 크기는 02 GPR에서 확인", options: { color: "0088A6" } }
+  ], { x: X, y: y0 + 4.9, w: W, h: 0.5, fontSize: 8.8, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
   // 우 — 실험표 구조
   card(s, CX2, y0, CW, ch);
   cardTitle(s, CX2, y0, "실험표 구조  —  29회 × 14열");
   const L = DATA.plan.L, nC = L[0].length, nR = L.length;
-  const gx = CX2 + 1.32, gy = y0 + 1.12, cw = 0.29, rh = 0.094;
+  const gx = CX2 + 1.32, gy = y0 + 1.0, cw = 0.29, rh = 0.088;
   const colR = { "-1": "E4EBF3", "0": "8FB0D4", "1": NAVY };
   const colF = { "-1": "E2F4F8", "0": "8DD2E2", "1": "0090B0" };
   // 열 그룹 라벨
-  s.addText("실제 변수 11개", { x: gx, y: y0 + 0.74, w: 11 * cw, h: 0.24, fontSize: 9, bold: true, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
-  s.addText("가짜 인자 3개", { x: gx + 11 * cw, y: y0 + 0.74, w: 3 * cw + 0.3, h: 0.24, fontSize: 9, bold: true, color: "0088A6", align: "center", fontFace: F, isTextBox: true, margin: 0 });
-  s.addShape(pres.ShapeType.line, { x: gx, y: y0 + 1.0, w: 11 * cw - 0.03, h: 0, line: { color: NAVY, width: 1 } });
-  s.addShape(pres.ShapeType.line, { x: gx + 11 * cw + 0.03, y: y0 + 1.0, w: 3 * cw - 0.03, h: 0, line: { color: ACCENT, width: 1 } });
+  s.addText("실제 변수 11개", { x: gx, y: y0 + 0.64, w: 11 * cw, h: 0.24, fontSize: 9, bold: true, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("가짜 인자 3개", { x: gx + 11 * cw, y: y0 + 0.64, w: 3 * cw + 0.3, h: 0.24, fontSize: 9, bold: true, color: "0088A6", align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  s.addShape(pres.ShapeType.line, { x: gx, y: y0 + 0.9, w: 11 * cw - 0.03, h: 0, line: { color: NAVY, width: 1 } });
+  s.addShape(pres.ShapeType.line, { x: gx + 11 * cw + 0.03, y: y0 + 0.9, w: 3 * cw - 0.03, h: 0, line: { color: ACCENT, width: 1 } });
   for (let r = 0; r < nR; r++) {
     for (let c = 0; c < nC; c++) {
       const v = String(L[r][c]);
@@ -361,27 +370,33 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     }
   }
   // 행 그룹 라벨
-  const grp = [["기본 14회", 0, 14, 0], ["거울상 14회", 14, 28, 0.05], ["중심점 1회", 28, 29, 0.10]];
+  const grp = [["기본 14회  (C)", 0, 14, 0], ["거울상 14회  (−C)", 14, 28, 0.05], ["중심점 1회  (0)", 28, 29, 0.10]];
   grp.forEach(([t, a, b, off]) => {
     const yy = gy + a * rh + off, hh = (b - a) * rh;
     s.addShape(pres.ShapeType.line, { x: gx - 0.1, y: yy + 0.01, w: 0, h: hh - 0.03, line: { color: MUTED, width: 1 } });
-    s.addText(t, { x: CX2 + 0.16, y: yy + hh / 2 - 0.13, w: 1.05, h: 0.26, fontSize: 8.5, bold: true, color: NAVY, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(t, { x: CX2 + 0.1, y: yy + hh / 2 - 0.13, w: 1.12, h: 0.26, fontSize: 8, bold: true, color: NAVY, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
   // 범례
-  const ly = gy + 29 * rh + 0.18;
-  [["하한", "E4EBF3"], ["중간", "8FB0D4"], ["상한", NAVY]].forEach(([t, c], i) => {
-    const x = gx + i * 1.05;
+  const ly = gy + 29 * rh + 0.16;
+  [["하한 (−1)", "E4EBF3"], ["중간 (0)", "8FB0D4"], ["상한 (+1)", NAVY]].forEach(([t, c], i) => {
+    const x = gx + i * 1.15;
     s.addShape(pres.ShapeType.rect, { x, y: ly + 0.05, w: 0.2, h: 0.14, fill: { color: c }, line: { color: c } });
-    s.addText(t, { x: x + 0.26, y: ly, w: 0.95, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(t, { x: x + 0.26, y: ly, w: 0.9, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
   s.addText([
-    { text: "3수준: 각 행마다 변수 1개만 중간값 → 곡률(중간값이 나은지)까지 확인", options: { bullet: true, breakLine: true } },
-    { text: "거울상(부호를 뒤집은 쌍): 주효과가 교호작용 · 곡률과 섞이지 않음", options: { bullet: true, breakLine: true } },
-    { text: "가짜 인자: 어떤 치수와도 연결 안 한 빈 열 → 효과 0의 기준선", options: { bullet: true, breakLine: true } },
-    { text: "한계: 교호작용의 크기는 정확히 분리 불가 → 02 GPR 대리모델에서 확인", options: { bullet: true, bold: true, color: "0088A6" } }
-  ], { x: CX2 + 0.34, y: ly + 0.3, w: 5.3, h: 1.12, fontSize: 8.6, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 3, lineSpacingMultiple: 1.1 });
+    { text: "각 행 = 해석 1회  ·  행마다 변수 1개만 중간값, 나머지는 하한 · 상한", options: { breakLine: true } },
+    { text: "가짜 인자 = 어떤 치수와도 연결하지 않은 빈 열 → 효과가 0이어야 정상", options: {} }
+  ], { x: CX2 + 0.34, y: ly + 0.28, w: W, h: 0.42, fontSize: 8.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
+  const ry = ly + 0.78;
+  s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: ry, w: W, h: y0 + ch - 0.12 - ry, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  s.addText([
+    { text: "판정 규칙  —  실험 전에 고정", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "① 통계적 유의성  p ≤ 0.05 : 가짜 인자(효과 0 기준선)보다 확실히 큰가", options: { color: TXT, breakLine: true } },
+    { text: "② 분산 기여율  ≥ 2% : 응답 변동의 2% 이상을 설명하는가", options: { color: TXT, breakLine: true } },
+    { text: "→ ①② 모두 만족해야 '영향 있음', 응답 7개 모두에서 영향 없으면 고정", options: { bold: true, color: "0088A6" } }
+  ], { x: CX2 + 0.5, y: ry, w: W - 0.3, h: y0 + ch - 0.12 - ry, fontSize: 8.8, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
-  s.addNotes("후보 11개를 바로 대리모델 실험에 넣지 않고, 먼저 확정적 선별 설계(DSD) 29회로 영향 있는 변수를 선별했다. 실험표는 변수 하나만 중간값에 두고 나머지를 상·하한에 두는 행 14개와 그 거울상 14개, 중심점 1개로 구성된다. 거울상 쌍 덕분에 주효과(변수 하나만의 효과)가 교호작용·곡률과 섞이지 않는다. 가짜 인자 3열은 어떤 치수와도 연결하지 않아 효과가 0이어야 하므로 판정의 기준선이 된다. 판정 규칙은 결과를 보기 전에 고정했다. 다만 교호작용의 크기는 DSD로 정확히 분리할 수 없어, 다음 단계의 GPR 대리모델로 확인한다.");
+  s.addNotes("DSD(확정적 선별 설계)는 Jones와 Nachtsheim이 2011년에 제안한 3수준 선별 설계로, 변수 m개를 약 2m+1회 해석으로 선별한다. 회의 행렬 C(대각은 0, 나머지는 ±1이고 열끼리 직교)를 기본 14회로 쓰고, 부호를 모두 뒤집은 거울상 14회와 모든 변수가 중간값인 중심점 1회를 더해 29회가 된다. 3수준 완전요인은 17만 회가 넘고, 2수준인 Plackett-Burman은 12회로 끝나지만 곡률을 못 보고 주효과에 교호작용이 섞인다. DSD는 거울상 쌍에서 주효과는 부호가 뒤집히고 교호작용·곡률은 부호가 그대로라, 쌍의 차이에는 주효과만, 평균에는 교호작용·곡률만 남는다. 그래서 주효과 판정이 교호작용에 오염되지 않는다. 다만 교호작용끼리는 부분적으로 섞여 크기를 정확히 나눌 수 없으므로, 그 부분은 GPR 대리모델로 확인한다. 가짜 인자 3열은 어떤 치수와도 연결하지 않아 효과가 0이어야 하므로 판정의 기준선이 되고, 판정 규칙은 결과를 보기 전에 고정했다.");
 }
 
 /* ───────────── 6. [01] 선별 결과 ───────────── */
