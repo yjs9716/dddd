@@ -649,22 +649,22 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
 
   // 좌 — DSD 실험표
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "DSD  —  29번 해석으로 변수 11개 선별");
+  cardTitle(s, M, y0, "왜 선별부터 · 어떻게");
   const X = M + 0.34;
-  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 0.64, w: W, h: 0.62, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
-  s.addText([
-    { text: "Definitive Screening Design  (Jones & Nachtsheim, 2011)", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "영향 있는 변수만 골라내는 3수준 표준 실험표  —  JMP 등 통계 SW에 내장", options: { color: TXT } }
-  ], { x: X + 0.16, y: y0 + 0.64, w: W - 0.3, h: 0.62, fontSize: 9.2, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
-
+  [["왜", "11개 모두 학습하면 해석 수 급증 → 영향 없는 변수를 먼저 고정"],
+   ["어떻게", "DSD (Jones & Nachtsheim, 2011) — 3수준 표준 선별 실험표, 29회 해석"]].forEach(([k, d], i) => {
+    const yy = y0 + 0.64 + i * 0.4;
+    chip(s, X, yy + 0.03, 0.75, 0.3, k, i === 0 ? NAVY : ACCENT, "FFFFFF", 9);
+    s.addText(d, { x: X + 0.88, y: yy, w: W - 0.88, h: 0.36, fontSize: 9, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  });
   const L = DATA.plan.L, nC = L[0].length, nR = L.length;
-  const gx = M + 1.6, cw = 0.27, rh = 0.08, gy = y0 + 1.82;
+  const gx = M + 1.6, cw = 0.27, rh = 0.072, gy = y0 + 1.92;
   const colR = { "-1": "E4EBF3", "0": "8FB0D4", "1": NAVY };
   const colF = { "-1": "E2F4F8", "0": "8DD2E2", "1": "0090B0" };
-  s.addText("실제 변수 11개", { x: gx, y: y0 + 1.4, w: 11 * cw, h: 0.22, fontSize: 8.5, bold: true, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
-  s.addText("가짜 인자 3개", { x: gx + 11 * cw, y: y0 + 1.4, w: 3 * cw + 0.3, h: 0.22, fontSize: 8.5, bold: true, color: "0088A6", align: "center", fontFace: F, isTextBox: true, margin: 0 });
-  s.addShape(pres.ShapeType.line, { x: gx, y: y0 + 1.66, w: 11 * cw - 0.03, h: 0, line: { color: NAVY, width: 1 } });
-  s.addShape(pres.ShapeType.line, { x: gx + 11 * cw + 0.03, y: y0 + 1.66, w: 3 * cw - 0.03, h: 0, line: { color: ACCENT, width: 1 } });
+  s.addText("실제 변수 11개", { x: gx, y: y0 + 1.5, w: 11 * cw, h: 0.22, fontSize: 8.5, bold: true, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("가짜 인자 3개", { x: gx + 11 * cw, y: y0 + 1.5, w: 3 * cw + 0.3, h: 0.22, fontSize: 8.5, bold: true, color: "0088A6", align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  s.addShape(pres.ShapeType.line, { x: gx, y: y0 + 1.76, w: 11 * cw - 0.03, h: 0, line: { color: NAVY, width: 1 } });
+  s.addShape(pres.ShapeType.line, { x: gx + 11 * cw + 0.03, y: y0 + 1.76, w: 3 * cw - 0.03, h: 0, line: { color: ACCENT, width: 1 } });
   for (let r = 0; r < nR; r++) {
     for (let c = 0; c < nC; c++) {
       const v = String(L[r][c]), fake = c >= 11;
