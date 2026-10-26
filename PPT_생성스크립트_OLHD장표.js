@@ -123,7 +123,7 @@ function bottomStrip(s, pts) {
   s.addText([
     { text: "점 하나 = 해석 1회, 칸마다 변수 두 개를 짝지어 본 분포", options: { bullet: true, breakLine: true } },
     { text: "대각선 막대 = 변수 하나만 봤을 때 범위를 고르게 썼는지", options: { bullet: true, breakLine: true } },
-    { text: "빨간 칸(핀 개수 × 두께)이 비스듬히 깎이고 핀 두께 막대가 얇은 쪽에 몰린 것은 핀 갭(≥ 2 mm) 제약 때문", options: { bullet: true, bold: true, color: "C0392B" } }
+    { text: "빨간 칸(핀 개수 × 두께)이 깎인 것은 핀 갭(≥ 2 mm) 제약 때문", options: { bullet: true, bold: true, color: "C0392B" } }
   ], { x: X, y: y0 + 3.84, w: W, h: 1.5, fontSize: 9.5, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 5, lineSpacingMultiple: 1.2, valign: "top" });
 
   card(s, CX2, y0, CW, ch);
