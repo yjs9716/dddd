@@ -160,9 +160,9 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   s.background = { color: BG };
   s.addText("목   차", { x: M, y: 0.55, w: 6, h: 0.5, fontSize: 26, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0, charSpacing: 3 });
   const items = [
-    ["01", SEC1, "1.  후보 설계변수 정하기\n2.  영향 있는 변수 골라내기 (DSD)\n3.  선별 결과  —  11개 중 8개"],
-    ["02", SEC2, "1.  학습용 해석점 배치 (OLHD)\n2.  예측 모델 (GPR)\n3.  코드 구성"],
-    ["03", SEC3, "1.  예측 정확도 검증\n2.  변수 영향도 및 교호작용\n3.  한계 및 차월 계획"]
+    ["01", SEC1, "1.  후보 설계변수 정의\n2.  선별 실험(DSD) 설계\n3.  선별 결과 및 활성 변수 확정"],
+    ["02", SEC2, "1.  활성 변수 실험계획(OLHD)\n2.  가우시안 프로세스 회귀(GPR)\n3.  코드 구성"],
+    ["03", SEC3, "1.  예측값 · 실측값 비교 (교차검증)\n2.  변수별 민감도(Sobol) 및 교호작용\n3.  한계 및 차월 계획"]
   ];
   let y = 1.62;
   items.forEach(([no, t, sub]) => {
@@ -184,15 +184,15 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   s.addShape(pres.ShapeType.rect, { x: M, y: 0.42, w: 0.52, h: 0.52, fill: { color: ACCENT }, line: { color: ACCENT } });
   s.addText("개요", { x: M, y: 0.42, w: 0.52, h: 0.52, fontSize: 11, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   s.addText("2개월차 한눈에 보기", { x: M + 0.68, y: 0.40, w: 8.0, h: 0.26, fontSize: 10.5, bold: true, color: ACCENT, fontFace: F, isTextBox: true, margin: 0, charSpacing: 1 });
-  s.addText("후보 변수 11개에서 성능 예측 모델까지", { x: M + 0.68, y: 0.60, w: 11.6, h: 0.42, fontSize: 22, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("후보 설계변수 11개에서 대리모델까지", { x: M + 0.68, y: 0.60, w: 11.6, h: 0.42, fontSize: 22, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
 
   // 상단 — 5단계 흐름
   const steps = [
-    ["후보 변수 정하기", "설계 검토", "유로 형상 7개 +\n핀 두께 · 개수 4개\n(1차 · 2차 통과 따로)", "후보 11개"],
-    ["영향 있는 변수 고르기", "DSD  (선별 실험)", "적은 해석으로\n'영향이 있나 없나'만\n빠르게 판정", "29회 → 8개"],
-    ["학습용 해석", "OLHD  (최적라틴방격법)", "설계 범위를\n빈틈없이 고르게 채우도록\n해석점을 배치", "80점 해석"],
-    ["예측 모델 만들기", "GPR  (머신러닝)", "해석 결과를 학습해\n해석 없이도 성능을\n수 초 만에 예측", "지표별 모델 7개"],
-    ["정확도 · 영향도 확인", "교차검증 · 민감도", "처음 보는 설계도 맞히는지\n어떤 변수가 성능을\n좌우하는지 확인", "R² 0.89 ~ 1.00"]
+    ["후보 설계변수 정의", "설계공간 정의", "유로 형상 7개 +\n핀 두께 · 개수 4개\n(1차 · 2차 통과별 독립)", "후보 11개"],
+    ["변수 선별", "DSD  (확정적 선별 설계)", "적은 해석으로\n영향 있는 변수만\n빠르게 판정", "29회 → 활성 8개"],
+    ["활성 변수 실험계획", "OLHD  (최적라틴방격법)", "설계공간을\n빈틈없이 고르게\n채우도록 실험점 배치", "80점 해석"],
+    ["대리모델 구축", "GPR  (가우시안 프로세스 회귀)", "해석 결과를 학습해\n해석 없이도 성능을\n수 초 만에 예측", "응답별 모델 7개"],
+    ["정확도 · 민감도 분석", "교차검증 · Sobol 지수", "처음 보는 설계도 맞히는지\n어떤 변수가 성능을\n좌우하는지 확인", "R² 0.89 ~ 1.00"]
   ];
   const fy = 1.30, fh = 2.3, gap = 0.28, fw = (12.23 - 4 * gap) / 5;
   steps.forEach(([t, tech, d, res], i) => {
@@ -208,27 +208,27 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     if (i < 4) s.addText("▶", { x: x + fw + 0.02, y: fy + fh / 2 - 0.15, w: gap - 0.04, h: 0.3, fontSize: 10, color: "9FB0C6", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
 
-  // 좌하 — 성능 지표
+  // 좌하 — 응답 7개
   const by = 3.80, bh = 3.18;
   card(s, M, by, CW, bh);
-  cardTitle(s, M, by, "성능 지표 7개  —  이 자료에서 보는 결과값");
+  cardTitle(s, M, by, "응답 7개  —  목적함수 5 + 제약조건 2");
   const good = (t) => ({ text: t, options: { color: NAVY, bold: true, align: "center" } });
   tbl(s, M + 0.34, by + 0.68, 5.3, [
-    [hdr("지표"), hdr("뜻"), { text: "좋은 방향", options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } }],
-    [{ text: "차압", options: { bold: true } }, "냉각유를 밀어 넣는 데 필요한 압력", good("낮을수록")],
-    [{ text: "최고온도", options: { bold: true } }, "발열 부품 중 가장 뜨거운 곳의 온도", good("낮을수록")],
-    [{ text: "온도편차", options: { bold: true } }, "발열 부품끼리의 온도 차이", good("작을수록")],
-    [{ text: "1차 균일도", options: { bold: true } }, "1차 통과 유로마다 유량이 고른 정도", good("작을수록")],
-    [{ text: "2차 균일도", options: { bold: true } }, "2차 통과 유로마다 유량이 고른 정도", good("작을수록")],
-    [{ text: "분기비", options: { bold: true } }, "전원공급모듈 쪽으로 빠지는 유량 비율", good("필요량 확보")],
-    [{ text: "중량", options: { bold: true } }, "냉각판 무게", good("제한 이하")]
+    [hdr("응답"), hdr("의미"), { text: "구분", options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } }],
+    [{ text: "차압", options: { bold: true } }, "입구 · 출구 사이 압력 차이 (펌프 부담)", good("목적함수 ↓")],
+    [{ text: "최고온도", options: { bold: true } }, "발열원 중 가장 높은 온도", good("목적함수 ↓")],
+    [{ text: "온도편차", options: { bold: true } }, "발열원 간 평균 온도의 표준편차", good("목적함수 ↓")],
+    [{ text: "1차 균일도", options: { bold: true } }, "1차 통과 유로별 유량의 표준편차", good("목적함수 ↓")],
+    [{ text: "2차 균일도", options: { bold: true } }, "2차 통과 유로별 유량의 표준편차", good("목적함수 ↓")],
+    [{ text: "분기비", options: { bold: true } }, "전원공급모듈 쪽으로 빠지는 유량 비율", good("제약조건")],
+    [{ text: "중량", options: { bold: true } }, "냉각판 무게", good("제약조건")]
   ], [1.05, 3.0, 1.25], { rowH: 0.285, fontSize: 9 });
 
   // 우하 — 왜 두 단계인가
   card(s, CX2, by, CW, bh);
-  cardTitle(s, CX2, by, "왜 '골라내기 → 머신러닝' 두 단계인가");
-  [["DSD", NAVY, "각 변수의 '혼자 내는 효과'를 29회로 빠르게 판정", "→ 영향 없는 변수 3개를 고정해 해석 횟수 절약"],
-   ["머신러닝", ACCENT, "변수끼리 얽혀서 내는 효과(교호작용)까지 학습", "→ 정밀한 예측 · 변수 영향도 분석"]].forEach(([tag, col, l1, l2], i) => {
+  cardTitle(s, CX2, by, "왜 'DSD → GPR' 2단계인가");
+  [["DSD", NAVY, "주효과(변수 하나만의 효과)를 29회로 판정", "→ 비활성 변수 3개를 고정해 해석 횟수 절약"],
+   ["GPR", ACCENT, "교호작용(변수끼리 얽힌 효과)까지 학습", "→ 정밀 예측 · Sobol 민감도 분석"]].forEach(([tag, col, l1, l2], i) => {
     const yy = by + 0.70 + i * 0.72;
     s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: yy, w: 5.3, h: 0.62, rectRadius: 0.06, fill: { color: "F7F9FC" }, line: { color: LINE, width: 0.75 } });
     chip(s, CX2 + 0.46, yy + 0.14, 1.05, 0.34, tag, col, "FFFFFF", 9.5);
@@ -242,14 +242,14 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     { text: "예) 핀 무게 ∝ 개수 × 두께 → 핀이 두꺼울수록 1개 늘릴 때 무게가 더 많이 늘어남", options: { color: TXT, fontSize: 8.8 } }
   ], { x: CX2 + 0.5, y: by + 2.16, w: 5.0, h: 0.86, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
 
-  s.addNotes("2개월차 전체 흐름이다. 후보 변수 11개를 정하고, DSD라는 선별 실험 29회로 영향 있는 변수 8개를 골랐다. 그 8개로 해석 80점을 돌려 머신러닝 모델(GPR)을 학습시켰고, 처음 보는 설계도 잘 맞히는지 검증했다. 두 단계로 나눈 이유는 역할이 다르기 때문이다. DSD는 적은 해석으로 '영향이 있나 없나'를 빠르게 거르는 데 강하지만, 변수끼리 얽혀서 내는 효과(교호작용)는 정확히 나누지 못한다. 그 부분은 머신러닝 모델이 맡는다.");
+  s.addNotes("2개월차 전체 흐름이다. 후보 설계변수 11개를 정의하고, 확정적 선별 설계(DSD) 29회로 활성 변수 8개를 선별했다. 활성 변수로 최적라틴방격법(OLHD) 80점을 해석해 가우시안 프로세스 회귀(GPR) 대리모델을 학습시켰고, 교차검증으로 처음 보는 설계도 잘 맞히는지 확인했다. 2단계로 나눈 이유는 역할이 다르기 때문이다. DSD는 적은 해석으로 주효과(변수 하나만의 효과)를 판정하는 데 강하지만, 교호작용(변수끼리 얽힌 효과)의 크기는 정확히 분리하지 못한다. 그 부분은 GPR이 맡는다.");
 }
 
-/* ───────────── 4. [01] 후보 설계변수 정하기 ───────────── */
+/* ───────────── 4. [01] 후보 설계변수 정의 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "01", SEC1, "후보 설계변수 정하기");
+  header(s, "01", SEC1, "후보 설계변수 정의");
   const y0 = 1.30, ch = 4.55;
 
   // 좌 — 핀을 통과별로 나눈 이유
@@ -269,7 +269,7 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   s.addText("1차와 2차에 흐르는 유량이 달라서, 핀 조건을 하나로 묶으면\n한쪽에 맞추는 순간 다른 쪽이 불리해짐",
     { x: M + 0.34, y: y0 + 3.08, w: 5.3, h: 0.56, fontSize: 9.8, color: TXT, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
   s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y0 + 3.76, w: 5.3, h: 0.54, rectRadius: 0.06, fill: { color: NAVY }, line: { color: NAVY } });
-  s.addText("→  핀 두께 · 개수를 1차 · 2차 따로 정하는 변수로 분리", { x: M + 0.34, y: y0 + 3.76, w: 5.3, h: 0.54, fontSize: 11.5, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("→  핀 두께 · 개수를 1차 · 2차 통과별 독립 변수로 분리", { x: M + 0.34, y: y0 + 3.76, w: 5.3, h: 0.54, fontSize: 11.5, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
   // 우 — 후보 설계변수 11개
   card(s, CX2, y0, CW, ch);
@@ -290,31 +290,31 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     [grp("2차 통과 핀\n(2)", 2), fin("2차 핀 두께"), fin("1.5 ~ 3.0 mm")],
     [fin("2차 핀 개수"), fin("10 ~ 24 개")]
   ], [1.3, 2.2, 1.8], { rowH: 0.262, fontSize: 9.3 });
-  s.addText("핀 사이 간격은 두께 · 개수로 자동으로 정해짐 — 최소 2.0 mm (제작 한계 2.5 mm는 최적화 단계에서 적용)",
+  s.addText("핀 갭(핀 사이 간격)은 두께 · 개수로 정해지는 종속값 — 최소 2.0 mm (제작 한계 2.5 mm는 최적화 단계 제약으로 적용)",
     { x: CX2 + 0.34, y: y0 + 4.0, w: 5.3, h: 0.4, fontSize: 8.6, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
 
   bottomStrip(s, [
     ["후보 11개", "유로 형상 7개 + 1차 · 2차 핀 두께 · 개수 4개"],
     ["핀을 통과별로 분리", "1차 · 2차 유량 차이를 설계에 반영"],
-    ["변수가 많음", "11개를 다 학습하면 해석이 너무 많이 필요 → 먼저 골라냄"]
+    ["11차원 설계공간", "변수가 많을수록 필요한 해석 수 급증 → 변수 선별 먼저"]
   ]);
   s.addNotes("냉각유는 1차 통과를 지난 뒤 분기에서 일부가 전원공급모듈로 빠지기 때문에, 2차 통과에는 남은 유량만 흐른다. 핀 조건을 하나로 묶으면 한쪽에 맞추는 순간 다른 쪽이 불리해지므로, 핀 두께와 개수를 1차·2차 따로 두어 후보 변수는 11개가 된다. 변수가 많을수록 학습에 필요한 해석 횟수가 크게 늘기 때문에, 먼저 영향 있는 변수만 골라낸다.");
 }
 
-/* ───────────── 5. [01] 영향 있는 변수 골라내기 (DSD) ───────────── */
+/* ───────────── 5. [01] 선별 실험(DSD) 설계 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "01", SEC1, "영향 있는 변수 골라내기  —  선별 실험 (DSD)");
+  header(s, "01", SEC1, "선별 실험 설계  —  DSD (확정적 선별 설계)");
   const y0 = 1.30, ch = 5.55;
 
   // 좌 — 왜 먼저 골라내나
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "왜 먼저 골라내나");
+  cardTitle(s, M, y0, "왜 선별부터 하는가");
   const why = [
-    ["해석 횟수 절약", "변수가 늘수록 학습에 필요한 해석이 크게 늘어남 → 영향 없는 변수는 미리 뺌"],
-    ["감이 아닌 규칙으로 판단", "미리 정한 기준을 통과하지 못한 변수만 고정"],
-    ["중요 변수 미리 파악", "본 실험 전에 어떤 변수가 성능을 좌우하는지 확인"]
+    ["대리모델 차원 축소", "변수가 늘수록 학습에 필요한 해석이 크게 늘어남 → 영향 없는 변수는 미리 고정"],
+    ["통계 판정으로 고정", "감이 아니라 사전에 정한 규칙으로 고정 여부 결정"],
+    ["지배 변수 사전 파악", "본 실험 전에 어떤 변수가 성능을 좌우하는지 확인"]
   ];
   why.forEach(([h, d], i) => {
     const yy = y0 + 0.78 + i * 0.62;
@@ -324,29 +324,29 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     s.addText(d, { x: M + 0.82, y: yy + 0.27, w: 4.8, h: 0.24, fontSize: 9.3, color: MUTED, fontFace: F, isTextBox: true, margin: 0, valign: "middle" });
   });
 
-  s.addText("판정 기준  —  해석 전에 미리 정함", { x: M + 0.34, y: y0 + 2.75, w: 5.3, h: 0.3, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("판정 규칙  —  실험 전에 고정", { x: M + 0.34, y: y0 + 2.75, w: 5.3, h: 0.3, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
   tbl(s, M + 0.34, y0 + 3.10, 5.3, [
-    [hdr("질문"), hdr("기준"), hdr("쉬운 뜻")],
-    ["우연이 아닌가?", { text: "p ≤ 0.05", options: { bold: true, color: NAVY } }, "아무 치수와도 연결 안 한 '가짜 변수'보다 확실히 큰가"],
-    ["의미 있는 크기인가?", { text: "영향 ≥ 2%", options: { bold: true, color: NAVY } }, "성능 변화의 2% 이상을 설명하는가"]
+    [hdr("조건"), hdr("기준"), hdr("의미")],
+    ["통계적 유의성", { text: "p ≤ 0.05", options: { bold: true, color: NAVY } }, "가짜 인자(효과 0 기준선)보다 확실히 큰 효과인가"],
+    ["분산 기여율", { text: "≥ 2%", options: { bold: true, color: NAVY } }, "응답 변동의 2% 이상을 설명하는가"]
   ], [1.45, 0.95, 2.9], { rowH: 0.34, fontSize: 9 });
   s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y0 + 4.26, w: 5.3, h: 0.98, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
   s.addText([
-    { text: "두 질문 모두 '예'여야 영향 있음", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "성능 지표 7개 어디에서도 영향이 없으면 → 그 변수는 고정", options: { color: TXT, breakLine: true } },
-    { text: "결과를 보고 기준을 바꾸지 않도록 해석 전에 확정", options: { color: MUTED } }
+    { text: "두 조건을 모두 만족해야 '영향 있음'", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "응답 7개 어디에서도 영향이 없으면 → 비활성 변수로 고정", options: { color: TXT, breakLine: true } },
+    { text: "결과를 본 뒤 기준을 바꾸지 않도록 실험 전에 확정", options: { color: MUTED } }
   ], { x: M + 0.5, y: y0 + 4.26, w: 5.0, h: 0.98, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
   // 우 — 실험표 구조
   card(s, CX2, y0, CW, ch);
-  cardTitle(s, CX2, y0, "실험표  —  해석 29회");
+  cardTitle(s, CX2, y0, "실험표 구조  —  29회 × 14열");
   const L = DATA.plan.L, nC = L[0].length, nR = L.length;
   const gx = CX2 + 1.32, gy = y0 + 1.12, cw = 0.29, rh = 0.094;
   const colR = { "-1": "E4EBF3", "0": "8FB0D4", "1": NAVY };
   const colF = { "-1": "E2F4F8", "0": "8DD2E2", "1": "0090B0" };
   // 열 그룹 라벨
   s.addText("실제 변수 11개", { x: gx, y: y0 + 0.74, w: 11 * cw, h: 0.24, fontSize: 9, bold: true, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
-  s.addText("가짜 변수 3개", { x: gx + 11 * cw, y: y0 + 0.74, w: 3 * cw + 0.3, h: 0.24, fontSize: 9, bold: true, color: "0088A6", align: "center", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("가짜 인자 3개", { x: gx + 11 * cw, y: y0 + 0.74, w: 3 * cw + 0.3, h: 0.24, fontSize: 9, bold: true, color: "0088A6", align: "center", fontFace: F, isTextBox: true, margin: 0 });
   s.addShape(pres.ShapeType.line, { x: gx, y: y0 + 1.0, w: 11 * cw - 0.03, h: 0, line: { color: NAVY, width: 1 } });
   s.addShape(pres.ShapeType.line, { x: gx + 11 * cw + 0.03, y: y0 + 1.0, w: 3 * cw - 0.03, h: 0, line: { color: ACCENT, width: 1 } });
   for (let r = 0; r < nR; r++) {
@@ -361,7 +361,7 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     }
   }
   // 행 그룹 라벨
-  const grp = [["기본 14회", 0, 14, 0], ["뒤집은 짝 14회", 14, 28, 0.05], ["모두 중간 1회", 28, 29, 0.10]];
+  const grp = [["기본 14회", 0, 14, 0], ["거울상 14회", 14, 28, 0.05], ["중심점 1회", 28, 29, 0.10]];
   grp.forEach(([t, a, b, off]) => {
     const yy = gy + a * rh + off, hh = (b - a) * rh;
     s.addShape(pres.ShapeType.line, { x: gx - 0.1, y: yy + 0.01, w: 0, h: hh - 0.03, line: { color: MUTED, width: 1 } });
@@ -369,30 +369,30 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   });
   // 범례
   const ly = gy + 29 * rh + 0.18;
-  [["범위 아래 끝", "E4EBF3"], ["중간", "8FB0D4"], ["위 끝", NAVY]].forEach(([t, c], i) => {
-    const x = gx + [0, 1.25, 2.15][i];
+  [["하한", "E4EBF3"], ["중간", "8FB0D4"], ["상한", NAVY]].forEach(([t, c], i) => {
+    const x = gx + i * 1.05;
     s.addShape(pres.ShapeType.rect, { x, y: ly + 0.05, w: 0.2, h: 0.14, fill: { color: c }, line: { color: c } });
     s.addText(t, { x: x + 0.26, y: ly, w: 0.95, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
   s.addText([
-    { text: "한 줄 = 해석 1회, 칸 색 = 그 변수를 범위의 어디에 둘지", options: { bullet: true, breakLine: true } },
-    { text: "여러 변수를 한꺼번에 바꿔도 변수마다 효과를 따로 계산할 수 있게 짠 표", options: { bullet: true, breakLine: true } },
-    { text: "가짜 변수: 효과가 0이어야 정상 → '우연히 생기는 크기'의 기준선", options: { bullet: true, breakLine: true } },
-    { text: "한계: 변수끼리 얽힌 효과(교호작용)는 정확히 못 나눔 → 02 머신러닝에서 확인", options: { bullet: true, bold: true, color: "0088A6" } }
+    { text: "3수준: 각 행마다 변수 1개만 중간값 → 곡률(중간값이 나은지)까지 확인", options: { bullet: true, breakLine: true } },
+    { text: "거울상(부호를 뒤집은 쌍): 주효과가 교호작용 · 곡률과 섞이지 않음", options: { bullet: true, breakLine: true } },
+    { text: "가짜 인자: 어떤 치수와도 연결 안 한 빈 열 → 효과 0의 기준선", options: { bullet: true, breakLine: true } },
+    { text: "한계: 교호작용의 크기는 정확히 분리 불가 → 02 GPR 대리모델에서 확인", options: { bullet: true, bold: true, color: "0088A6" } }
   ], { x: CX2 + 0.34, y: ly + 0.3, w: 5.3, h: 1.12, fontSize: 8.6, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 3, lineSpacingMultiple: 1.1 });
 
-  s.addNotes("후보 11개를 바로 학습에 넣지 않고, 먼저 DSD라는 선별 실험 29회로 영향 있는 변수를 골랐다. DSD는 여러 변수를 한꺼번에 바꾸면서도 변수마다 효과를 따로 계산할 수 있게 짠 실험표다. 아무 치수와도 연결하지 않은 가짜 변수 3개를 넣어, 효과가 0이어야 할 칸에서 우연히 나오는 크기를 기준선으로 삼았다. 판정 기준은 결과를 보기 전에 정했다. 다만 DSD는 변수끼리 얽혀서 내는 효과까지는 정확히 나누지 못하므로, 그 부분은 다음 단계의 머신러닝 모델로 확인한다.");
+  s.addNotes("후보 11개를 바로 대리모델 실험에 넣지 않고, 먼저 확정적 선별 설계(DSD) 29회로 영향 있는 변수를 선별했다. 실험표는 변수 하나만 중간값에 두고 나머지를 상·하한에 두는 행 14개와 그 거울상 14개, 중심점 1개로 구성된다. 거울상 쌍 덕분에 주효과(변수 하나만의 효과)가 교호작용·곡률과 섞이지 않는다. 가짜 인자 3열은 어떤 치수와도 연결하지 않아 효과가 0이어야 하므로 판정의 기준선이 된다. 판정 규칙은 결과를 보기 전에 고정했다. 다만 교호작용의 크기는 DSD로 정확히 분리할 수 없어, 다음 단계의 GPR 대리모델로 확인한다.");
 }
 
 /* ───────────── 6. [01] 선별 결과 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "01", SEC1, "선별 결과  —  11개 중 8개");
+  header(s, "01", SEC1, "선별 결과 및 활성 변수 확정");
   const y0 = 1.30, ch = 4.55;
   card(s, M, y0, 12.23, ch);
-  cardTitle(s, M, y0, "변수별 영향 크기 (%)  —  DSD 29회");
-  s.addText("영향 크기 = 성능 지표가 변한 양 중 그 변수 때문인 비율", { x: M + 5.6, y: y0 + 0.22, w: 6.3, h: 0.36, fontSize: 9, color: MUTED, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  cardTitle(s, M, y0, "변수별 분산 기여율 (%)  —  DSD 29회");
+  s.addText("분산 기여율 = 응답 변동 중 그 변수가 설명하는 비율", { x: M + 5.6, y: y0 + 0.22, w: 6.3, h: 0.36, fontSize: 9, color: MUTED, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   const { vars, resp, share, sig } = DATA.dsd;
   const fixedTxt = { input_angle: "고정  →  150°", mid_angle: "고정  →  115°", output_thick: "고정  →  35 mm" };
   const rows = [[hdr("설계변수"), ...resp.map(r => ({ text: RL[r], options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } })), { text: "판정", options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } }]];
@@ -411,7 +411,7 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     });
     row.push(fixed
       ? { text: fixedTxt[v], options: { bold: true, color: "0088A6", fill: { color: "E8F6FA" }, align: "center" } }
-      : { text: "남김", options: { bold: true, color: NAVY, align: "center" } });
+      : { text: "활성", options: { bold: true, color: NAVY, align: "center" } });
     rows.push(row);
   });
   s.addTable(rows, {
@@ -419,7 +419,7 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     fontSize: 9.5, fontFace: F, color: TXT, rowH: 0.285, valign: "middle", margin: [1, 4, 1, 4],
     border: [{ pt: 0.5, color: "FFFFFF" }, { pt: 0.5, color: "FFFFFF" }, { pt: 0.5, color: LINE }, { pt: 0.5, color: "FFFFFF" }]
   });
-  s.addText("색 칸 = 영향 있음 (두 기준 모두 통과)  ·  회색 숫자 = 영향 없음  ·  고정값: 차압이 낮아지는 쪽 끝값, 판단 근거가 없으면 범위 중앙",
+  s.addText("색 칸 = 영향 인정 (p ≤ 0.05 그리고 기여율 ≥ 2%)  ·  회색 숫자 = 영향 없음  ·  고정값: 주효과가 유의한 목적함수(차압)가 유리한 끝값, 없으면 범위 중앙",
     { x: M + 0.34, y: y0 + 4.18, w: 11.55, h: 0.26, fontSize: 8.8, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
 
   bottomStrip(s, [
@@ -427,19 +427,19 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     ["2차 핀 개수", "온도편차 37% · 2차 균일도 51%"],
     ["분기 입구 두께", "분기비 84% — 전원모듈로 가는 유량을 사실상 결정"]
   ]);
-  s.addNotes("표의 숫자는 성능 지표가 변한 양 중 그 변수 때문인 비율이다. 11개 중 8개는 남기고, 입구 각도·중간 각도·출구 유로 두께 3개는 어떤 지표에서도 기준을 넘지 못해 고정했다. 눈여겨볼 점은 1차 핀 개수가 1차 균일도를, 2차 핀 개수가 2차 균일도를 각각 좌우한다는 것이다. 핀을 1차·2차로 나눈 판단이 데이터로 뒷받침된다.");
+  s.addNotes("표의 숫자는 분산 기여율, 즉 응답 변동 중 그 변수가 설명하는 비율이다. 11개 중 8개가 활성, 입구 각도·중간 각도·출구 유로 두께 3개는 어떤 응답에서도 기준을 넘지 못해 고정했다. 눈여겨볼 점은 1차 핀 개수가 1차 균일도를, 2차 핀 개수가 2차 균일도를 각각 좌우한다는 것이다. 핀을 1차·2차로 나눈 판단이 데이터로 뒷받침된다.");
 }
 
-/* ───────────── 7. [02] 학습용 해석점 배치 (OLHD) ───────────── */
+/* ───────────── 7. [02] 활성 변수 실험계획 (OLHD) ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "02", SEC2, "학습용 해석점 배치  —  OLHD");
+  header(s, "02", SEC2, "활성 변수 실험계획  —  OLHD (최적라틴방격법)");
   const y0 = 1.30, ch = 5.55;
   const o = DATA.olhd;
 
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "해석점 분포  —  80점");
+  cardTitle(s, M, y0, "실험점 분포  —  80점");
   const sc = (x, y, title, xl, yl, xr, yr, px) => {
     s.addText(title, { x: px, y: y0 + 0.74, w: 2.75, h: 0.26, fontSize: 9.5, bold: true, color: NAVY, align: "center", fontFace: F, isTextBox: true, margin: 0 });
     s.addChart(pres.ChartType.scatter, [{ name: xl, values: x }, { name: yl, values: y }], {
@@ -455,13 +455,13 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   sc(o.fin_count_1, o.fin_thick_1, "1차 핀 개수 × 두께", "1차 핀 개수 [개]", "1차 핀 두께 [mm]", [10, 24], [1.4, 3.1], M + 0.18);
   sc(o.input_thick, o.power_input_thick, "입구 유로 × 분기 입구 두께", "입구 유로 두께 [mm]", "분기 입구 두께 [mm]", [12, 26], [2, 11], M + 3.0);
   s.addText([
-    { text: "왼쪽: 핀이 많으면 핀 사이 간격 때문에 두껍게 만들 수 없음 → 만들 수 있는 영역 안에만 점이 찍힘", options: { bullet: true, breakLine: true } },
-    { text: "오른쪽: 이런 제약이 없는 변수끼리는 범위 전체에 고르게 퍼짐", options: { bullet: true } }
+    { text: "왼쪽: 핀 갭 제약(핀이 많을수록 두께 상한이 낮아짐) 영역 안에만 분포", options: { bullet: true, breakLine: true } },
+    { text: "오른쪽: 제약이 없는 변수 쌍은 설계공간 전체에 고르게 분포", options: { bullet: true } }
   ], { x: M + 0.34, y: y0 + 4.32, w: 5.3, h: 0.9, fontSize: 9, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 4, lineSpacingMultiple: 1.15 });
 
   card(s, CX2, y0, CW, ch);
-  cardTitle(s, CX2, y0, "해석 계획 요약");
-  [["8", "남긴 변수"], ["80", "해석점 (변수당 10점)"], ["3", "고정 변수"]].forEach(([v, l], i) => {
+  cardTitle(s, CX2, y0, "실험계획 요약");
+  [["8", "활성 변수"], ["80", "실험점 (10 × 8)"], ["3", "고정 변수"]].forEach(([v, l], i) => {
     const x = CX2 + 0.34 + i * 1.8;
     s.addShape(pres.ShapeType.roundRect, { x, y: y0 + 0.76, w: 1.62, h: 1.0, rectRadius: 0.07, fill: { color: i === 1 ? NAVY : "EEF2F7" }, line: { color: i === 1 ? NAVY : "EEF2F7" } });
     s.addText(v, { x, y: y0 + 0.8, w: 1.62, h: 0.58, fontSize: 26, bold: true, color: i === 1 ? "FFFFFF" : NAVY, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
@@ -469,9 +469,9 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   });
   tbl(s, CX2 + 0.34, y0 + 1.98, 5.3, [
     [hdr("구분"), hdr("내용")],
-    ["남긴 변수", "입구 유로 · 분기 입구 · 중간 유로 · 중간 입구 두께\n1차 · 2차 핀 두께 · 개수"],
+    ["활성 변수", "입구 유로 · 분기 입구 · 중간 유로 · 중간 입구 두께\n1차 · 2차 핀 두께 · 개수"],
     ["고정 변수", "입구 각도 150° · 중간 각도 115° · 출구 유로 35 mm"],
-    ["OLHD란?", "각 변수 범위를 80칸으로 나눠 칸마다 한 번씩만 쓰도록\n배치 → 적은 점으로 범위를 빈틈없이 채움"]
+    ["실험계획법", "최적라틴방격법(OLHD) — 각 변수 범위를 80구간으로 나눠\n구간마다 한 점씩 + 점 간 최소 거리 최대화 → 균일 분포"]
   ], [1.2, 4.1], { rowH: 0.36 });
   s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: y0 + 4.02, w: 5.3, h: 1.2, rectRadius: 0.06, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
   s.addText([
@@ -479,18 +479,18 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     { text: "핀 개수가 가장 중요한 변수라서 10~24개 전 범위에 고르게 먼저 두고, 두께는 그 개수에서 만들 수 있는 범위로 맞춤", options: { color: TXT, breakLine: true } },
     { text: "두께를 먼저 정하면 22~24개 설계가 80점 중 1~2점밖에 안 나옴", options: { color: MUTED } }
   ], { x: CX2 + 0.5, y: y0 + 4.02, w: 5.0, h: 1.2, fontSize: 9.3, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2, paraSpaceAfter: 2 });
-  s.addNotes("남긴 변수 8개로 해석 80점을 돌렸다. 해석점은 OLHD라는 방법으로 배치했는데, 각 변수의 범위를 80칸으로 나눠 칸마다 한 번씩만 쓰게 해서 적은 점으로도 범위를 빈틈없이 채우는 방법이다. 핀 개수가 가장 중요한 변수로 나왔기 때문에 개수를 10~24개 전 범위에 고르게 먼저 두고, 두께는 그 개수에서 만들 수 있는 범위로 맞췄다.");
+  s.addNotes("활성 변수 8개로 최적라틴방격법(OLHD) 80점을 해석했다. OLHD는 각 변수의 범위를 80구간으로 나눠 구간마다 한 점씩 쓰고, 점 사이 최소 거리가 최대가 되도록 배치해 적은 점으로도 설계공간을 고르게 채우는 실험계획법이다. 핀 개수가 가장 중요한 변수로 나왔기 때문에 개수를 10~24개 전 범위에 고르게 먼저 두고, 두께는 그 개수에서 만들 수 있는 범위로 맞췄다.");
 }
 
-/* ───────────── 8. [02] 예측 모델 (GPR) ───────────── */
+/* ───────────── 8. [02] GPR ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "02", SEC2, "예측 모델  —  가우시안 프로세스 회귀 (GPR)");
+  header(s, "02", SEC2, "대리모델  —  가우시안 프로세스 회귀 (GPR)");
   const y0 = 1.30, ch = 5.55;
 
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "어떻게 예측하나  —  예측값과 '얼마나 믿을지'를 함께");
+  cardTitle(s, M, y0, "개념  —  예측값과 불확실성을 함께 제공");
   const g = DATA.gp1d;
   const PX = M + 0.55, PY = y0 + 0.95, PW = 4.9, PH = 2.75;
   const ups = g.m.map((m, i) => m + 2 * g.sd[i]), los = g.m.map((m, i) => m - 2 * g.sd[i]);
@@ -506,26 +506,26 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   g.xt.forEach((x, i) => {
     s.addShape(pres.ShapeType.ellipse, { x: PX + tx(x) - 0.07, y: PY + ty(g.yt[i]) - 0.07, w: 0.14, h: 0.14, fill: { color: "FFFFFF" }, line: { color: NAVY, width: 1.5 } });
   });
-  s.addText("해석한 점에서 멀수록\n예측 범위가 넓어짐", { x: PX + tx(0.56), y: PY + 0.1, w: 1.7, h: 0.44, fontSize: 8.5, bold: true, color: "0088A6", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.1 });
+  s.addText("실험점 사이가 멀수록\n불확실성이 커짐", { x: PX + tx(0.56), y: PY + 0.1, w: 1.7, h: 0.44, fontSize: 8.5, bold: true, color: "0088A6", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.1 });
   s.addText("설계변수", { x: PX, y: PY + PH + 0.04, w: PW, h: 0.22, fontSize: 8.5, color: MUTED, align: "center", fontFace: F, isTextBox: true, margin: 0 });
   // 범례
   const ly = y0 + 4.12;
   s.addShape(pres.ShapeType.ellipse, { x: M + 0.55, y: ly + 0.05, w: 0.13, h: 0.13, fill: { color: "FFFFFF" }, line: { color: NAVY, width: 1.5 } });
   s.addText("해석 결과 (학습 데이터)", { x: M + 0.75, y: ly, w: 1.7, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   s.addShape(pres.ShapeType.line, { x: M + 2.45, y: ly + 0.12, w: 0.3, h: 0, line: { color: NAVY, width: 2 } });
-  s.addText("예측값", { x: M + 2.82, y: ly, w: 0.8, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("예측 평균", { x: M + 2.82, y: ly, w: 0.8, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   s.addShape(pres.ShapeType.rect, { x: M + 3.55, y: ly + 0.04, w: 0.3, h: 0.16, fill: { color: ACCENT, transparency: 72 }, line: { color: ACCENT, transparency: 100 } });
-  s.addText("예측 범위 (약 95%)", { x: M + 3.92, y: ly, w: 1.6, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("불확실성 (±2σ, 약 95%)", { x: M + 3.92, y: ly, w: 1.6, h: 0.24, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y0 + 4.52, w: 5.3, h: 0.72, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
   s.addText("해석(1회 약 17분) 없이도 아무 설계나 성능을 수 초 안에 예측하고,\n그 예측을 얼마나 믿을 수 있는지까지 함께 알려줌", { x: M + 0.5, y: y0 + 4.52, w: 5.0, h: 0.72, fontSize: 9.5, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
   card(s, CX2, y0, CW, ch);
   cardTitle(s, CX2, y0, "GPR을 쓴 이유");
   const why = [
-    ["예측 + 믿을 정도", "예측값과 함께 오차 범위를 알려줌"],
-    ["적은 데이터로 학습", "해석 수십 ~ 수백 점이면 충분"],
-    ["변수 영향도 계산", "학습된 모델로 변수별 영향 · 교호작용 계산 (03)"],
-    ["다음 해석 위치 선정", "예측 범위가 넓은 곳 = 정보 부족 → 다음 해석 후보 (차월)"]
+    ["예측값 + 불확실성", "예측과 함께 신뢰구간을 제공"],
+    ["적은 데이터로 학습", "해석 수십 ~ 수백 점 규모에 적합"],
+    ["민감도 해석", "학습된 모델로 Sobol 지수 · 교호작용 산출 (03)"],
+    ["추가 해석 위치 선정", "불확실성이 큰 곳을 다음 해석 후보로 (차월)"]
   ];
   why.forEach(([h, d], i) => {
     const yy = y0 + 0.74 + i * 0.5;
@@ -536,12 +536,12 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   s.addText("학습 구성", { x: CX2 + 0.34, y: y0 + 2.86, w: 5.3, h: 0.3, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
   tbl(s, CX2 + 0.34, y0 + 3.2, 5.3, [
     [hdr("항목"), hdr("내용")],
-    ["입력", "남긴 변수 8개"],
-    ["출력", "성능 지표 7개 → 지표마다 모델 1개"],
-    ["모델 설정", "성능이 매끄럽게 변한다고 가정하고,\n변수마다 영향 범위를 따로 학습"],
-    ["전처리", "차압은 값 범위가 넓어 로그로 바꿔 학습"]
+    ["입력", "활성 변수 8개 (0 ~ 1 정규화)"],
+    ["출력", "응답 7개 → 응답별 모델 1개\n(목적함수 5 + 제약조건 2)"],
+    ["커널", "Matern(ν = 2.5) + ARD(변수별 길이척도)\n— 매끄러운 응답 가정, 변수마다 민감도 따로 학습"],
+    ["전처리", "차압은 로그 변환 (값의 범위가 넓음)"]
   ], [1.2, 4.1], { rowH: 0.36 });
-  s.addNotes("GPR은 해석 결과를 학습해서, 해석하지 않은 설계의 성능을 예측하는 머신러닝 모델이다. 다른 모델과 달리 예측값과 함께 '얼마나 믿을 수 있는지'를 범위로 알려준다. 해석한 점 근처는 범위가 좁고, 해석점 사이가 먼 곳은 넓어진다. 이 범위가 넓은 곳은 정보가 부족한 곳이라, 차월에 어디를 추가로 해석할지 정하는 데 쓴다.");
+  s.addNotes("가우시안 프로세스 회귀(GPR)는 해석 결과를 학습해 해석하지 않은 설계의 성능을 예측하는 대리모델이다. 다른 회귀 모델과 달리 예측값과 함께 불확실성(신뢰구간)을 준다. 실험점이 촘촘한 곳은 불확실성이 작고, 실험점 사이가 먼 곳은 커진다. 불확실성이 큰 곳은 정보가 부족한 곳이라, 차월 적응 샘플링에서 어디를 추가로 해석할지 정하는 데 쓴다.");
 }
 
 /* ───────────── 9. [02] 코드 구성 ───────────── */
@@ -556,17 +556,17 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   const mY = y0 + 0.72, mH = 0.56;
   s.addShape(pres.ShapeType.roundRect, { x: X0, y: mY, w: WALL, h: mH, rectRadius: 0.07, fill: { color: NAVY }, line: { color: NAVY } });
   s.addText([{ text: "main.py", options: { fontFace: MONO, bold: true, fontSize: 12.5 } },
-             { text: "     전체 진행 관리  —  선별 29회 → 결과 확인 → 학습용 80점, 해석점마다 아래 단계를 차례로 실행", options: { fontSize: 10, color: ICE } }],
+             { text: "     단계 관리  —  선별 29회 → 판정 확인 → 실험계획 80점, 실험점마다 아래 단계를 순서대로 호출", options: { fontSize: 10, color: ICE } }],
     { x: X0 + 0.25, y: mY, w: WALL - 2.1, h: mH, color: "FFFFFF", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   s.addShape(pres.ShapeType.roundRect, { x: X0 + WALL - 1.65, y: mY + 0.11, w: 1.45, h: mH - 0.22, rectRadius: 0.1, fill: { color: ACCENT }, line: { color: ACCENT } });
   s.addText("2단계 운영", { x: X0 + WALL - 1.65, y: mY + 0.11, w: 1.45, h: mH - 0.22, fontSize: 9.5, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
   const mods = [
-    ["해석점 만들기", "DSD.py · OLHD.py", "선별 실험표 29회\n학습용 80점", true],
-    ["형상 만들기", "Solidworks.py", "치수 11개 입력\n→ 형상 재생성 · STEP", false],
+    ["실험점 생성", "DSD.py · OLHD.py", "선별 실험표 29회\n활성 변수 80점", true],
+    ["형상 빌드", "Solidworks.py", "전역변수 11개 갱신\n→ 리빌드 · STEP", false],
     ["해석", "icepak.py", "해석 모델 구성\n→ 결과 추출", false],
-    ["결과 저장", "result_parser.py", "성능 지표 7개 계산\n결과 누적", false],
-    ["선별 · 학습", "DSD_analysis.py\nML.py", "선별 판정\n예측 모델 7개 학습", true]
+    ["결과 저장", "result_parser.py", "응답 7개 산출\n결과 누적", false],
+    ["선별 · 학습", "DSD_analysis.py\nML.py", "선별 판정\nGPR 모델 7개", true]
   ];
   const n = mods.length, cW = 2.05, cG = (WALL - n * cW) / (n - 1), cY = mY + mH + 0.34, cH = 1.42;
   const arts = ["설계값", "STEP", "CSV", "결과표"];
@@ -593,8 +593,8 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   [["params.py · 변수 정의", "F7F9FC", NAVY, null],
    ["SolidWorks", "E4EAF2", NAVY, "COM API"],
    ["Ansys Icepak", "E4EAF2", NAVY, "PyAEDT"],
-   ["결과 데이터", "F7F9FC", NAVY, null],
-   ["남길 변수 · 예측 모델", "E8F6FA", "0088A6", null]].forEach(([t, f, c, api], i) => {
+   ["결과 데이터셋", "F7F9FC", NAVY, null],
+   ["활성 변수 · 대리모델", "E8F6FA", "0088A6", null]].forEach(([t, f, c, api], i) => {
     const x = X0 + i * (cW + cG);
     s.addShape(pres.ShapeType.line, { x: x + cW / 2, y: cY + cH, w: 0, h: 0.28, line: { color: api ? NAVY : "C3CDDA", width: 1, dashType: api ? "solid" : "dash", beginArrowType: api ? "triangle" : undefined, endArrowType: "triangle" } });
     if (api) s.addText(api, { x: x + cW / 2 + 0.07, y: cY + cH + 0.02, w: 1.0, h: 0.24, fontSize: 7.5, color: MUTED, fontFace: MONO, isTextBox: true, margin: 0, valign: "middle" });
@@ -604,24 +604,24 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   const pY = y0 + ch - 0.5;
   s.addShape(pres.ShapeType.line, { x: X0, y: pY - 0.08, w: WALL, h: 0, line: { color: LINE, width: 0.75 } });
   s.addText([{ text: "paths.py", options: { fontFace: MONO, bold: true, color: NAVY } },
-             { text: "   파일 경로를 한 곳에서 관리      ", options: { color: MUTED } },
+             { text: "   경로 일원화      ", options: { color: MUTED } },
              { text: "responses.py", options: { fontFace: MONO, bold: true, color: NAVY } },
-             { text: "   성능 지표 목록을 한 곳에서 관리", options: { color: MUTED } }],
+             { text: "   목적함수 · 제약조건 목록 일원화", options: { color: MUTED } }],
     { x: X0, y: pY, w: WALL, h: 0.3, fontSize: 9.3, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
   bottomStrip(s, [
-    ["단계별 자동 진행", "선별이 끝나면 결과를 사람이 확인한 뒤 학습 단계로"],
-    ["판정 기준을 코드에 고정", "결과를 보고 기준을 바꿀 수 없게 미리 적어 둠"],
-    ["기존 모듈 그대로 활용", "형상 · 해석 · 결과 모듈 위에 선별 · 학습 단계만 추가"]
+    ["단계별 자동 진행", "선별이 끝나면 판정을 확인한 뒤 2단계로 진행"],
+    ["판정 규칙 코드화", "사전 고정 규칙을 코드에 명시 — 임의 변경 차단"],
+    ["자동해석 모듈 그대로 활용", "형상 · 해석 · 결과 모듈 위에 선별 · 학습 단계 추가"]
   ]);
-  s.addNotes("자동해석 구조에 선별 실험표를 만드는 단계(DSD.py)와, 선별 판정·예측 모델 학습 단계(DSD_analysis.py, ML.py)를 추가했다. 형상 만들기, 해석, 결과 저장 모듈은 그대로 쓴다. 선별이 끝나면 프로그램이 멈추고, 사람이 판정 결과를 확인한 뒤 학습 단계로 넘어간다.");
+  s.addNotes("자동해석 구조에 선별 실험표 생성(DSD.py)과 선별 판정·대리모델 학습(DSD_analysis.py, ML.py)을 추가했다. 형상 빌드, 해석, 결과 저장 모듈은 그대로 활용한다. 선별이 끝나면 프로그램이 멈추고 판정 결과를 사람이 확인한 뒤 2단계로 넘어간다.");
 }
 
-/* ───────────── 10. [03] 예측 정확도 검증 ───────────── */
+/* ───────────── 10. [03] 예측값 · 실측값 비교 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "03", SEC3, "예측 정확도 검증  —  처음 보는 설계도 맞히나");
+  header(s, "03", SEC3, "예측값 · 실측값 비교  —  10-fold 교차검증");
   const fmt = { pressure_drop: "0", temp_std: "0.0", max_temp: "0", std_pass1: "0.00", std_pass2: "0.00", power_module_flow: "0.0", weight: "0.00" };
   const unit = { pressure_drop: "Pa", temp_std: "°C", max_temp: "°C", std_pass1: "LPM", std_pass2: "LPM", power_module_flow: "-", weight: "kg" };
   const W = 2.9, G = (12.23 - 4 * W) / 3, H = 2.55;
@@ -647,53 +647,53 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
       valAxisLabelFontSize: 7, catAxisLabelFontSize: 7, valAxisLabelColor: MUTED, catAxisLabelColor: MUTED,
       valGridLine: { color: "EEF1F5", size: 0.5 }, catGridLine: { style: "none" },
       showValAxisTitle: true, valAxisTitle: "예측", valAxisTitleFontSize: 7, valAxisTitleColor: MUTED,
-      showCatAxisTitle: true, catAxisTitle: "실제 해석", catAxisTitleFontSize: 7, catAxisTitleColor: MUTED
+      showCatAxisTitle: true, catAxisTitle: "실측", catAxisTitleFontSize: 7, catAxisTitleColor: MUTED
     });
   });
   // 8번째 칸 — 요약
   const x = M + 3 * (W + G), y = 1.24 + H + 0.16;
   s.addShape(pres.ShapeType.roundRect, { x, y, w: W, h: H, rectRadius: 0.05, fill: { color: NAVY }, line: { color: NAVY } });
-  s.addText("예측 정확도  R²", { x: x + 0.2, y: y + 0.14, w: W - 0.4, h: 0.28, fontSize: 10, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("교차검증 R²  (결정계수)", { x: x + 0.2, y: y + 0.14, w: W - 0.4, h: 0.28, fontSize: 10, color: ICE, fontFace: F, isTextBox: true, margin: 0 });
   s.addText("0.89 ~ 1.00", { x: x + 0.2, y: y + 0.4, w: W - 0.4, h: 0.55, fontSize: 26, bold: true, color: "FFFFFF", fontFace: F, isTextBox: true, margin: 0, valign: "middle" });
   s.addText([
-    { text: "1에 가까울수록 정확 — 0.9면 성능 변화의 90%를 맞힘", options: { bold: true, color: "7FD6E8", breakLine: true } },
-    { text: "검증 방법: 80점 중 8점을 빼고 학습 → 뺀 8점을 예측, 10번 반복", options: { breakLine: true } },
+    { text: "1에 가까울수록 정확 — 0.9 = 응답 변동의 90%를 설명", options: { bold: true, color: "7FD6E8", breakLine: true } },
+    { text: "10-fold: 80점을 10묶음으로 나눠 한 묶음씩 빼고 학습 → 뺀 묶음을 예측", options: { breakLine: true } },
     { text: "→ 학습에 안 쓴 설계에 대한 정확도", options: { bold: true } }
   ], { x: x + 0.2, y: y + 1.0, w: W - 0.4, h: 1.42, fontSize: 9, color: "FFFFFF", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2, paraSpaceAfter: 3, valign: "top" });
 
-  s.addText("점 = 설계 1개  ·  빨간 선 = 예측이 실제 해석과 정확히 같은 경우 (선 위에 있을수록 정확)",
+  s.addText("점 = 설계 1개  ·  빨간 선 = 예측값 = 실측값 (선에 가까울수록 정확)",
     { x: M, y: 6.82, w: 12.23, h: 0.26, fontSize: 8.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
-  s.addNotes("모델이 처음 보는 설계도 맞히는지 확인했다. 80점 중 8점을 빼고 학습한 모델로 뺀 8점을 예측하는 것을 10번 반복했다. 점이 빨간 대각선에 가까울수록 예측이 실제 해석과 같다는 뜻이다. R²는 1에 가까울수록 정확한데, 7개 지표 모두 0.89 이상이고 2차 균일도가 0.893으로 가장 낮다.");
+  s.addNotes("10-fold 교차검증으로 정확도를 확인했다. 80점을 10묶음으로 나눠 한 묶음씩 빼고 학습한 모델로 빠진 묶음을 예측했다. 즉 모델이 처음 보는 설계를 얼마나 맞히는지 본 것이다. 점이 빨간 대각선에 가까울수록 정확하다. 결정계수 R²는 1에 가까울수록 정확한데, 응답 7개 모두 0.89 이상이고 2차 균일도가 0.893으로 가장 낮다.");
 }
 
-/* ───────────── 11. [03] 변수 영향도 및 교호작용 ───────────── */
+/* ───────────── 11. [03] 변수별 민감도 및 교호작용 ───────────── */
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "03", SEC3, "변수 영향도 및 교호작용  —  무엇이 성능을 좌우하나");
+  header(s, "03", SEC3, "변수별 민감도 및 교호작용  —  Sobol 지수");
   const y0 = 1.30, ch = 4.55;
 
   // 좌 — 1순위 변수 비교
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "지표별 영향 1순위  —  DSD vs 머신러닝");
+  cardTitle(s, M, y0, "응답별 1순위 변수  —  DSD vs GPR");
   let hit = 0;
-  const rows = [[hdr("지표"), hdr("DSD (29회)"), hdr("머신러닝 (80점)"), { text: "일치", options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } }]];
+  const rows = [[hdr("응답"), hdr("DSD 기여율 (29회)"), hdr("GPR Sobol S1 (80점)"), { text: "일치", options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } }]];
   ORDER.forEach(rp => {
     const a = DATA.dsd_top[rp][0], b = sobolRank(rp)[0];
     const same = a === b; if (same) hit++;
     rows.push([RL[rp], VL[a], VL[b], { text: same ? "●" : "△", options: { bold: true, color: same ? NAVY : "0088A6", align: "center" } }]);
   });
-  tbl(s, M + 0.34, y0 + 0.74, 5.3, rows, [1.2, 1.65, 1.65, 0.8], { rowH: 0.36 });
+  tbl(s, M + 0.34, y0 + 0.74, 5.3, rows, [1.05, 1.65, 1.9, 0.7], { rowH: 0.36 });
   const wS1 = Object.values(DATA.sobol.weight.S1).sort((p, q) => q - p).slice(0, 4);
   s.addText(`● 일치   △ 중량은 핀 변수 4개가 ${Math.round(wS1[3] * 100)} ~ ${Math.round(wS1[0] * 100)}%로 비슷해 순위 차이가 의미 없음`,
     { x: M + 0.34, y: y0 + 3.7, w: 5.3, h: 0.24, fontSize: 8.5, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
-  s.addText([{ text: `${hit} / 7`, options: { bold: true, color: NAVY, fontSize: 18 } }, { text: "   지표에서 1순위 일치 — 방법이 달라도 같은 결론", options: { color: TXT, fontSize: 9.5 } }],
+  s.addText([{ text: `${hit} / 7`, options: { bold: true, color: NAVY, fontSize: 18 } }, { text: "   응답에서 1순위 일치 — 서로 다른 방법 · 데이터로 같은 결론", options: { color: TXT, fontSize: 9.5 } }],
     { x: M + 0.34, y: y0 + 3.98, w: 5.3, h: 0.42, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
   // 우 — 교호작용 비율
   card(s, CX2, y0, CW, ch);
-  cardTitle(s, CX2, y0, "변수끼리 얽힌 효과 (교호작용) 비율");
-  s.addText("성능 변화 중 변수끼리 함께 바뀔 때 생기는 부분 — 머신러닝으로 계산",
+  cardTitle(s, CX2, y0, "교호작용 비율  —  1 − ΣS1");
+  s.addText("응답 변동 중 주효과(S1)로 설명되지 않는 부분 = 변수끼리 얽힌 효과",
     { x: CX2 + 0.34, y: y0 + 0.62, w: 5.3, h: 0.36, fontSize: 8.6, color: MUTED, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.1 });
   const BX = CX2 + 1.5, BW = 3.45, VMAX = 0.20;
   ORDER.forEach((rp, i) => {
@@ -707,16 +707,16 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   const pS1 = DATA.sobol.std_pass2.S1.power_input_thick, pST = DATA.sobol.std_pass2.ST.power_input_thick;
   s.addShape(pres.ShapeType.roundRect, { x: CX2 + 0.34, y: y0 + 3.6, w: 5.3, h: 0.8, rectRadius: 0.06, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
   s.addText([
-    { text: `예) 2차 균일도 — 분기 입구 두께는 혼자서 ${Math.round(pS1 * 100)}%, 다른 변수와 얽혀서 총 ${Math.round(pST * 100)}%`, options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "균일도는 변수를 하나씩 바꿔서는 최적점을 찾기 어려움 → 모델로 함께 탐색", options: { color: TXT } }
+    { text: `예) 2차 균일도 — 분기 입구 두께: 주효과 지수 S1 ${Math.round(pS1 * 100)}% → 총효과 지수 ST ${Math.round(pST * 100)}%`, options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "균일도는 변수별 개별 조정으로 최적점 탐색 곤란 → 대리모델 기반 최적화", options: { color: TXT } }
   ], { x: CX2 + 0.5, y: y0 + 3.6, w: 5.0, h: 0.8, fontSize: 9.2, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
   bottomStrip(s, [
-    ["핀 개수가 성능을 좌우", "1 · 2차 핀 개수가 지표 5개에서 영향 1순위"],
-    ["DSD와 머신러닝 결론 일치", `서로 다른 방법 · 데이터인데 1순위 ${hit}/7 일치`],
-    ["균일도는 변수끼리 얽힘", "교호작용 13 ~ 19% → DSD로는 못 보는 부분을 모델로 확인"]
+    ["핀 개수가 성능을 좌우", "1 · 2차 핀 개수가 응답 5개에서 1순위"],
+    ["DSD와 GPR 결론 일치", `서로 다른 방법 · 데이터인데 1순위 ${hit}/7 일치`],
+    ["균일도는 교호작용이 큼", "13 ~ 19% → DSD로는 분리 못 하는 부분을 GPR로 확인"]
   ]);
-  s.addNotes("왼쪽은 지표마다 가장 영향이 큰 변수를 DSD 29회 결과와 머신러닝 모델(80점 학습)에서 각각 뽑아 비교한 것이다. 방법도 데이터도 다른데 7개 중 6개가 같았고, 중량은 핀 변수 4개가 비슷하게 영향을 줘서 순위 차이에 의미가 없다. 오른쪽은 머신러닝으로만 볼 수 있는 부분으로, 변수끼리 얽혀서 생기는 효과의 비율이다. 온도나 분기비는 거의 변수 하나씩의 효과로 설명되지만, 1차·2차 균일도는 13~19%가 변수끼리 얽혀서 생긴다. 예를 들어 분기 입구 두께는 2차 균일도에 혼자서는 7% 정도지만, 다른 변수와 얽히면 18%까지 영향을 준다. 그래서 균일도는 변수를 하나씩 조정해서는 최적점을 찾기 어렵고, 모델로 함께 탐색해야 한다.");
+  s.addNotes("왼쪽은 응답마다 1순위 변수를 DSD 분산 기여율(29회)과 GPR 기반 Sobol 주효과 지수 S1(80점 학습)에서 각각 뽑아 비교한 것이다. 방법도 데이터도 다른데 7개 중 6개가 같았고, 중량은 핀 변수 4개가 비슷하게 영향을 줘서 순위 차이에 의미가 없다. 오른쪽은 DSD로는 분리할 수 없는 교호작용의 비율로, 1에서 주효과 지수의 합을 뺀 값이다. 온도나 분기비는 거의 주효과로 설명되지만, 1차·2차 균일도는 13~19%가 교호작용이다. 예를 들어 분기 입구 두께는 2차 균일도에 주효과 지수 7% 정도지만, 교호작용까지 포함한 총효과 지수는 18%다. 그래서 균일도는 변수를 하나씩 조정해서는 최적점을 찾기 어렵고, 대리모델 기반으로 함께 탐색해야 한다.");
 }
 
 /* ───────────── 12. [03] 한계 및 차월 계획 ───────────── */
@@ -726,24 +726,24 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   header(s, "03", SEC3, "한계 및 차월 계획");
   const y0 = 1.30, ch = 3.75;
   card(s, M, y0, CW, ch);
-  cardTitle(s, M, y0, "정확도가 가장 낮은 지표  —  2차 균일도");
+  cardTitle(s, M, y0, "정확도가 가장 낮은 응답  —  2차 균일도");
   s.addShape(pres.ShapeType.roundRect, { x: M + 0.34, y: y0 + 0.74, w: 1.7, h: 0.86, rectRadius: 0.07, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
   s.addText([{ text: "R²", options: { fontSize: 9, color: MUTED, breakLine: true } }, { text: "0.893", options: { fontSize: 22, bold: true, color: "0088A6" } }],
     { x: M + 0.34, y: y0 + 0.74, w: 1.7, h: 0.86, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-  s.addText([{ text: "2차 통과 유로마다 유량이 고른 정도", options: { bold: true, color: NAVY, breakLine: true } },
-             { text: "7개 지표 중 예측 정확도가 가장 낮음", options: { color: MUTED } }],
+  s.addText([{ text: "2차 통과 유로 유량의 표준편차", options: { bold: true, color: NAVY, breakLine: true } },
+             { text: "응답 7개 중 예측 정확도가 가장 낮음", options: { color: MUTED } }],
     { x: M + 2.22, y: y0 + 0.74, w: 3.4, h: 0.86, fontSize: 10, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
   s.addText("원인", { x: M + 0.34, y: y0 + 1.8, w: 5.3, h: 0.28, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
   s.addText([
     { text: "값 자체가 0에 가까워 작은 오차도 크게 보임", options: { bullet: true, breakLine: true } },
-    { text: `분기 뒤 구간이라 여러 변수가 얽혀 작용 — 교호작용 ${Math.round(interShare("std_pass2") * 100)}%로 7개 지표 중 최대`, options: { bullet: true, breakLine: true } },
-    { text: "80점만으로는 이런 복잡한 변화를 다 담기에 부족", options: { bullet: true } }
+    { text: `분기 이후 구간이라 여러 변수가 함께 작용 — 교호작용 ${Math.round(interShare("std_pass2") * 100)}%로 응답 중 최대`, options: { bullet: true, breakLine: true } },
+    { text: "80점만으로는 이 영역의 변화를 충분히 덮지 못함", options: { bullet: true } }
   ], { x: M + 0.34, y: y0 + 2.12, w: 5.3, h: 1.3, fontSize: 9.5, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 5, lineSpacingMultiple: 1.2, valign: "top" });
 
   card(s, CX2, y0, CW, ch);
   cardTitle(s, CX2, y0, "차월 계획  —  3개월차");
-  [["적응 샘플링", "모델이 자신 없는 곳(예측 범위가 넓은 곳)을 골라 해석을 추가"],
-   ["다목적 최적화", "예측 모델 위에서 여러 지표를 함께 만족하는 최적 설계 탐색"],
+  [["적응 샘플링", "불확실성이 큰 지점을 골라 해석을 추가해 정확도 보강"],
+   ["다목적 최적화", "대리모델 위에서 파레토 최적해 탐색"],
    ["사업 적용 검토", "실제 사업에서 AI 열해석 자동화 적용 가능성 검토"]].forEach(([h, d], i) => {
     const yy = y0 + 0.76 + i * 0.9;
     s.addShape(pres.ShapeType.ellipse, { x: CX2 + 0.36, y: yy + 0.1, w: 0.34, h: 0.34, fill: { color: i === 0 ? ACCENT : NAVY }, line: { color: i === 0 ? ACCENT : NAVY } });
@@ -756,12 +756,12 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   const by = y0 + ch + 0.22;
   s.addShape(pres.ShapeType.roundRect, { x: M, y: by, w: 12.23, h: 6.98 - by, rectRadius: 0.06, fill: { color: NAVY }, line: { color: NAVY } });
   s.addText("2 개 월 차   요 약", { x: M + 0.42, y: by + 0.16, w: 4, h: 0.3, fontSize: 11, bold: true, color: ACCENT, fontFace: F, isTextBox: true, margin: 0, charSpacing: 1 });
-  [["11 → 8", "영향 있는 변수 골라내기 (DSD 29회)"], ["80 점", "학습용 해석 (OLHD)"], ["0.89 ~ 1.00", "예측 모델 정확도 R²"]].forEach(([v, l], i) => {
+  [["11 → 8", "변수 선별 (DSD 29회)"], ["80 점", "활성 변수 실험계획 (OLHD)"], ["0.89 ~ 1.00", "대리모델 교차검증 R²"]].forEach(([v, l], i) => {
     const x = M + 0.42 + i * 3.95;
     s.addText(v, { x, y: by + 0.5, w: 3.6, h: 0.62, fontSize: 26, bold: true, color: "FFFFFF", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
     s.addText(l, { x, y: by + 1.12, w: 3.6, h: 0.3, fontSize: 10, color: ICE, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
-  s.addNotes("가장 정확도가 낮은 지표는 2차 균일도다. 값 자체가 0에 가깝고, 분기 뒤 구간이라 변수끼리 얽혀서 생기는 효과가 7개 지표 중 가장 크다. 80점만으로는 이런 복잡한 변화를 충분히 담지 못했다. 차월에는 모델이 자신 없는 곳, 즉 예측 범위가 넓은 곳을 골라 해석을 추가하는 적응 샘플링으로 이 부분을 보강하고, 그 위에서 여러 지표를 함께 만족하는 최적 설계를 찾는다.");
+  s.addNotes("가장 정확도가 낮은 응답은 2차 균일도다. 값 자체가 0에 가깝고, 분기 이후 구간이라 교호작용이 응답 중 가장 크다. 80점만으로는 이 영역을 충분히 덮지 못했다. 차월에는 대리모델의 불확실성이 큰 지점을 골라 해석을 추가하는 적응 샘플링으로 이 부분을 보강하고, 그 위에서 다목적 최적화로 파레토 최적해를 찾는다.");
 }
 
 pres.writeFile({ fileName: (process.env.M2OUT || __dirname + "/2개월차_변수선별_및_대리모델구축.pptx") }).then(f => console.log("생성 완료:", f));
