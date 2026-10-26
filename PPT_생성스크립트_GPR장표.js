@@ -104,7 +104,7 @@ const fs = require("fs");
 const DATA = JSON.parse(fs.readFileSync(__dirname + "/2개월차_데이터.json", "utf-8"));
 const EQ = __dirname + "/식/";
 const eq = (s, name, x, y, k = 0.7) => {
-  const sz = { eq1: [1821, 120], eq2: [2099, 285], eq3a: [941, 136], eq3b: [1497, 136], eq4: [2120, 125] }[name];
+  const sz = { eq1: [1821, 120], eq2: [2099, 285], eq3a: [941, 136], eq3b: [1497, 136], eq4: [2120, 125], eqA: [793, 252] }[name];
   const w = sz[0] / 300 * k, h = sz[1] / 300 * k;
   s.addImage({ path: EQ + name + ".png", x, y, w, h });
   return h;
@@ -139,36 +139,53 @@ const cap = (s, t, x, y, w, h = 0.26) => s.addText(t, { x, y, w, h, fontSize: 8.
   s.addShape(pres.ShapeType.rect, { x: PX + 3.15, y: ly + 0.03, w: 0.3, h: 0.16, fill: { color: ACCENT, transparency: 72 }, line: { color: ACCENT, transparency: 100 } });
   s.addText("불확실성 ±2σ", { x: PX + 3.5, y: ly, w: 1.3, h: 0.22, fontSize: 8.5, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
-  lbl(s, "예측  —  평균과 불확실성", X, y0 + 3.36, W);
-  const e1 = eq(s, "eq3a", X + 0.1, y0 + 3.68);
-  eq(s, "eq3b", X + 0.1, y0 + 3.68 + e1 + 0.06);
-  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 4.62, w: W, h: 0.78, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  lbl(s, "쉽게 보면  —  예측 = 주변 해석 결과의 가중평균", X, y0 + 3.36, W);
+  eq(s, "eqA", X + 0.15, y0 + 3.66);
+  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 4.36, w: W, h: 1.0, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
   s.addText([
-    { text: "μ : 해석한 80점 결과의 가중평균 (가까운 점일수록 큰 가중치)", options: { breakLine: true } },
-    { text: "σ² : 해석점에서 멀수록 커짐 → 그림의 파란 띠 (±2σ)", options: {} }
-  ], { x: X + 0.16, y: y0 + 4.62, w: W - 0.3, h: 0.78, fontSize: 9, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.3 });
+    { text: "w_i : 가까운 해석점일수록 큰 가중치", options: { breakLine: true } },
+    { text: "불확실성 σ : 해석점에서 멀수록 커짐 → 그림의 파란 띠", options: { breakLine: true } },
+    { text: "가중치 · 불확실성은 커널로 계산 (전체 식은 부록)", options: { color: MUTED } }
+  ], { x: X + 0.16, y: y0 + 4.36, w: W - 0.3, h: 1.0, fontSize: 9.2, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.3 });
 
-  // 우 — 모델 · 커널 · 학습
+  // 우 — 왜 GPR + 모델 구성
   card(s, CX2, y0, CW, ch);
-  cardTitle(s, CX2, y0, "모델 구성");
-  lbl(s, "모델 가정", RX, y0 + 0.66, W);
-  const h1 = eq(s, "eq1", RX + 0.1, y0 + 0.96);
-  cap(s, "해석 결과 y = 매끄러운 함수 f + 작은 수치 오차 ε", RX, y0 + 0.96 + h1 + 0.04, W);
-
-  lbl(s, "커널  —  Matern 5/2 + ARD", RX, y0 + 1.66, W);
-  const h2 = eq(s, "eq2", RX + 0.1, y0 + 1.96);
-  cap(s, "가까운 설계일수록 결과가 비슷 · 변수마다 길이척도 ℓ_d를 따로 학습 (ℓ_d가 작을수록 민감)", RX, y0 + 1.96 + h2 + 0.04, W, 0.4);
-
-  lbl(s, "학습  —  하이퍼파라미터 결정", RX, y0 + 3.14, W);
-  const h4 = eq(s, "eq4", RX + 0.1, y0 + 3.44);
-  cap(s, "θ = {σ_f, ℓ₁~ℓ₈, σ_n} : 이 데이터가 나올 가능성(우도)이 최대가 되도록 결정", RX, y0 + 3.44 + h4 + 0.04, W);
-
-  tbl(s, RX, y0 + 4.2, W, [
-    [hdr("학습 구성"), hdr("내용")],
-    ["입력 → 출력", "활성 변수 8개 (0 ~ 1 정규화) → 응답 7개, 응답별 모델 1개"],
-    ["전처리", "차압은 로그 변환 (값의 범위가 넓음)"]
-  ], [1.2, 4.1], { rowH: 0.3, fontSize: 9 });
+  cardTitle(s, CX2, y0, "왜 GPR인가  —  본 과제에 적합한 이유");
+  [["해석 비용이 큼", "해석 1회 약 17분 → 수천 회 탐색은 불가, 대리모델이 수 초 만에 예측"],
+   ["소규모 데이터로 학습", "80점만으로 응답 7개 모델 구축 (교차검증 R² 0.89 ~ 1.00)"],
+   ["불확실성 제공", "예측을 얼마나 믿을지 함께 제공 → 추가 해석 위치 선정에 활용"],
+   ["변수별 민감도", "변수마다 길이척도를 따로 학습 → 영향 큰 변수 확인"]].forEach(([h, d], i) => {
+    const yy = y0 + 0.7 + i * 0.6;
+    s.addShape(pres.ShapeType.ellipse, { x: RX, y: yy + 0.1, w: 0.3, h: 0.3, fill: { color: i < 2 ? NAVY : ACCENT }, line: { color: i < 2 ? NAVY : ACCENT } });
+    s.addText(String(i + 1), { x: RX, y: yy + 0.1, w: 0.3, h: 0.3, fontSize: 9.5, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(h, { x: RX + 0.42, y: yy, w: W - 0.42, h: 0.25, fontSize: 10.5, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(d, { x: RX + 0.42, y: yy + 0.26, w: W - 0.42, h: 0.25, fontSize: 9, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  });
+  lbl(s, "모델 구성", RX, y0 + 3.2, W);
+  tbl(s, RX, y0 + 3.52, W, [
+    [hdr("항목"), hdr("내용")],
+    ["커널", "Matern 5/2 + ARD — 가까운 설계일수록 결과가 비슷,\n변수마다 민감도(길이척도)를 따로 학습"],
+    ["학습", "해석 데이터가 나올 가능성(우도)이 최대가 되도록\n하이퍼파라미터 자동 결정"],
+    ["입력 → 출력", "활성 변수 8개 → 응답 7개, 응답별 모델 1개"]
+  ], [1.15, 4.15], { rowH: 0.3, fontSize: 9 });
 
   s.addNotes("가우시안 프로세스 회귀는 해석 결과를 매끄러운 함수와 작은 수치 오차의 합으로 봅니다. 두 설계가 얼마나 비슷한지는 Matern 커널로 계산하는데, 변수마다 길이척도를 따로 두어 민감한 변수는 짧게, 둔감한 변수는 길게 학습합니다. 이 하이퍼파라미터들은 확보한 해석 데이터가 나올 가능성, 즉 우도가 최대가 되도록 자동으로 정합니다. 예측값은 해석한 80점 결과의 가중평균이고 가까운 점일수록 가중치가 크며, 불확실성은 해석점에서 멀어질수록 커집니다.");
+}
+{
+  const s = pres.addSlide();
+  s.background = { color: BG };
+  header(s, "A", "부록", "GPR 수식  (질의응답용)");
+  const y0 = 1.30, X = M + 0.34;
+  card(s, M, y0, 12.23, 5.55);
+  [["모델 가정", "eq1", "해석 결과 = 매끄러운 함수 + 작은 수치 오차"],
+   ["커널 — Matern 5/2 + ARD", "eq2", "가까운 설계일수록 결과가 비슷 · 변수마다 길이척도 ℓ_d (작을수록 민감)"],
+   ["예측 평균", "eq3a", "해석한 80점 결과의 가중평균"],
+   ["예측 분산 (불확실성)", "eq3b", "해석점에서 멀수록 커짐"],
+   ["학습 — 로그 우도 최대화", "eq4", "θ = {σ_f, ℓ₁~ℓ₈, σ_n}를 이 값이 최대가 되도록 결정"]].forEach(([t1, e, c], i) => {
+    const yy = y0 + 0.35 + i * 1.02;
+    s.addText(t1, { x: X, y: yy, w: 3.2, h: 0.3, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+    s.addText(c, { x: X, y: yy + 0.32, w: 3.2, h: 0.5, fontSize: 9, color: MUTED, fontFace: F, isTextBox: true, margin: 0, valign: "top" });
+    eq(s, e, X + 3.5, yy, 0.62);
+  });
 }
 pres.writeFile({ fileName: __dirname + "/GPR_장표.pptx" }).then(f => console.log("생성 완료:", f));
