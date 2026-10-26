@@ -114,13 +114,30 @@ function hexMix(a, b, t) {
 {
   const s = pres.addSlide();
   s.background = { color: BG };
-  header(s, "04", "머신러닝 대리모델 구축", "변수별 민감도 및 교호작용  —  Sobol 지수");
-  const y0 = 1.30, ch = 4.55;
+  header(s, "04", "머신러닝 대리모델 구축", "변수별 민감도 및 교호작용");
+
+  // 상단 — 계산 과정
+  const steps = [
+    ["대리모델로 설계 약 16만 개 예측", "해석 대신 GPR로 계산 — 수십 초"],
+    ["변수 하나씩만 바꿔 결과 비교", "그 변수 때문에 결과가 얼마나 변하는지"],
+    ["응답 변동을 변수별 몫(%)으로 나눔", "관여한 몫 = 민감도 · 얽힌 몫 = 교호작용"]
+  ];
+  const sw = 3.85, sg = (12.23 - 3 * sw) / 2;
+  steps.forEach(([h, d], i) => {
+    const x = M + i * (sw + sg), y = 1.25;
+    s.addShape(pres.ShapeType.roundRect, { x, y, w: sw, h: 0.86, rectRadius: 0.06, fill: { color: i === 2 ? NAVY : CARD }, line: { color: i === 2 ? NAVY : LINE, width: 0.75 }, shadow: sh() });
+    s.addShape(pres.ShapeType.ellipse, { x: x + 0.16, y: y + 0.27, w: 0.32, h: 0.32, fill: { color: i === 2 ? ACCENT : NAVY }, line: { color: i === 2 ? ACCENT : NAVY } });
+    s.addText(String(i + 1), { x: x + 0.16, y: y + 0.27, w: 0.32, h: 0.32, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addText([{ text: h, options: { bold: true, color: i === 2 ? "FFFFFF" : NAVY, breakLine: true } }, { text: d, options: { color: i === 2 ? ICE : MUTED, fontSize: 8.6 } }],
+      { x: x + 0.6, y, w: sw - 0.7, h: 0.86, fontSize: 10, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+    if (i < 2) s.addText("▶", { x: x + sw, y: y + 0.28, w: sg, h: 0.3, fontSize: 10, color: "9FB0C6", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  });
+  const y0 = 2.28, ch = 4.0;
 
   // 좌 — 민감도 히트맵 (총효과 ST)
   const LW = 7.0;
   card(s, M, y0, LW, ch);
-  cardTitle(s, M, y0, "변수별 민감도  —  총효과 지수 ST (%)");
+  cardTitle(s, M, y0, "변수별 민감도 (%)  —  혼자 + 얽힌 효과 포함");
   const rows = [[hdr("설계변수"), ...ORDER.map(r => ({ text: RL[r], options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } }))]];
   VARS.forEach(v => {
     const row = [{ text: VL[v], options: { bold: true, color: NAVY } }];
@@ -134,37 +151,39 @@ function hexMix(a, b, t) {
     rows.push(row);
   });
   s.addTable(rows, { x: M + 0.3, y: y0 + 0.66, w: LW - 0.6, colW: [1.45, ...ORDER.map(() => (LW - 0.6 - 1.45) / 7)],
-    fontSize: 9, fontFace: F, color: TXT, rowH: 0.33, valign: "middle", margin: [1, 3, 1, 3],
+    fontSize: 9, fontFace: F, color: TXT, rowH: 0.3, valign: "middle", margin: [1, 3, 1, 3],
     border: [{ pt: 0.5, color: "FFFFFF" }, { pt: 0.5, color: "FFFFFF" }, { pt: 0.5, color: LINE }, { pt: 0.5, color: "FFFFFF" }] });
-  s.addText("ST = 그 변수가 응답 변동에 미치는 전체 영향 (혼자 내는 효과 + 다른 변수와 얽힌 효과) · 색 칸 = 2% 이상 (선별 기준과 동일) · GPR로 설계 약 16만 개를 예측해 계산",
-    { x: M + 0.3, y: y0 + 3.75, w: LW - 0.6, h: 0.5, fontSize: 8.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
+  s.addText("숫자 = 응답 변동 중 그 변수가 관여한 몫 · 색 칸 = 2% 이상 (선별 기준과 동일) · 분산 기반 민감도 분석 (Sobol 지수)",
+    { x: M + 0.3, y: y0 + 3.45, w: LW - 0.6, h: 0.45, fontSize: 8.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
 
   // 우 — 교호작용 비율
   const RX0 = M + LW + 0.25, RW = 12.23 - LW - 0.25, RX = RX0 + 0.3, W = RW - 0.6;
   card(s, RX0, y0, RW, ch);
-  cardTitle(s, RX0, y0, "교호작용 비율  —  1 − ΣS1");
-  s.addText("응답 변동 중 변수끼리 얽혀서 생기는 부분", { x: RX, y: y0 + 0.6, w: W, h: 0.26, fontSize: 8.6, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
+  cardTitle(s, RX0, y0, "교호작용 비율 (%)");
+  s.addText("응답 변동 중 변수 하나로는 설명 안 되고 얽혀서 생긴 몫", { x: RX, y: y0 + 0.6, w: W, h: 0.26, fontSize: 8.6, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
   const BX = RX + 0.95, BW = W - 1.55;
   ORDER.forEach((rp, i) => {
-    const v = inter(rp), yy = y0 + 0.96 + i * 0.33, hot = rp === "std_pass1" || rp === "std_pass2";
+    const v = inter(rp), yy = y0 + 0.92 + i * 0.3, hot = rp === "std_pass1" || rp === "std_pass2";
     s.addText(RL[rp], { x: RX, y: yy, w: 0.88, h: 0.26, fontSize: 9, bold: hot, color: hot ? NAVY : TXT, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
     s.addShape(pres.ShapeType.rect, { x: BX, y: yy + 0.05, w: BW, h: 0.16, fill: { color: "F0F3F7" }, line: { color: "F0F3F7" } });
     s.addShape(pres.ShapeType.rect, { x: BX, y: yy + 0.05, w: Math.max(0.02, BW * Math.min(v / 0.2, 1)), h: 0.16, fill: { color: hot ? ACCENT : "9FB0C6" }, line: { color: hot ? ACCENT : "9FB0C6" } });
     s.addText(`${(v * 100).toFixed(0)}%`, { x: BX + BW + 0.05, y: yy, w: 0.5, h: 0.26, fontSize: 9, bold: true, color: hot ? "0088A6" : MUTED, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
   const p1 = DATA.sobol.std_pass2.S1.power_input_thick, pt = DATA.sobol.std_pass2.ST.power_input_thick;
-  s.addShape(pres.ShapeType.roundRect, { x: RX, y: y0 + 3.38, w: W, h: 1.0, rectRadius: 0.06, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
+  s.addShape(pres.ShapeType.roundRect, { x: RX, y: y0 + 3.08, w: W, h: 0.8, rectRadius: 0.06, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
   s.addText([
     { text: `예) 2차 균일도 — 분기 입구 두께`, options: { bold: true, color: NAVY, breakLine: true } },
     { text: `혼자 ${Math.round(p1 * 100)}% → 얽힌 효과 포함 ${Math.round(pt * 100)}%`, options: { bold: true, color: "0088A6", breakLine: true } },
     { text: "변수를 하나씩 조정해서는 최적점을 찾기 어려움", options: { color: TXT } }
-  ], { x: RX + 0.14, y: y0 + 3.38, w: W - 0.28, h: 1.0, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
+  ], { x: RX + 0.14, y: y0 + 3.08, w: W - 0.28, h: 0.8, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
 
-  bottomStrip(s, [
-    ["핀 개수가 성능을 좌우", "1차 핀 → 차압 · 1차 균일도  /  2차 핀 → 2차 균일도"],
-    ["균일도는 교호작용이 큼", "1차 13% · 2차 19% → 변수 조합까지 함께 봐야 함"],
-    ["차월 — 적응 샘플링", "80점으로는 데이터 부족 → 불확실성 큰 영역에 해석 추가"]
-  ]);
-  s.addNotes("GPR 대리모델로 설계 약 16만 개를 예측해서 Sobol 지수를 계산했습니다. 왼쪽 표는 총효과 지수로, 변수가 혼자 내는 효과와 다른 변수와 얽혀서 내는 효과를 합친 전체 영향입니다. 1차 핀 개수는 차압·최고온도·1차 균일도를, 2차 핀 개수는 온도편차·2차 균일도를 좌우합니다. 오른쪽은 교호작용 비율로, 온도나 분기비는 대부분 변수 하나씩의 효과로 설명되지만 균일도는 13~19%가 변수끼리 얽혀서 생깁니다. 이런 복잡한 영역은 80점으로는 아직 데이터가 부족해서, 차월에는 불확실성이 큰 영역에 해석을 추가하는 적응 샘플링을 진행합니다.");
+  s.addShape(pres.ShapeType.roundRect, { x: M, y: 6.42, w: 12.23, h: 0.52, rectRadius: 0.06, fill: { color: CARD }, line: { color: LINE, width: 0.75 } });
+  s.addText([
+    { text: "핀 개수가 성능을 좌우", options: { bold: true, color: NAVY } },
+    { text: "  1차 핀 → 차압 · 1차 균일도  /  2차 핀 → 2차 균일도          ", options: { color: MUTED } },
+    { text: "균일도는 교호작용이 큼", options: { bold: true, color: NAVY } },
+    { text: "  1차 13% · 2차 19% → 변수 조합까지 함께 봐야 함", options: { color: MUTED } }
+  ], { x: M + 0.3, y: 6.42, w: 11.7, h: 0.52, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  s.addNotes("변수별 민감도는 이렇게 계산했습니다. 먼저 GPR 대리모델로 설계 약 16만 개의 성능을 예측하고, 변수를 하나씩만 바꾼 설계끼리 결과를 비교해서, 응답이 변하는 몫을 변수별 퍼센트로 나눴습니다. 왼쪽 표의 숫자는 그 변수가 혼자 또는 다른 변수와 얽혀서 관여한 몫입니다. 1차 핀 개수는 차압과 1차 균일도를, 2차 핀 개수는 2차 균일도를 좌우합니다. 오른쪽은 변수 하나로는 설명되지 않고 변수끼리 얽혀서 생긴 몫으로, 온도나 분기비는 작지만 균일도는 13~19%로 큽니다.");
 }
 pres.writeFile({ fileName: __dirname + "/민감도_장표.pptx" }).then(f => console.log("생성 완료:", f));
