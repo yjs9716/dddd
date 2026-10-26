@@ -171,4 +171,35 @@ const cap = (s, t, x, y, w, h = 0.26) => s.addText(t, { x, y, w, h, fontSize: 8.
 
   s.addNotes("가우시안 프로세스 회귀는 해석 결과를 매끄러운 함수와 작은 수치 오차의 합으로 봅니다. 두 설계가 얼마나 비슷한지는 Matern 커널로 계산하는데, 변수마다 길이척도를 따로 두어 민감한 변수는 짧게, 둔감한 변수는 길게 학습합니다. 이 하이퍼파라미터들은 확보한 해석 데이터가 나올 가능성, 즉 우도가 최대가 되도록 자동으로 정합니다. 예측값은 해석한 80점 결과의 가중평균이고 가까운 점일수록 가중치가 크며, 불확실성은 해석점에서 멀어질수록 커집니다.");
 }
+{
+  const s = pres.addSlide();
+  s.background = { color: BG };
+  header(s, "A", "부록", "GPR 식이 시사하는 바");
+  const y0 = 1.25, X = M + 0.3;
+  const rows = [
+    ["① 모델 가정", "eq1", "해석 결과는 진짜 성능에 아주 작은 오차가 섞인 것", "해석점을 억지로 통과하지 않는 매끄러운 곡선 → 수치 오차(σ_n²)까지 외우지 않음"],
+    ["② 커널", "eq2", "비슷한 설계는 비슷한 결과를 낸다", "변수마다 눈금 ℓ_d를 학습 → 민감한 변수(ℓ 작음)를 모델이 스스로 찾음"],
+    ["③ 예측 평균", "eq3a", "새 설계 = 가까운 해석 결과를 많이 참고한 평균", "해석 없이 80개 결과만으로 새 설계 성능을 수 초 만에 계산"],
+    ["④ 예측 분산", "eq3b", "근처에 해석점이 없으면 '모른다'고 말함", "예측 신뢰도 확인 + 불확실성이 큰 곳을 다음 해석 위치로 선정"],
+    ["⑤ 학습", "eq4", "가진 데이터를 가장 잘 설명하는 설정을 자동 선택", "너무 단순하지도 복잡하지도 않은 균형점을 데이터가 결정"]
+  ];
+  const rh = 0.98;
+  rows.forEach(([t1, e, m, imp], i) => {
+    const yy = y0 + i * (rh + 0.08);
+    card(s, M, yy, 12.23, rh);
+    s.addShape(pres.ShapeType.rect, { x: M, y: yy, w: 0.08, h: rh, fill: { color: i >= 2 ? ACCENT : NAVY }, line: { color: i >= 2 ? ACCENT : NAVY } });
+    s.addText(t1, { x: X, y: yy + 0.1, w: 1.5, h: 0.3, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+    const sz = { eq1: [1821, 120], eq2: [2099, 285], eq3a: [941, 136], eq3b: [1497, 136], eq4: [2120, 125] }[e];
+    const k = Math.min(0.5, 4.6 / (sz[0] / 300), 0.8 / (sz[1] / 300));
+    const w = sz[0] / 300 * k, h = sz[1] / 300 * k;
+    s.addImage({ path: EQ + e + ".png", x: X, y: yy + 0.42 + (0.5 - h) / 2, w, h });
+    s.addShape(pres.ShapeType.line, { x: M + 5.2, y: yy + 0.15, w: 0, h: rh - 0.3, line: { color: LINE, width: 0.75 } });
+    s.addText([
+      { text: m, options: { bold: true, color: NAVY, fontSize: 11, breakLine: true } },
+      { text: "→ " + imp, options: { color: TXT, fontSize: 9.5 } }
+    ], { x: M + 5.45, y: yy, w: 6.6, h: rh, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.3 });
+  });
+  s.addText("한 줄 요약 : 비슷한 설계는 비슷한 결과(②) → 해석 결과의 가중평균으로 예측(③) + 신뢰도 제공(④) · 설정은 데이터가 결정(⑤)",
+    { x: M, y: 6.62, w: 12.23, h: 0.3, fontSize: 9.5, bold: true, color: "0088A6", fontFace: F, isTextBox: true, margin: 0 });
+}
 pres.writeFile({ fileName: __dirname + "/GPR_장표.pptx" }).then(f => console.log("생성 완료:", f));
