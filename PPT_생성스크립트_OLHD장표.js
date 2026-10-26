@@ -113,18 +113,21 @@ function bottomStrip(s, pts) {
     s.addText(v, { x, y: y0 + 0.74, w: 1.62, h: 0.55, fontSize: 26, bold: true, color: i === 1 ? "FFFFFF" : NAVY, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
     s.addText(l, { x, y: y0 + 1.3, w: 1.62, h: 0.28, fontSize: 9, color: i === 1 ? ICE : MUTED, align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
-  s.addText("OLHD란", { x: X, y: y0 + 1.9, w: W, h: 0.28, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
-  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 2.22, w: W, h: 1.05, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
-  s.addText([
-    { text: "최적라틴방격법 (Optimal Latin Hypercube Design)", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "각 변수 범위를 80구간으로 나눠 구간마다 한 점씩 쓰고, 점 사이 거리를 최대로 벌려 설계공간을 빈틈없이 채우는 실험계획법", options: { color: TXT } }
-  ], { x: X + 0.16, y: y0 + 2.22, w: W - 0.3, h: 1.05, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
-  s.addText("오른쪽 그래프 읽는 법", { x: X, y: y0 + 3.5, w: W, h: 0.28, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("DOE 기법 선정", { x: X, y: y0 + 1.86, w: W, h: 0.28, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  tbl(s, X, y0 + 2.18, W, [
+    [hdr("방식"), hdr("판정")],
+    ["격자 전수탐색", "✕   변수 8개 × 5수준만 해도 5⁸ = 39만 회"],
+    ["무작위 샘플링", "✕   점이 한쪽에 몰리고 빈 영역 발생"],
+    [{ text: "최적라틴방격법 (OLHD)", options: { bold: true, color: NAVY } }, { text: "○   80점으로 설계공간을 고르게 채움", options: { bold: true, color: NAVY } }]
+  ], [1.95, 3.35], { rowH: 0.32, fontSize: 9.3 });
+  s.addText("OLHD: 각 변수 범위를 80구간으로 나눠 구간마다 한 점씩, 점 사이 거리를 최대로 배치",
+    { x: X, y: y0 + 3.5, w: W, h: 0.26, fontSize: 8.6, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("오른쪽 그래프 읽는 법", { x: X, y: y0 + 3.92, w: W, h: 0.28, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
   s.addText([
     { text: "점 하나 = 해석 1회, 칸마다 변수 두 개를 짝지어 본 분포", options: { bullet: true, breakLine: true } },
     { text: "대각선 막대 = 변수 하나만 봤을 때 범위를 고르게 썼는지", options: { bullet: true, breakLine: true } },
     { text: "빨간 칸(핀 개수 × 두께)이 깎인 것은 핀 갭(≥ 2 mm) 제약 때문", options: { bullet: true, bold: true, color: "C0392B" } }
-  ], { x: X, y: y0 + 3.84, w: W, h: 1.5, fontSize: 9.5, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 5, lineSpacingMultiple: 1.2, valign: "top" });
+  ], { x: X, y: y0 + 4.24, w: W, h: 1.2, fontSize: 9.5, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 5, lineSpacingMultiple: 1.2, valign: "top" });
 
   card(s, CX2, y0, CW, ch);
   const IS = 5.35;
