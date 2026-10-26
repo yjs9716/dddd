@@ -127,7 +127,7 @@ function hexMix(a, b, t) {
     ORDER.forEach(r => {
       const val = DATA.sobol[r].ST[v] * 100;
       const tt = Math.min(val / 70, 1);
-      row.push(val >= 5
+      row.push(val >= 2
         ? { text: val.toFixed(0), options: { bold: true, align: "center", color: tt > 0.45 ? "FFFFFF" : NAVY, fill: { color: hexMix("D3E7F1", "16305B", tt) } } }
         : { text: val.toFixed(0), options: { align: "center", color: "A9B3C1" } });
     });
@@ -136,7 +136,7 @@ function hexMix(a, b, t) {
   s.addTable(rows, { x: M + 0.3, y: y0 + 0.66, w: LW - 0.6, colW: [1.45, ...ORDER.map(() => (LW - 0.6 - 1.45) / 7)],
     fontSize: 9, fontFace: F, color: TXT, rowH: 0.33, valign: "middle", margin: [1, 3, 1, 3],
     border: [{ pt: 0.5, color: "FFFFFF" }, { pt: 0.5, color: "FFFFFF" }, { pt: 0.5, color: LINE }, { pt: 0.5, color: "FFFFFF" }] });
-  s.addText("ST = 그 변수가 응답 변동에 미치는 전체 영향 (혼자 내는 효과 + 다른 변수와 얽힌 효과) · 색 칸 = 5% 이상 · GPR 모델로 계산",
+  s.addText("ST = 그 변수가 응답 변동에 미치는 전체 영향 (혼자 내는 효과 + 다른 변수와 얽힌 효과) · 색 칸 = 2% 이상 (선별 기준과 동일) · GPR 모델로 계산",
     { x: M + 0.3, y: y0 + 3.75, w: LW - 0.6, h: 0.5, fontSize: 8.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
 
   // 우 — 교호작용 비율
