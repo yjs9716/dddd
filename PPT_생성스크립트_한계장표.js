@@ -111,12 +111,11 @@ function bottomStrip(s, pts) {
     [hdr("근거"), hdr("2차 균일도"), hdr("다른 응답")],
     ["① 예측 정확도 (교차검증 R²)", { text: "0.893", options: { bold: true, color: "0088A6" } }, "0.956 ~ 1.000"],
     ["② 예측 불확실성 (2σ ÷ 응답 변동폭)", { text: "43%", options: { bold: true, color: "0088A6" } }, "10 ~ 30%"],
-    ["③ 불확실성 큰 영역 비율", { text: "설계공간 17%", options: { bold: true, color: "0088A6" } }, "0 ~ 2%"],
-    ["④ 교호작용 비율", { text: "19%", options: { bold: true, color: "0088A6" } }, "3 ~ 13%"]
+    ["③ 교호작용 비율", { text: "19%", options: { bold: true, color: "0088A6" } }, "3 ~ 13%"]
   ], [2.6, 1.3, 1.4], { rowH: 0.42, fontSize: 9 });
   s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 2.95, w: W, h: 1.4, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
   s.addText([
-    { text: "⑤ 8차원 공간에 80점 — 데이터가 성김", options: { bold: true, color: NAVY, breakLine: true } },
+    { text: "④ 8차원 공간에 80점 — 데이터가 성김", options: { bold: true, color: NAVY, breakLine: true } },
     { text: "새 설계에서 가장 가까운 해석점까지 거리가 보통 각 변수 범위의 약 절반", options: { color: TXT, breakLine: true } },
     { text: "→ 변수끼리 얽혀 복잡하게 변하는 응답(2차 균일도)일수록 점이 더 필요", options: { color: TXT } }
   ], { x: X + 0.16, y: y0 + 2.95, w: W - 0.3, h: 1.4, fontSize: 9.3, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.3 });
@@ -143,6 +142,6 @@ function bottomStrip(s, pts) {
     ["원인은 데이터 밀도", "8차원에 80점 → 복잡한 응답을 다 담지 못함"],
     ["필요한 곳만 보강", "불확실성 큰 지점에 해석 추가 (적응 샘플링)"]
   ]);
-  s.addNotes("80점으로 만든 모델은 대부분 응답에서 정확하지만, 2차 균일도는 교차검증 R²가 0.893으로 가장 낮고, 예측 불확실성도 응답 변동폭의 43%로 가장 큽니다. 설계공간의 17%는 불확실성이 변동폭의 절반을 넘습니다. 2차 균일도는 변수끼리 얽힌 효과가 19%로 가장 커서 복잡하게 변하는데, 8차원 공간에 80점이면 새 설계에서 가장 가까운 해석점이 보통 범위의 절반쯤 떨어져 있어 이런 변화를 다 담지 못합니다. 그래서 차월에는 균일하게 점을 더 뽑는 대신, GPR 불확실성이 큰 지점만 골라 해석을 추가하는 적응 샘플링으로 모델을 보강합니다.");
+  s.addNotes("80점으로 만든 모델은 대부분 응답에서 정확하지만, 2차 균일도는 교차검증 R²가 0.893으로 가장 낮고, 예측 불확실성도 응답 변동폭의 43%로 가장 큽니다. 2차 균일도는 변수끼리 얽힌 효과가 19%로 가장 커서 복잡하게 변하는데, 8차원 공간에 80점이면 새 설계에서 가장 가까운 해석점이 보통 범위의 절반쯤 떨어져 있어 이런 변화를 다 담지 못합니다. 그래서 차월에는 균일하게 점을 더 뽑는 대신, GPR 불확실성이 큰 지점만 골라 해석을 추가하는 적응 샘플링으로 모델을 보강합니다.");
 }
 pres.writeFile({ fileName: __dirname + "/한계_차월_장표.pptx" }).then(f => console.log("ok"));
