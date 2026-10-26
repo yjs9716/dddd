@@ -312,39 +312,36 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   // 좌 — DSD란
   card(s, M, y0, CW, ch);
   cardTitle(s, M, y0, "DSD란?");
-  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 0.68, w: W, h: 0.86, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 0.66, w: W, h: 1.06, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
   s.addText([
     { text: "Definitive Screening Design  —  Jones & Nachtsheim (2011)", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "3수준 선별 설계: 변수 m개를 약 2m + 1회 해석으로 주효과 · 곡률 판정", options: { color: TXT, breakLine: true } },
-    { text: "구성: 회의 행렬 C (대각 0, 나머지 ±1, 열끼리 직교) → [ C ; −C ; 0 ]", options: { color: MUTED } }
-  ], { x: X + 0.16, y: y0 + 0.68, w: W - 0.3, h: 0.86, fontSize: 9.2, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+    { text: "3수준 선별 설계 — 변수 m개를 2m + 1회 해석으로 주효과 · 곡률 판정", options: { color: TXT, breakLine: true } },
+    { text: "구성 [ C ; −C ; 0 ]  —  C: 회의 행렬 (대각 0, 나머지 ±1, 열끼리 직교)", options: { color: TXT, breakLine: true } },
+    { text: "−C: 부호를 모두 뒤집은 거울상  ·  0: 모든 변수 중간값 (중심점)", options: { color: TXT } }
+  ], { x: X + 0.16, y: y0 + 0.66, w: W - 0.3, h: 1.06, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
-  s.addText("선별 설계 비교  —  변수 11개 기준", { x: X, y: y0 + 1.66, w: W, h: 0.26, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
-  const hl = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color: "E8F6FA" } } });
+  s.addText("DSD의 특징", { x: X, y: y0 + 1.84, w: W, h: 0.26, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  const ft = (t) => ({ text: t, options: { bold: true, color: NAVY } });
+  tbl(s, X, y0 + 2.12, W, [
+    [hdr("항목"), hdr("의미")],
+    [ft("3수준 (−1, 0, +1)"), "행마다 변수 1개만 중간값 → 곡률(2차 효과) 추정"],
+    [ft("주효과끼리 직교"), "각 변수의 주효과를 서로 독립적으로 추정"],
+    [ft("주효과 ⊥ 교호작용 · 곡률"), "거울상 구조로 주효과가 교호작용 · 곡률과 섞이지 않음"],
+    [ft("교호작용끼리 부분 교락"), "2인자 교호작용끼리는 서로 일부 섞임"]
+  ], [1.85, 3.45], { rowH: 0.29, fontSize: 9 });
+
+  s.addText("거울상이 주효과를 지키는 원리", { x: X, y: y0 + 3.7, w: W, h: 0.26, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
   const hc = (t) => ({ text: t, options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } });
-  const c = (t) => ({ text: t, options: { align: "center" } });
-  tbl(s, X, y0 + 1.96, W, [
-    [hdr("설계"), hdr("해석 횟수"), hc("곡률"), hdr("주효과 – 교호작용")],
-    ["3수준 완전요인", "177,147회 (약 5.7년)", c("○"), "섞이지 않음"],
-    ["Plackett-Burman", "12회", c("✕ (2수준)"), "부분적으로 섞임"],
-    [hl("DSD (본 과제)"), hl("29회 (약 8시간)"), { text: "○", options: { bold: true, color: NAVY, fill: { color: "E8F6FA" }, align: "center" } }, hl("섞이지 않음")]
-  ], [1.45, 1.6, 0.8, 1.45], { rowH: 0.3, fontSize: 9 });
-  s.addText("해석 1회 약 17분 기준  ·  DSD 29회 = 실제 변수 11열 + 가짜 인자 3열 (최소 25회)",
-    { x: X, y: y0 + 3.2, w: W, h: 0.22, fontSize: 8, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
-
-  s.addText("거울상이 주효과를 지키는 원리", { x: X, y: y0 + 3.5, w: W, h: 0.26, fontSize: 10.5, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
   const sg = (t) => ({ text: t, options: { align: "center", bold: true, color: NAVY, fontSize: 10 } });
   const keep = (t, col) => ({ text: t, options: { align: "center", bold: true, color: col, fill: { color: "F7F9FC" } } });
-  tbl(s, X, y0 + 3.8, W, [
+  tbl(s, X, y0 + 3.98, W, [
     [hdr(""), hc("주효과 A"), hc("주효과 B"), hc("교호작용 A×B"), hc("곡률 A²")],
     ["기본 행  x", sg("+"), sg("−"), sg("−"), sg("+")],
     ["거울상  −x", sg("−"), sg("+"), sg("−"), sg("+")],
     [{ text: "쌍에서", options: { bold: true, color: NAVY, fill: { color: "F7F9FC" } } }, keep("부호 반전", NAVY), keep("부호 반전", NAVY), keep("부호 유지", "0088A6"), keep("부호 유지", "0088A6")]
-  ], [1.1, 1.0, 1.0, 1.2, 1.0], { rowH: 0.26, fontSize: 9 });
-  s.addText([
-    { text: "→ 쌍의 차이에는 주효과만, 쌍의 평균에는 교호작용 · 곡률만 남음 (서로 직교)", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "단, 교호작용끼리는 부분 교락 → 교호작용의 크기는 02 GPR에서 확인", options: { color: "0088A6" } }
-  ], { x: X, y: y0 + 4.9, w: W, h: 0.5, fontSize: 8.8, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
+  ], [1.1, 1.0, 1.0, 1.2, 1.0], { rowH: 0.25, fontSize: 9 });
+  s.addText("→ 쌍의 차이에는 주효과만, 쌍의 평균에는 교호작용 · 곡률만 남음 (서로 직교)",
+    { x: X, y: y0 + 5.06, w: W, h: 0.3, fontSize: 9, bold: true, color: NAVY, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
 
   // 우 — 실험표 구조
   card(s, CX2, y0, CW, ch);
@@ -396,7 +393,7 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     { text: "→ ①② 모두 만족해야 '영향 있음', 응답 7개 모두에서 영향 없으면 고정", options: { bold: true, color: "0088A6" } }
   ], { x: CX2 + 0.5, y: ry, w: W - 0.3, h: y0 + ch - 0.12 - ry, fontSize: 8.8, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
-  s.addNotes("DSD(확정적 선별 설계)는 Jones와 Nachtsheim이 2011년에 제안한 3수준 선별 설계로, 변수 m개를 약 2m+1회 해석으로 선별한다. 회의 행렬 C(대각은 0, 나머지는 ±1이고 열끼리 직교)를 기본 14회로 쓰고, 부호를 모두 뒤집은 거울상 14회와 모든 변수가 중간값인 중심점 1회를 더해 29회가 된다. 3수준 완전요인은 17만 회가 넘고, 2수준인 Plackett-Burman은 12회로 끝나지만 곡률을 못 보고 주효과에 교호작용이 섞인다. DSD는 거울상 쌍에서 주효과는 부호가 뒤집히고 교호작용·곡률은 부호가 그대로라, 쌍의 차이에는 주효과만, 평균에는 교호작용·곡률만 남는다. 그래서 주효과 판정이 교호작용에 오염되지 않는다. 다만 교호작용끼리는 부분적으로 섞여 크기를 정확히 나눌 수 없으므로, 그 부분은 GPR 대리모델로 확인한다. 가짜 인자 3열은 어떤 치수와도 연결하지 않아 효과가 0이어야 하므로 판정의 기준선이 되고, 판정 규칙은 결과를 보기 전에 고정했다.");
+  s.addNotes("DSD(확정적 선별 설계)는 Jones와 Nachtsheim이 2011년에 제안한 3수준 선별 설계로, 변수 m개를 2m+1회 해석으로 주효과와 곡률을 판정한다. 회의 행렬 C(대각은 0, 나머지는 ±1이고 열끼리 직교)를 기본 14회로 쓰고, 부호를 모두 뒤집은 거울상 14회와 모든 변수가 중간값인 중심점 1회를 더해 29회가 된다. 행마다 변수 1개만 중간값이라 곡률까지 볼 수 있고, 주효과 열끼리는 직교라 각 변수의 효과를 독립적으로 추정한다. 거울상 쌍에서 주효과는 부호가 뒤집히고 교호작용·곡률은 부호가 그대로라, 쌍의 차이에는 주효과만, 평균에는 교호작용·곡률만 남는다. 그래서 주효과가 교호작용·곡률과 섞이지 않는다. 다만 2인자 교호작용끼리는 서로 일부 섞인다. 가짜 인자 3열은 어떤 치수와도 연결하지 않아 효과가 0이어야 하므로 판정의 기준선이 되고, 판정 규칙은 결과를 보기 전에 고정했다.");
 }
 
 /* ───────────── 6. [01] 선별 결과 ───────────── */
