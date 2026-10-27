@@ -159,21 +159,29 @@ function hexMix(a, b, t) {
   // 우 — 교호작용 비율
   const RX0 = M + LW + 0.25, RW = 12.23 - LW - 0.25, RX = RX0 + 0.3, W = RW - 0.6;
   card(s, RX0, y0, RW, ch);
-  cardTitle(s, RX0, y0, "교호작용 기여율 (%)");
-  s.addText("응답별 · 모든 변수의 교호작용을 합친 비율", { x: RX, y: y0 + 0.6, w: W, h: 0.26, fontSize: 8.6, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
-  const BX = RX + 0.95, BW = W - 1.55;
+  cardTitle(s, RX0, y0, "응답별 변동 구성 (%)");
+  // 범례
+  [["단독 효과", "9FB0C6"], ["교호작용", ACCENT]].forEach(([l, c], k) => {
+    const lx = RX + k * 1.35;
+    s.addShape(pres.ShapeType.rect, { x: lx, y: y0 + 0.66, w: 0.22, h: 0.14, fill: { color: c }, line: { color: c } });
+    s.addText(l, { x: lx + 0.28, y: y0 + 0.6, w: 1.0, h: 0.26, fontSize: 8.6, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  });
+  s.addText("= 100%", { x: RX + 2.7, y: y0 + 0.6, w: 1.0, h: 0.26, fontSize: 8.6, color: MUTED, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  const BX = RX + 0.95, BW = W - 1.5;
   ORDER.forEach((rp, i) => {
     const v = inter(rp), yy = y0 + 0.92 + i * 0.3, hot = rp === "std_pass1" || rp === "std_pass2";
+    const wm = BW * (1 - v), wi = BW * v;
     s.addText(RL[rp], { x: RX, y: yy, w: 0.88, h: 0.26, fontSize: 9, bold: hot, color: hot ? NAVY : TXT, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-    s.addShape(pres.ShapeType.rect, { x: BX, y: yy + 0.05, w: BW, h: 0.16, fill: { color: "F0F3F7" }, line: { color: "F0F3F7" } });
-    s.addShape(pres.ShapeType.rect, { x: BX, y: yy + 0.05, w: Math.max(0.02, BW * Math.min(v / 0.2, 1)), h: 0.16, fill: { color: hot ? ACCENT : "9FB0C6" }, line: { color: hot ? ACCENT : "9FB0C6" } });
-    s.addText(`${(v * 100).toFixed(0)}%`, { x: BX + BW + 0.05, y: yy, w: 0.5, h: 0.26, fontSize: 9, bold: true, color: hot ? "0088A6" : MUTED, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    s.addShape(pres.ShapeType.rect, { x: BX, y: yy + 0.03, w: wm, h: 0.2, fill: { color: "9FB0C6" }, line: { color: "9FB0C6" } });
+    s.addText(`${Math.round((1 - v) * 100)}`, { x: BX, y: yy + 0.03, w: wm - 0.06, h: 0.2, fontSize: 8, color: "FFFFFF", bold: true, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    if (wi > 0.005) s.addShape(pres.ShapeType.rect, { x: BX + wm, y: yy + 0.03, w: wi, h: 0.2, fill: { color: hot ? ACCENT : "7FD6E8" }, line: { color: hot ? ACCENT : "7FD6E8" } });
+    s.addText(`${Math.round(v * 100)}%`, { x: BX + BW + 0.06, y: yy, w: 0.5, h: 0.26, fontSize: 9, bold: true, color: hot ? "0088A6" : MUTED, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
   const p1 = DATA.sobol.std_pass2.S1.power_input_thick, pt = DATA.sobol.std_pass2.ST.power_input_thick;
   s.addShape(pres.ShapeType.roundRect, { x: RX, y: y0 + 3.08, w: W, h: 0.8, rectRadius: 0.06, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
   s.addText([
-    { text: `온도편차 ${Math.round(inter("temp_std") * 100)}% → 거의 변수 하나씩의 효과로 설명됨`, options: { color: TXT, breakLine: true } },
-    { text: `2차 균일도 ${Math.round(inter("std_pass2") * 100)}% → 변동의 약 1/5이 변수 조합에서 생김`, options: { bold: true, color: "0088A6", breakLine: true } },
+    { text: `온도편차 → 변동의 ${Math.round((1 - inter("temp_std")) * 100)}%가 변수 하나씩의 효과`, options: { color: TXT, breakLine: true } },
+    { text: `2차 균일도 → 변동의 ${Math.round(inter("std_pass2") * 100)}%(약 1/5)가 변수 조합에서 생김`, options: { bold: true, color: "0088A6", breakLine: true } },
     { text: "→ 균일도는 변수를 하나씩 조정해서는 최적점을 찾기 어려움", options: { bold: true, color: NAVY } }
   ], { x: RX + 0.14, y: y0 + 3.08, w: W - 0.28, h: 0.8, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
 
