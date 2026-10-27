@@ -357,7 +357,7 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
 
   // 우 — 가짜 인자로 판정
   card(s, CX2, y0, CW, ch);
-  cardTitle(s, CX2, y0, "가짜 인자로 '우연의 크기' 측정");
+  cardTitle(s, CX2, y0, "가짜 인자로 잡음 수준 추정");
   const RX = CX2 + 0.34;
   s.addText([
     { text: "가짜 인자", options: { bold: true, color: "0088A6" } },
@@ -377,24 +377,24 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   });
   const nx = BX + BW * noise / VMAX;
   s.addShape(pres.ShapeType.line, { x: nx, y: by0 - 0.04, w: 0, h: ex.length * bh + 0.04, line: { color: "0088A6", width: 1, dashType: "dash" } });
-  s.addText("우연 수준", { x: nx + 0.04, y: by0 + ex.length * bh - 0.02, w: 1.0, h: 0.22, fontSize: 8, bold: true, color: "0088A6", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("잡음 수준", { x: nx + 0.04, y: by0 + ex.length * bh - 0.02, w: 1.0, h: 0.22, fontSize: 8, bold: true, color: "0088A6", fontFace: F, isTextBox: true, margin: 0 });
   const cy = by0 + ex.length * bh + 0.26;
   s.addText([
-    { text: `가짜 인자도 최대 ${noise.toFixed(2)} ℃ 차이 → 이 정도는 우연`, options: { bullet: true, breakLine: true } },
-    { text: `1차 핀 개수 ${ex[0][1].toFixed(2)} ℃ → 우연보다 훨씬 큼 → 영향 있음`, options: { bullet: true, breakLine: true } },
-    { text: `1차 핀 두께 ${ex[2][1].toFixed(2)} ℃ → 우연과 비슷 → 최고온도에는 영향 없음`, options: { bullet: true } }
+    { text: `가짜 인자도 최대 ${noise.toFixed(2)} ℃ 차이 → 이 정도는 잡음`, options: { bullet: true, breakLine: true } },
+    { text: `1차 핀 개수 ${ex[0][1].toFixed(2)} ℃ → 잡음보다 훨씬 큼 → 영향 있음`, options: { bullet: true, breakLine: true } },
+    { text: `1차 핀 두께 ${ex[2][1].toFixed(2)} ℃ → 잡음과 비슷 → 최고온도에는 영향 없음`, options: { bullet: true } }
   ], { x: RX, y: cy, w: W, h: 0.8, fontSize: 9, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 2, lineSpacingMultiple: 1.1 });
 
   const ry2 = cy + 0.9, rh2 = y0 + ch - 0.14 - ry2;
   s.addShape(pres.ShapeType.roundRect, { x: RX, y: ry2, w: W, h: rh2, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
   s.addText([
     { text: "판정 규칙  —  실험 전에 고정", options: { bold: true, color: NAVY, breakLine: true } },
-    { text: "① 통계적 유의성  p ≤ 0.05 : 가짜 인자(우연)보다 확실히 큰가", options: { color: TXT, breakLine: true } },
+    { text: "① 통계적 유의성  p ≤ 0.05 : 가짜 인자(잡음) 수준보다 확실히 큰가", options: { color: TXT, breakLine: true } },
     { text: "② 분산 기여율  ≥ 2% : 응답 변동의 2% 이상을 차지할 만큼 큰가", options: { color: TXT, breakLine: true } },
     { text: "→ 둘 다 만족하면 '영향 있음', 응답 7개 모두에서 영향 없으면 고정", options: { bold: true, color: "0088A6" } }
   ], { x: RX + 0.16, y: ry2, w: W - 0.3, h: rh2, fontSize: 8.8, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
-  s.addNotes("후보 변수 11개 중 영향 있는 변수만 골라내기 위해 선별 실험을 했습니다. 기법은 DSD, 확정적 선별 설계로, 29번 해석으로 11개 변수를 판정하는 표준 실험표입니다. 왼쪽 표에서 한 줄이 해석 한 번이고, 매번 변수 하나만 중간값, 나머지는 최소·최대값에 둡니다. 아래 절반은 위 절반을 정반대로 뒤집은 것이고, 마지막 한 번은 전부 중간값입니다. 여기에 형상에 아무 영향도 주지 않는 가짜 인자 3개를 같이 넣었습니다. 오른쪽은 최고온도 예시인데, 가짜 인자에서도 0.15℃ 정도 차이가 나고 이게 우연히 생기는 크기입니다. 1차 핀 개수는 2.5℃로 이보다 훨씬 커서 영향 있는 변수로, 1차 핀 두께는 0.19℃로 우연과 비슷해 최고온도에는 영향 없는 것으로 판정합니다. 판정 규칙은 결과를 보기 전에 고정했습니다.");
+  s.addNotes("후보 변수 11개 중 영향 있는 변수만 골라내기 위해 선별 실험을 했습니다. 기법은 DSD, 확정적 선별 설계로, 29번 해석으로 11개 변수를 판정하는 표준 실험표입니다. 왼쪽 표에서 한 줄이 해석 한 번이고, 매번 변수 하나만 중간값, 나머지는 최소·최대값에 둡니다. 아래 절반은 위 절반을 정반대로 뒤집은 것이고, 마지막 한 번은 전부 중간값입니다. 여기에 형상에 아무 영향도 주지 않는 가짜 인자 3개를 같이 넣었습니다. 오른쪽은 최고온도 예시인데, 가짜 인자에서도 0.15℃ 정도 차이가 나는데, 이게 잡음 수준입니다. 1차 핀 개수는 2.5℃로 이보다 훨씬 커서 영향 있는 변수로, 1차 핀 두께는 0.19℃로 잡음과 비슷해 최고온도에는 영향 없는 것으로 판정합니다. 판정 규칙은 결과를 보기 전에 고정했습니다.");
 }
 
 /* ───────────── 6. [01] 선별 결과 ───────────── */
