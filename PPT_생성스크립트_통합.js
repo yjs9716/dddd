@@ -1145,4 +1145,62 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   s.addNotes("질문이 나올 때만 쓰는 부록이다. 기본 14회는 회의 행렬이라는 표로, 대각선은 0, 나머지는 ±1이고, 아무 두 변수를 골라도 같은 쪽인 횟수와 반대쪽인 횟수가 같다. 거울상은 기본 14회의 부호를 모두 뒤집은 것으로, 쌍에서 주효과는 부호가 뒤집히고 교호작용·곡률은 그대로라 주효과가 교호작용·곡률과 섞이지 않는다.");
 }
 
+/* ───────────── A-2. 부록 — DSD 판정 문턱 산정 ───────────── */
+{
+  const s = pres.addSlide();
+  s.background = { color: BG };
+  header(s, "A-3", "부록", "DSD 판정 문턱 산정  (질의응답용)");
+  const y0 = 1.30, ch = 5.55, W = 5.3, X = M + 0.34, RX = CX2 + 0.34;
+  const T = DATA.dsd_threshold, sig = T.sigma, thr = T.t * sig;
+  const NM = Object.assign({}, VL, { fake_1: "가짜 인자 1", fake_2: "가짜 인자 2", fake_3: "가짜 인자 3" });
+  const fakes = T.rows.filter(r => r[0].startsWith("fake")).sort((a, b) => a[0] < b[0] ? -1 : 1);
+
+  // 좌 — ① 잡음 수준, ② 배수
+  card(s, M, y0, CW, ch);
+  cardTitle(s, M, y0, "① 잡음 수준  —  가짜 인자 3개로 산정");
+  tbl(s, X, y0 + 0.7, W, [
+    [hdr("가짜 인자"), hdr("효과 (최고온도)"), hdr("제곱")],
+    ...fakes.map(r => [NM[r[0]], `${r[1].toFixed(3)} ℃`, (r[1] * r[1]).toFixed(5)])
+  ], [1.6, 1.9, 1.8], { rowH: 0.3, fontSize: 9 });
+  s.addShape(pres.ShapeType.roundRect, { x: X, y: y0 + 1.98, w: W, h: 0.5, rectRadius: 0.06, fill: { color: "EEF2F7" }, line: { color: "EEF2F7" } });
+  s.addText([{ text: "제곱 → 평균 → 제곱근  =  ", options: { color: TXT } }, { text: `잡음 수준 ${sig.toFixed(3)} ℃`, options: { bold: true, color: NAVY } }],
+    { x: X + 0.16, y: y0 + 1.98, w: W - 0.3, h: 0.5, fontSize: 10, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+
+  s.addText("② 판정 배수  —  t 분포표 (양쪽 5%)", { x: X, y: y0 + 2.7, w: W, h: 0.28, fontSize: 11, bold: true, color: NAVY, fontFace: F, isTextBox: true, margin: 0 });
+  const tv = [["1", "12.71"], ["2", "4.30"], ["3", "3.18"], ["5", "2.57"], ["10", "2.23"], ["∞", "1.96"]];
+  const hi = (v, on) => ({ text: v, options: { align: "center", bold: on, color: on ? "FFFFFF" : TXT, fill: { color: on ? NAVY : "FFFFFF" } } });
+  tbl(s, X, y0 + 3.02, W, [
+    [hdr("잡음을 잰 자료 수"), ...tv.map(r => hi(r[0], r[0] === "3"))],
+    [hdr("배수"), ...tv.map(r => hi(r[1], r[0] === "3"))]
+  ], [1.7, ...tv.map(() => 0.6)], { rowH: 0.32, fontSize: 9 });
+  s.addText([
+    { text: "가짜 인자 3개 → 3.18배. 잡음만으로 3.18배를 넘을 확률은 5%", options: { bullet: true, breakLine: true } },
+    { text: "자료가 적을수록 잡음 추정이 불확실 → 배수를 크게 잡음", options: { bullet: true, breakLine: true } },
+    { text: "가짜 인자를 늘리면 문턱이 낮아지지만 해석 횟수가 증가", options: { bullet: true } }
+  ], { x: X, y: y0 + 3.8, w: W, h: 1.5, fontSize: 9.3, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 4, lineSpacingMultiple: 1.2, valign: "top" });
+
+  // 우 — ③ 문턱과 적용
+  card(s, CX2, y0, CW, ch);
+  cardTitle(s, CX2, y0, "③ 판정 문턱과 적용  —  최고온도");
+  s.addShape(pres.ShapeType.roundRect, { x: RX, y: y0 + 0.7, w: W, h: 0.7, rectRadius: 0.06, fill: { color: NAVY }, line: { color: NAVY } });
+  s.addText(`${sig.toFixed(3)} ℃  ×  ${T.t.toFixed(2)}  =  판정 문턱 ${thr.toFixed(2)} ℃`, { x: RX, y: y0 + 0.7, w: W, h: 0.7, fontSize: 15, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  const ok = (p) => p <= 0.05;
+  tbl(s, RX, y0 + 1.6, W, [
+    [hdr("변수"), hdr("효과"), hdr("잡음의 몇 배"), hdr("p"), hdr("p ≤ 0.05")],
+    ...T.rows.map(([v, e, r, p]) => {
+      const fake = v.startsWith("fake"), yes = ok(p);
+      const c = fake ? "0088A6" : (yes ? NAVY : MUTED);
+      return [{ text: NM[v], options: { bold: !fake && yes, color: c } }, { text: `${e.toFixed(2)} ℃`, options: { color: c } },
+              { text: `${r.toFixed(1)}배`, options: { color: c, bold: yes } }, { text: p < 0.001 ? "< 0.001" : p.toFixed(3), options: { color: c } },
+              { text: fake ? "기준선" : (yes ? "유의" : "유의 아님"), options: { bold: true, color: fake ? "0088A6" : (yes ? NAVY : MUTED) } }];
+    })
+  ], [1.4, 0.95, 1.1, 0.85, 1.0], { rowH: 0.32, fontSize: 9 });
+  s.addText([
+    { text: "p = 효과가 없다고 할 때 잡음만으로 이만한 차이가 나올 확률", options: { bullet: true, breakLine: true } },
+    { text: `문턱 ${thr.toFixed(2)} ℃ ↔ 잡음의 ${T.t.toFixed(2)}배 ↔ p = 0.05 (같은 기준)`, options: { bullet: true, breakLine: true } },
+    { text: "최종 판정은 분산 기여율 ≥ 2%도 함께 만족해야 함 (중간 유로 두께는 최고온도 기여율 1.5% → 이 응답에선 영향 없음)", options: { bullet: true, color: MUTED } }
+  ], { x: RX, y: y0 + 4.32, w: W, h: 1.1, fontSize: 9, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 4, lineSpacingMultiple: 1.2, valign: "top" });
+  s.addNotes("질문이 나올 때만 쓰는 부록이다. 가짜 인자 3개의 효과를 제곱해 평균 내고 제곱근을 씌워 잡음 수준 약 0.09℃를 구했다. 잡음을 자료 3개로만 쟀기 때문에 t 분포표에서 자유도 3, 양쪽 5% 기준인 3.18배를 곱해 판정 문턱 약 0.28℃를 정했다. 각 변수의 효과가 잡음의 몇 배인지로 p값을 구하며, 문턱 0.28℃는 p = 0.05와 같은 기준이다.");
+}
+
 pres.writeFile({ fileName: (process.env.OUT || __dirname + "/통합_AI기반_자동해석_및_대리모델.pptx") }).then(f => console.log("생성 완료:", f));
