@@ -891,8 +891,8 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
       const fake = v.startsWith("fake"), yes = ok(p);
       const c = fake ? "0088A6" : (yes ? NAVY : MUTED);
       return [{ text: NM[v], options: { bold: !fake && yes, color: c } }, { text: `${e.toFixed(2)} ℃`, options: { color: c } },
-              { text: `${r.toFixed(1)}배`, options: { color: c, bold: yes } }, { text: p < 0.001 ? "< 0.001" : p.toFixed(3), options: { color: c } },
-              { text: fake ? "기준선" : (yes ? "유의" : "유의 아님"), options: { bold: true, color: fake ? "0088A6" : (yes ? NAVY : MUTED) } }];
+              { text: fake ? "—" : `${r.toFixed(1)}배`, options: { color: c, bold: yes, align: fake ? "center" : "left" } }, { text: fake ? "—" : (p < 0.001 ? "< 0.001" : p.toFixed(3)), options: { color: c, align: fake ? "center" : "left" } },
+              { text: fake ? "잡음 산정용" : (yes ? "유의" : "유의 아님"), options: { bold: true, color: fake ? "0088A6" : (yes ? NAVY : MUTED) } }];
     })
   ], [1.4, 0.95, 1.1, 0.85, 1.0], { rowH: 0.32, fontSize: 9 });
   s.addText([
