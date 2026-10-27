@@ -160,7 +160,7 @@ function hexMix(a, b, t) {
   const RX0 = M + LW + 0.25, RW = 12.23 - LW - 0.25, RX = RX0 + 0.3, W = RW - 0.6;
   card(s, RX0, y0, RW, ch);
   cardTitle(s, RX0, y0, "교호작용 기여율 (%)");
-  s.addText("응답 변동 중 변수 간 교호작용이 차지하는 비율", { x: RX, y: y0 + 0.6, w: W, h: 0.26, fontSize: 8.6, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("응답별 · 모든 변수의 교호작용을 합친 비율", { x: RX, y: y0 + 0.6, w: W, h: 0.26, fontSize: 8.6, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
   const BX = RX + 0.95, BW = W - 1.55;
   ORDER.forEach((rp, i) => {
     const v = inter(rp), yy = y0 + 0.92 + i * 0.3, hot = rp === "std_pass1" || rp === "std_pass2";
@@ -172,8 +172,8 @@ function hexMix(a, b, t) {
   const p1 = DATA.sobol.std_pass2.S1.power_input_thick, pt = DATA.sobol.std_pass2.ST.power_input_thick;
   s.addShape(pres.ShapeType.roundRect, { x: RX, y: y0 + 3.08, w: W, h: 0.8, rectRadius: 0.06, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
   s.addText([
-    { text: `예) 2차 균일도 — 분기 입구 두께`, options: { bold: true, color: NAVY, breakLine: true } },
-    { text: `단독 기여율 ${Math.round(p1 * 100)}% → 총 기여율 ${Math.round(pt * 100)}%`, options: { bold: true, color: "0088A6", breakLine: true } },
+    { text: `예) 2차 균일도 중 분기 입구 두께 한 변수만 보면`, options: { bold: true, color: NAVY, breakLine: true } },
+    { text: `단독 ${Math.round(p1 * 100)}% + 교호작용 ${Math.round(pt * 100) - Math.round(p1 * 100)}% = 총 기여율 ${Math.round(pt * 100)}% (왼쪽 표 값)`, options: { bold: true, color: "0088A6", breakLine: true } },
     { text: "변수를 하나씩 조정해서는 최적점을 찾기 어려움", options: { color: TXT } }
   ], { x: RX + 0.14, y: y0 + 3.08, w: W - 0.28, h: 0.8, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
 
