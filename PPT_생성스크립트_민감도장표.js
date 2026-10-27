@@ -172,9 +172,9 @@ function hexMix(a, b, t) {
   const p1 = DATA.sobol.std_pass2.S1.power_input_thick, pt = DATA.sobol.std_pass2.ST.power_input_thick;
   s.addShape(pres.ShapeType.roundRect, { x: RX, y: y0 + 3.08, w: W, h: 0.8, rectRadius: 0.06, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
   s.addText([
-    { text: `예) 2차 균일도 중 분기 입구 두께 한 변수만 보면`, options: { bold: true, color: NAVY, breakLine: true } },
-    { text: `단독 ${Math.round(p1 * 100)}% + 교호작용 ${Math.round(pt * 100) - Math.round(p1 * 100)}% = 총 기여율 ${Math.round(pt * 100)}% (왼쪽 표 값)`, options: { bold: true, color: "0088A6", breakLine: true } },
-    { text: "변수를 하나씩 조정해서는 최적점을 찾기 어려움", options: { color: TXT } }
+    { text: `온도편차 ${Math.round(inter("temp_std") * 100)}% → 거의 변수 하나씩의 효과로 설명됨`, options: { color: TXT, breakLine: true } },
+    { text: `2차 균일도 ${Math.round(inter("std_pass2") * 100)}% → 변동의 약 1/5이 변수 조합에서 생김`, options: { bold: true, color: "0088A6", breakLine: true } },
+    { text: "→ 균일도는 변수를 하나씩 조정해서는 최적점을 찾기 어려움", options: { bold: true, color: NAVY } }
   ], { x: RX + 0.14, y: y0 + 3.08, w: W - 0.28, h: 0.8, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
 
   s.addShape(pres.ShapeType.roundRect, { x: M, y: 6.42, w: 12.23, h: 0.52, rectRadius: 0.06, fill: { color: CARD }, line: { color: LINE, width: 0.75 } });
@@ -184,6 +184,6 @@ function hexMix(a, b, t) {
     { text: "균일도는 교호작용이 큼", options: { bold: true, color: NAVY } },
     { text: "  1차 13% · 2차 19% → 변수 조합까지 함께 봐야 함", options: { color: MUTED } }
   ], { x: M + 0.3, y: 6.42, w: 11.7, h: 0.52, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-  s.addNotes("변수별 민감도는 GPR 대리모델로 설계 약 16만 개의 성능을 예측하고, 변수를 하나씩 바꿨을 때 결과가 얼마나 변하는지 비교해서 계산했습니다. 응답 변동을 변수별 기여율로 나눴는데, 변수 하나만으로 생기는 단독 기여율과 다른 변수와의 교호작용 기여율을 합친 것이 총 기여율입니다. 왼쪽 표가 총 기여율로, 1차 핀 개수는 차압과 1차 균일도를, 2차 핀 개수는 2차 균일도를 좌우합니다. 오른쪽은 응답별 교호작용 기여율로, 온도나 분기비는 작지만 균일도는 13~19%로 큽니다. 예를 들어 분기 입구 두께는 2차 균일도에 단독으로는 7%지만 교호작용까지 합치면 18%입니다.");
+  s.addNotes("변수별 민감도는 GPR 대리모델로 설계 약 16만 개의 성능을 예측하고, 변수를 하나씩 바꿨을 때 결과가 얼마나 변하는지 비교해서 계산했습니다. 응답 변동을 변수별 기여율로 나눴는데, 변수 하나만으로 생기는 단독 기여율과 다른 변수와의 교호작용 기여율을 합친 것이 총 기여율입니다. 왼쪽 표가 총 기여율로, 1차 핀 개수는 차압과 1차 균일도를, 2차 핀 개수는 2차 균일도를 좌우합니다. 오른쪽은 응답별 교호작용 기여율로, 온도나 분기비는 작지만 균일도는 13~19%로 큽니다. 온도편차는 3%라 거의 변수 하나씩의 효과로 설명되지만, 2차 균일도는 19%라 변동의 약 5분의 1이 변수 조합에서 생깁니다.");
 }
 pres.writeFile({ fileName: __dirname + "/민감도_장표.pptx" }).then(f => console.log("생성 완료:", f));
