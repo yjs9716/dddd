@@ -705,7 +705,10 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   const ex = DATA.dsd_example.items;
   const NAME = Object.assign({}, VL, { fake_1: "가짜 인자 1", fake_2: "가짜 인자 2", fake_3: "가짜 인자 3" });
   const BX = RX + 1.3, BW = 3.25, VMAX = 2.6, by0 = y0 + 1.32, bh = 0.33;
-  const noise = Math.max(...ex.filter(e => e[0].startsWith("fake")).map(e => e[1]));
+  // 잡음 수준 = 가짜 인자 효과의 제곱평균제곱근, 판정 문턱 = t(0.975, 자유도 3) × 잡음 수준
+  const fk = ex.filter(e => e[0].startsWith("fake")).map(e => e[1]);
+  const sigma = Math.sqrt(fk.reduce((a, b) => a + b * b, 0) / fk.length);
+  const noise = 3.182 * sigma;
   ex.forEach(([v, val, sig], i) => {
     const yy = by0 + i * bh, fake = v.startsWith("fake");
     const col = fake ? ACCENT : (sig ? NAVY : "B9C7D8");
@@ -715,12 +718,12 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
   });
   const nx = BX + BW * noise / VMAX;
   s.addShape(pres.ShapeType.line, { x: nx, y: by0 - 0.04, w: 0, h: ex.length * bh + 0.04, line: { color: "0088A6", width: 1, dashType: "dash" } });
-  s.addText("잡음 수준", { x: nx + 0.04, y: by0 + ex.length * bh - 0.02, w: 1.0, h: 0.22, fontSize: 8, bold: true, color: "0088A6", fontFace: F, isTextBox: true, margin: 0 });
+  s.addText("판정 문턱 (p = 0.05)", { x: nx + 0.04, y: by0 + ex.length * bh - 0.02, w: 1.6, h: 0.22, fontSize: 8, bold: true, color: "0088A6", fontFace: F, isTextBox: true, margin: 0 });
   const cy = by0 + ex.length * bh + 0.26;
   s.addText([
-    { text: `가짜 인자도 최대 ${noise.toFixed(2)} ℃ 차이 → 이 정도는 잡음`, options: { bullet: true, breakLine: true } },
-    { text: `1차 핀 개수 ${ex[0][1].toFixed(2)} ℃ → 잡음보다 훨씬 큼 → 영향 있음`, options: { bullet: true, breakLine: true } },
-    { text: `1차 핀 두께 ${ex[2][1].toFixed(2)} ℃ → 잡음과 비슷 → 최고온도에는 영향 없음`, options: { bullet: true } }
+    { text: `가짜 인자 3개로 잡음 수준 ${sigma.toFixed(2)} ℃ 산정 → × 3.18 = 판정 문턱 ${noise.toFixed(2)} ℃`, options: { bullet: true, breakLine: true } },
+    { text: `1차 핀 개수 ${ex[0][1].toFixed(2)} ℃ → 문턱보다 훨씬 큼 → 영향 있음`, options: { bullet: true, breakLine: true } },
+    { text: `1차 핀 두께 ${ex[2][1].toFixed(2)} ℃ → 문턱 안쪽 → 최고온도에는 영향 없음`, options: { bullet: true } }
   ], { x: RX, y: cy, w: W, h: 0.8, fontSize: 9, color: TXT, fontFace: F, isTextBox: true, margin: 0, paraSpaceAfter: 2, lineSpacingMultiple: 1.1 });
 
   const ry2 = cy + 0.9, rh2 = y0 + ch - 0.14 - ry2;
@@ -732,7 +735,7 @@ const interShare = (rp) => Math.max(0, 1 - Object.values(DATA.sobol[rp].S1).redu
     { text: "→ 둘 다 만족하면 '영향 있음', 응답 7개 모두에서 영향 없으면 고정", options: { bold: true, color: "0088A6" } }
   ], { x: RX + 0.16, y: ry2, w: W - 0.3, h: rh2, fontSize: 8.8, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.2 });
 
-  s.addNotes("후보 변수 11개 중 영향 있는 변수만 골라내기 위해 선별 실험을 했습니다. 기법은 DSD, 확정적 선별 설계로, 29번 해석으로 11개 변수를 판정하는 표준 실험표입니다. 왼쪽 표에서 한 줄이 해석 한 번이고, 매번 변수 하나만 중간값, 나머지는 최소·최대값에 둡니다. 아래 절반은 위 절반을 정반대로 뒤집은 것이고, 마지막 한 번은 전부 중간값입니다. 여기에 형상에 아무 영향도 주지 않는 가짜 인자 3개를 같이 넣었습니다. 오른쪽은 최고온도 예시인데, 가짜 인자에서도 0.15℃ 정도 차이가 나는데, 이게 잡음 수준입니다. 1차 핀 개수는 2.5℃로 이보다 훨씬 커서 영향 있는 변수로, 1차 핀 두께는 0.19℃로 잡음과 비슷해 최고온도에는 영향 없는 것으로 판정합니다. 판정 규칙은 결과를 보기 전에 고정했습니다.");
+  s.addNotes("후보 변수 11개 중 영향 있는 변수만 골라내기 위해 선별 실험을 했습니다. 기법은 DSD, 확정적 선별 설계로, 29번 해석으로 11개 변수를 판정하는 표준 실험표입니다. 왼쪽 표에서 한 줄이 해석 한 번이고, 매번 변수 하나만 중간값, 나머지는 최소·최대값에 둡니다. 아래 절반은 위 절반을 정반대로 뒤집은 것이고, 마지막 한 번은 전부 중간값입니다. 여기에 형상에 아무 영향도 주지 않는 가짜 인자 3개를 같이 넣었습니다. 오른쪽은 최고온도 예시인데, 가짜 인자 3개의 효과로 잡음 수준을 약 0.09℃로 산정했고, 여기에 통계표 기준 3.18배를 곱한 약 0.28℃를 판정 문턱으로 삼았습니다. 1차 핀 개수는 2.5℃로 이보다 훨씬 커서 영향 있는 변수로, 1차 핀 두께는 0.19℃로 문턱 안쪽이라 최고온도에는 영향 없는 것으로 판정합니다. 판정 규칙은 결과를 보기 전에 고정했습니다.");
 }
 
 /* ───────────── 6. [01] 선별 결과 ───────────── */
