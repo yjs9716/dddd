@@ -160,30 +160,34 @@ function hexMix(a, b, t) {
   const RX0 = M + LW + 0.25, RW = 12.23 - LW - 0.25, RX = RX0 + 0.3, W = RW - 0.6;
   card(s, RX0, y0, RW, ch);
   cardTitle(s, RX0, y0, "응답별 변동 구성 (%)");
-  // 범례
-  [["단독 효과", "9FB0C6"], ["교호작용", ACCENT]].forEach(([l, c], k) => {
-    const lx = RX + k * 1.35;
-    s.addShape(pres.ShapeType.rect, { x: lx, y: y0 + 0.66, w: 0.22, h: 0.14, fill: { color: c }, line: { color: c } });
-    s.addText(l, { x: lx + 0.28, y: y0 + 0.6, w: 1.0, h: 0.26, fontSize: 8.6, color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+  const SEG = [["fin_count_1", "1차 핀 개수", "16305B", "FFFFFF"], ["fin_count_2", "2차 핀 개수", "3D6FB0", "FFFFFF"],
+               ["fin_thick_1", "1차 핀 두께", "7FA6D9", NAVY], ["fin_thick_2", "2차 핀 두께", "B7CDEB", NAVY],
+               ["power_input_thick", "분기 입구 두께", "E08A2E", "FFFFFF"], ["mid_input_thick", "중간 입구 두께", "F2C14E", NAVY],
+               ["input_thick", "입구 유로 두께", "8E99A6", "FFFFFF"], ["mid_thick", "중간 유로 두께", "C9D0D8", NAVY],
+               ["_inter", "교호작용", ACCENT, "FFFFFF"]];
+  SEG.forEach(([k, l, c], n) => {
+    const lx = RX + (n % 3) * 1.46, ly = y0 + 0.6 + Math.floor(n / 3) * 0.24;
+    s.addShape(pres.ShapeType.rect, { x: lx, y: ly + 0.05, w: 0.2, h: 0.13, fill: { color: c }, line: { color: k === "_inter" ? "0088A6" : c, width: 0.75 } });
+    s.addText(l, { x: lx + 0.25, y: ly, w: 1.2, h: 0.23, fontSize: 8, bold: k === "_inter", color: TXT, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
-  s.addText("= 100%", { x: RX + 2.7, y: y0 + 0.6, w: 1.0, h: 0.26, fontSize: 8.6, color: MUTED, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-  const BX = RX + 0.95, BW = W - 1.5;
+  const BX = RX + 0.95, BW = W - 1.45;
   ORDER.forEach((rp, i) => {
-    const v = inter(rp), yy = y0 + 0.92 + i * 0.3, hot = rp === "std_pass1" || rp === "std_pass2";
-    const wm = BW * (1 - v), wi = BW * v;
-    s.addText(RL[rp], { x: RX, y: yy, w: 0.88, h: 0.26, fontSize: 9, bold: hot, color: hot ? NAVY : TXT, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-    s.addShape(pres.ShapeType.rect, { x: BX, y: yy + 0.03, w: wm, h: 0.2, fill: { color: "9FB0C6" }, line: { color: "9FB0C6" } });
-    s.addText(`${Math.round((1 - v) * 100)}`, { x: BX, y: yy + 0.03, w: wm - 0.06, h: 0.2, fontSize: 8, color: "FFFFFF", bold: true, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-    if (wi > 0.005) s.addShape(pres.ShapeType.rect, { x: BX + wm, y: yy + 0.03, w: wi, h: 0.2, fill: { color: hot ? ACCENT : "7FD6E8" }, line: { color: hot ? ACCENT : "7FD6E8" } });
-    s.addText(`${Math.round(v * 100)}%`, { x: BX + BW + 0.06, y: yy, w: 0.5, h: 0.26, fontSize: 9, bold: true, color: hot ? "0088A6" : MUTED, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    const yy = y0 + 1.32 + i * 0.33, hot = rp === "std_pass1" || rp === "std_pass2";
+    const s1 = DATA.sobol[rp].S1;
+    const vals = SEG.slice(0, 8).map(([k]) => Math.max(0, s1[k]));
+    vals.push(Math.max(0, 1 - vals.reduce((a, b) => a + b, 0)));
+    s.addText(RL[rp], { x: RX, y: yy, w: 0.88, h: 0.28, fontSize: 9, bold: hot, color: hot ? NAVY : TXT, align: "right", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+    let x = BX;
+    vals.forEach((v, n) => {
+      const w = BW * v;
+      if (w < 0.004) return;
+      s.addShape(pres.ShapeType.rect, { x, y: yy + 0.03, w, h: 0.22, fill: { color: SEG[n][2] }, line: { color: "FFFFFF", width: 0.5 } });
+      if (w >= 0.3) s.addText(`${Math.round(v * 100)}`, { x, y: yy + 0.03, w, h: 0.22, fontSize: 7.5, bold: true, color: SEG[n][3], align: "center", valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
+      x += w;
+    });
+    s.addText(`${Math.round(vals[8] * 100)}%`, { x: BX + BW + 0.06, y: yy, w: 0.45, h: 0.28, fontSize: 9, bold: true, color: hot ? "0088A6" : MUTED, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
   });
-  const p1 = DATA.sobol.std_pass2.S1.power_input_thick, pt = DATA.sobol.std_pass2.ST.power_input_thick;
-  s.addShape(pres.ShapeType.roundRect, { x: RX, y: y0 + 3.08, w: W, h: 0.8, rectRadius: 0.06, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
-  s.addText([
-    { text: `온도편차 → 변동의 ${Math.round((1 - inter("temp_std")) * 100)}%가 변수 하나씩의 효과`, options: { color: TXT, breakLine: true } },
-    { text: `2차 균일도 → 변동의 ${Math.round(inter("std_pass2") * 100)}%(약 1/5)가 변수 조합에서 생김`, options: { bold: true, color: "0088A6", breakLine: true } },
-    { text: "→ 균일도는 변수를 하나씩 조정해서는 최적점을 찾기 어려움", options: { bold: true, color: NAVY } }
-  ], { x: RX + 0.14, y: y0 + 3.08, w: W - 0.28, h: 0.8, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
+  s.addText("막대 안 숫자 = 변수별 단독 효과(%) · 오른쪽 % = 교호작용", { x: RX, y: y0 + 3.68, w: W, h: 0.24, fontSize: 8, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0 });
 
   s.addShape(pres.ShapeType.roundRect, { x: M, y: 6.42, w: 12.23, h: 0.52, rectRadius: 0.06, fill: { color: CARD }, line: { color: LINE, width: 0.75 } });
   s.addText([
