@@ -120,7 +120,7 @@ function hexMix(a, b, t) {
   const steps = [
     ["대리모델로 설계 약 16만 개 예측", "해석 대신 GPR로 계산 — 수십 초"],
     ["변수 하나씩만 바꿔 결과 비교", "그 변수 때문에 결과가 얼마나 변하는지"],
-    ["응답 변동을 변수별 몫(%)으로 나눔", "관여한 몫 = 민감도 · 얽힌 몫 = 교호작용"]
+    ["응답 변동을 변수별 기여율(%)로 분해", "단독 기여율 + 교호작용 기여율 = 총 기여율"]
   ];
   const sw = 3.85, sg = (12.23 - 3 * sw) / 2;
   steps.forEach(([h, d], i) => {
@@ -137,7 +137,7 @@ function hexMix(a, b, t) {
   // 좌 — 민감도 히트맵 (총효과 ST)
   const LW = 7.0;
   card(s, M, y0, LW, ch);
-  cardTitle(s, M, y0, "변수별 민감도 (%)  —  혼자 + 얽힌 효과 포함");
+  cardTitle(s, M, y0, "변수별 민감도  —  총 기여율 (%)");
   const rows = [[hdr("설계변수"), ...ORDER.map(r => ({ text: RL[r], options: { bold: true, color: NAVY, fill: { color: "EEF2F7" }, align: "center" } }))]];
   VARS.forEach(v => {
     const row = [{ text: VL[v], options: { bold: true, color: NAVY } }];
@@ -153,14 +153,14 @@ function hexMix(a, b, t) {
   s.addTable(rows, { x: M + 0.3, y: y0 + 0.66, w: LW - 0.6, colW: [1.45, ...ORDER.map(() => (LW - 0.6 - 1.45) / 7)],
     fontSize: 9, fontFace: F, color: TXT, rowH: 0.3, valign: "middle", margin: [1, 3, 1, 3],
     border: [{ pt: 0.5, color: "FFFFFF" }, { pt: 0.5, color: "FFFFFF" }, { pt: 0.5, color: LINE }, { pt: 0.5, color: "FFFFFF" }] });
-  s.addText("숫자 = 응답 변동 중 그 변수가 관여한 몫 · 색 칸 = 2% 이상 (선별 기준과 동일) · 분산 기반 민감도 분석 (Sobol 지수)",
+  s.addText("총 기여율 = 단독 기여율 + 교호작용 기여율 · 색 칸 = 2% 이상 (선별 기준과 동일) · 분산 기반 민감도 분석 (Sobol 지수)",
     { x: M + 0.3, y: y0 + 3.45, w: LW - 0.6, h: 0.45, fontSize: 8.5, color: MUTED, italic: true, fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.15 });
 
   // 우 — 교호작용 비율
   const RX0 = M + LW + 0.25, RW = 12.23 - LW - 0.25, RX = RX0 + 0.3, W = RW - 0.6;
   card(s, RX0, y0, RW, ch);
-  cardTitle(s, RX0, y0, "교호작용 비율 (%)");
-  s.addText("응답 변동 중 변수 하나로는 설명 안 되고 얽혀서 생긴 몫", { x: RX, y: y0 + 0.6, w: W, h: 0.26, fontSize: 8.6, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
+  cardTitle(s, RX0, y0, "교호작용 기여율 (%)");
+  s.addText("응답 변동 중 변수 간 교호작용이 차지하는 비율", { x: RX, y: y0 + 0.6, w: W, h: 0.26, fontSize: 8.6, color: MUTED, fontFace: F, isTextBox: true, margin: 0 });
   const BX = RX + 0.95, BW = W - 1.55;
   ORDER.forEach((rp, i) => {
     const v = inter(rp), yy = y0 + 0.92 + i * 0.3, hot = rp === "std_pass1" || rp === "std_pass2";
@@ -173,7 +173,7 @@ function hexMix(a, b, t) {
   s.addShape(pres.ShapeType.roundRect, { x: RX, y: y0 + 3.08, w: W, h: 0.8, rectRadius: 0.06, fill: { color: "E8F6FA" }, line: { color: ACCENT, width: 0.75 } });
   s.addText([
     { text: `예) 2차 균일도 — 분기 입구 두께`, options: { bold: true, color: NAVY, breakLine: true } },
-    { text: `혼자 ${Math.round(p1 * 100)}% → 얽힌 효과 포함 ${Math.round(pt * 100)}%`, options: { bold: true, color: "0088A6", breakLine: true } },
+    { text: `단독 기여율 ${Math.round(p1 * 100)}% → 총 기여율 ${Math.round(pt * 100)}%`, options: { bold: true, color: "0088A6", breakLine: true } },
     { text: "변수를 하나씩 조정해서는 최적점을 찾기 어려움", options: { color: TXT } }
   ], { x: RX + 0.14, y: y0 + 3.08, w: W - 0.28, h: 0.8, fontSize: 9, valign: "middle", fontFace: F, isTextBox: true, margin: 0, lineSpacingMultiple: 1.25 });
 
@@ -184,6 +184,6 @@ function hexMix(a, b, t) {
     { text: "균일도는 교호작용이 큼", options: { bold: true, color: NAVY } },
     { text: "  1차 13% · 2차 19% → 변수 조합까지 함께 봐야 함", options: { color: MUTED } }
   ], { x: M + 0.3, y: 6.42, w: 11.7, h: 0.52, fontSize: 9.5, valign: "middle", fontFace: F, isTextBox: true, margin: 0 });
-  s.addNotes("변수별 민감도는 이렇게 계산했습니다. 먼저 GPR 대리모델로 설계 약 16만 개의 성능을 예측하고, 변수를 하나씩만 바꾼 설계끼리 결과를 비교해서, 응답이 변하는 몫을 변수별 퍼센트로 나눴습니다. 왼쪽 표의 숫자는 그 변수가 혼자 또는 다른 변수와 얽혀서 관여한 몫입니다. 1차 핀 개수는 차압과 1차 균일도를, 2차 핀 개수는 2차 균일도를 좌우합니다. 오른쪽은 변수 하나로는 설명되지 않고 변수끼리 얽혀서 생긴 몫으로, 온도나 분기비는 작지만 균일도는 13~19%로 큽니다.");
+  s.addNotes("변수별 민감도는 GPR 대리모델로 설계 약 16만 개의 성능을 예측하고, 변수를 하나씩 바꿨을 때 결과가 얼마나 변하는지 비교해서 계산했습니다. 응답 변동을 변수별 기여율로 나눴는데, 변수 하나만으로 생기는 단독 기여율과 다른 변수와의 교호작용 기여율을 합친 것이 총 기여율입니다. 왼쪽 표가 총 기여율로, 1차 핀 개수는 차압과 1차 균일도를, 2차 핀 개수는 2차 균일도를 좌우합니다. 오른쪽은 응답별 교호작용 기여율로, 온도나 분기비는 작지만 균일도는 13~19%로 큽니다. 예를 들어 분기 입구 두께는 2차 균일도에 단독으로는 7%지만 교호작용까지 합치면 18%입니다.");
 }
 pres.writeFile({ fileName: __dirname + "/민감도_장표.pptx" }).then(f => console.log("생성 완료:", f));
