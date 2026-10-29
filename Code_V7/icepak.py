@@ -161,8 +161,11 @@ def _rect(oEditor, name, start, width, height, axis, model=False):
         ])
 
 
-def run_icepak(desktop, ipk, step_file, phase, idx, params):
+def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
     """
+    measure=False 면 2패스 전용 측정면(Rectangle1·Q_pass2·Q_mid·T_pass1·T_pass2)을 만들지 않고, Fields Summary 는
+    발열면 온도·팬 차압·출구 온도 N_SOURCE + 2 행만 쓴다(pass_compare.py — 1·2·4패스 비교). 그 밖의 해석 설정은 같다.
+    params 는 measure=False 일 때 power_input_thick(분기 입구 국소 메시 폭)만 있으면 된다.
     반환: (ipk, result_path, pao_volume_mm3)
       result_path     : 이번 idx의 Fields Summary CSV 경로
       pao_volume_mm3  : 유로를 채운 PAO 부피 [mm^3] — 중량 계산용
@@ -903,92 +906,94 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
         ])
 
     # %%
-    # 유량 측정면 셋 — 모두 핀 없는 통로의 단면 전체를 덮고, 벽 속으로 FLOW_PLANE_OVERLAP_MM 더 나간다
-    #   (모듈 설명 참고). 분기비 = Rectangle1 ÷ (Rectangle1 + Q_pass2) 로 같은 방식으로 잰 두 유량의 비라 단면 측정
-    #   편향이 상쇄되고, Q_mid(4 LPM 이어야 함)로 그 편향의 크기를 매 회차 기록한다.
-    print(f"  {describe_bank(params, 1)}")
-    print(f"  {describe_bank(params, 2)}")
-    ov = FLOW_PLANE_OVERLAP_MM
-    #   Rectangle1 : 전원모듈 분기 입구 — 분기 입구(y=5.25)에서 약 4 mm 안쪽(y=9), 입구 직후의 꺾인 흐름을 피함.
-    #                x 폭 = power_input_thick(설계변수)
-    _rect(oEditor, "Rectangle1", (MID_PASSAGE_X_WALL - ov, 9.0, CHANNEL_Z_TOP + ov),
-          -(PM_INLET_WIDTH_MM + 2 * ov), params['power_input_thick'] + 2 * ov, "y")
-    #   Q_pass2    : 2차 통과 출구 통로(T_pass2 와 같은 단면) — 2차 핀뱅크를 다 지나고 분기와 합류하기 전
-    t2_wall_x = PLATE_X_RIGHT_WALL - params['input_thick'] - PASS2_EXIT_FROM_INPUT
-    _rect(oEditor, "Q_pass2", (t2_wall_x + ov, PASS2_EXIT_Y, CHANNEL_Z_TOP + ov),
-          -(CHANNEL_DEPTH_MM + 2 * ov), -(params['mid_thick'] + 2 * ov), "y")
-    #   Q_mid      : 1차 통과 후 가운데 통로(T_pass1 과 같은 단면) — 분기 전이라 4 LPM 전부가 지난다
-    _rect(oEditor, "Q_mid", (MID_PASSAGE_X_WALL - ov, MID_PASSAGE_Y, CHANNEL_Z_TOP - CHANNEL_DEPTH_MM - ov),
-          CHANNEL_DEPTH_MM + 2 * ov, params['mid_input_thick'] + 2 * ov, "y")
+    # 2패스 전용 측정면 — measure=False(pass_compare.py)면 만들지 않는다
+    if measure:
+        # 유량 측정면 셋 — 모두 핀 없는 통로의 단면 전체를 덮고, 벽 속으로 FLOW_PLANE_OVERLAP_MM 더 나간다
+        #   (모듈 설명 참고). 분기비 = Rectangle1 ÷ (Rectangle1 + Q_pass2) 로 같은 방식으로 잰 두 유량의 비라 단면 측정
+        #   편향이 상쇄되고, Q_mid(4 LPM 이어야 함)로 그 편향의 크기를 매 회차 기록한다.
+        print(f"  {describe_bank(params, 1)}")
+        print(f"  {describe_bank(params, 2)}")
+        ov = FLOW_PLANE_OVERLAP_MM
+        #   Rectangle1 : 전원모듈 분기 입구 — 분기 입구(y=5.25)에서 약 4 mm 안쪽(y=9), 입구 직후의 꺾인 흐름을 피함.
+        #                x 폭 = power_input_thick(설계변수)
+        _rect(oEditor, "Rectangle1", (MID_PASSAGE_X_WALL - ov, 9.0, CHANNEL_Z_TOP + ov),
+              -(PM_INLET_WIDTH_MM + 2 * ov), params['power_input_thick'] + 2 * ov, "y")
+        #   Q_pass2    : 2차 통과 출구 통로(T_pass2 와 같은 단면) — 2차 핀뱅크를 다 지나고 분기와 합류하기 전
+        t2_wall_x = PLATE_X_RIGHT_WALL - params['input_thick'] - PASS2_EXIT_FROM_INPUT
+        _rect(oEditor, "Q_pass2", (t2_wall_x + ov, PASS2_EXIT_Y, CHANNEL_Z_TOP + ov),
+              -(CHANNEL_DEPTH_MM + 2 * ov), -(params['mid_thick'] + 2 * ov), "y")
+        #   Q_mid      : 1차 통과 후 가운데 통로(T_pass1 과 같은 단면) — 분기 전이라 4 LPM 전부가 지난다
+        _rect(oEditor, "Q_mid", (MID_PASSAGE_X_WALL - ov, MID_PASSAGE_Y, CHANNEL_Z_TOP - CHANNEL_DEPTH_MM - ov),
+              CHANNEL_DEPTH_MM + 2 * ov, params['mid_input_thick'] + 2 * ov, "y")
 
-    # %%
-    # 1차 통과 후 PAO 온도 측정면 (T_pass1) — 가운데 통로 단면에서 벽마다 T_PASS1_INSET_MM 띄움
-    #   (상단 상수 주석 참고). WhichAxis y 에서 Width 는 z 방향, Height 는 x 방향(Rectangle1 과 같음).
-    #   통로 폭이 mid_input_thick 이라 사각형 폭도 설계마다 따라간다.
-    t1_inset = T_PASS1_INSET_MM
-    oEditor.CreateRectangle(
-        [
-            "NAME:RectangleParameters",
-            "IsCovered:="		, True,
-            "XStart:="		, f"{round(MID_PASSAGE_X_WALL + t1_inset, 6)}mm",
-            "YStart:="		, f"{MID_PASSAGE_Y}mm",
-            "ZStart:="		, f"{round(CHANNEL_Z_TOP - CHANNEL_DEPTH_MM + t1_inset, 6)}mm",
-            "Width:="		, f"{round(CHANNEL_DEPTH_MM - 2 * t1_inset, 6)}mm",
-            "Height:="		, f"{round(params['mid_input_thick'] - 2 * t1_inset, 6)}mm",
-            "WhichAxis:="		, "y"
-        ],
-        [
-            "NAME:Attributes",
-            "Name:="		, "T_pass1",
-            "Flags:="		, "NonModel#",
-            "Color:="		, "(143 175 143)",
-            "Transparency:="	, 0,
-            "PartCoordinateSystem:=", "Global",
-            "UDMId:="		, "",
-            "MaterialValue:="	, "\"Al-Extruded\"",
-            "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
-            "SolveInside:="		, True,
-            "ShellElement:="	, False,
-            "ShellElementThickness:=", "0mm",
-            "ReferenceTemperature:=", "20cel",
-            "IsMaterialEditable:="	, True,
-            "IsSurfaceMaterialEditable:=", True,
-            "UseMaterialAppearance:=", False,
-            "IsLightweight:="	, False
-        ])
+        # %%
+        # 1차 통과 후 PAO 온도 측정면 (T_pass1) — 가운데 통로 단면에서 벽마다 T_PASS1_INSET_MM 띄움
+        #   (상단 상수 주석 참고). WhichAxis y 에서 Width 는 z 방향, Height 는 x 방향(Rectangle1 과 같음).
+        #   통로 폭이 mid_input_thick 이라 사각형 폭도 설계마다 따라간다.
+        t1_inset = T_PASS1_INSET_MM
+        oEditor.CreateRectangle(
+            [
+                "NAME:RectangleParameters",
+                "IsCovered:="		, True,
+                "XStart:="		, f"{round(MID_PASSAGE_X_WALL + t1_inset, 6)}mm",
+                "YStart:="		, f"{MID_PASSAGE_Y}mm",
+                "ZStart:="		, f"{round(CHANNEL_Z_TOP - CHANNEL_DEPTH_MM + t1_inset, 6)}mm",
+                "Width:="		, f"{round(CHANNEL_DEPTH_MM - 2 * t1_inset, 6)}mm",
+                "Height:="		, f"{round(params['mid_input_thick'] - 2 * t1_inset, 6)}mm",
+                "WhichAxis:="		, "y"
+            ],
+            [
+                "NAME:Attributes",
+                "Name:="		, "T_pass1",
+                "Flags:="		, "NonModel#",
+                "Color:="		, "(143 175 143)",
+                "Transparency:="	, 0,
+                "PartCoordinateSystem:=", "Global",
+                "UDMId:="		, "",
+                "MaterialValue:="	, "\"Al-Extruded\"",
+                "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
+                "SolveInside:="		, True,
+                "ShellElement:="	, False,
+                "ShellElementThickness:=", "0mm",
+                "ReferenceTemperature:=", "20cel",
+                "IsMaterialEditable:="	, True,
+                "IsSurfaceMaterialEditable:=", True,
+                "UseMaterialAppearance:=", False,
+                "IsLightweight:="	, False
+            ])
 
-    # 2차 통과 후·합류 전 PAO 온도 측정면 (T_pass2) — 상단 상수 주석 참고. 크기는 음수(−x, −z 방향)로 그린다.
-    #   (t2_wall_x 는 위 Q_pass2 에서 계산한 같은 통로 벽)
-    oEditor.CreateRectangle(
-        [
-            "NAME:RectangleParameters",
-            "IsCovered:="		, True,
-            "XStart:="		, f"{round(t2_wall_x - t1_inset, 6)}mm",
-            "YStart:="		, f"{PASS2_EXIT_Y}mm",
-            "ZStart:="		, f"{round(CHANNEL_Z_TOP - t1_inset, 6)}mm",
-            "Width:="		, f"{-round(CHANNEL_DEPTH_MM - 2 * t1_inset, 6)}mm",
-            "Height:="		, f"{-round(params['mid_thick'] - 2 * t1_inset, 6)}mm",
-            "WhichAxis:="		, "y"
-        ],
-        [
-            "NAME:Attributes",
-            "Name:="		, "T_pass2",
-            "Flags:="		, "NonModel#",
-            "Color:="		, "(143 175 143)",
-            "Transparency:="	, 0,
-            "PartCoordinateSystem:=", "Global",
-            "UDMId:="		, "",
-            "MaterialValue:="	, "\"Al-Extruded\"",
-            "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
-            "SolveInside:="		, True,
-            "ShellElement:="	, False,
-            "ShellElementThickness:=", "0mm",
-            "ReferenceTemperature:=", "20cel",
-            "IsMaterialEditable:="	, True,
-            "IsSurfaceMaterialEditable:=", True,
-            "UseMaterialAppearance:=", False,
-            "IsLightweight:="	, False
-        ])
+        # 2차 통과 후·합류 전 PAO 온도 측정면 (T_pass2) — 상단 상수 주석 참고. 크기는 음수(−x, −z 방향)로 그린다.
+        #   (t2_wall_x 는 위 Q_pass2 에서 계산한 같은 통로 벽)
+        oEditor.CreateRectangle(
+            [
+                "NAME:RectangleParameters",
+                "IsCovered:="		, True,
+                "XStart:="		, f"{round(t2_wall_x - t1_inset, 6)}mm",
+                "YStart:="		, f"{PASS2_EXIT_Y}mm",
+                "ZStart:="		, f"{round(CHANNEL_Z_TOP - t1_inset, 6)}mm",
+                "Width:="		, f"{-round(CHANNEL_DEPTH_MM - 2 * t1_inset, 6)}mm",
+                "Height:="		, f"{-round(params['mid_thick'] - 2 * t1_inset, 6)}mm",
+                "WhichAxis:="		, "y"
+            ],
+            [
+                "NAME:Attributes",
+                "Name:="		, "T_pass2",
+                "Flags:="		, "NonModel#",
+                "Color:="		, "(143 175 143)",
+                "Transparency:="	, 0,
+                "PartCoordinateSystem:=", "Global",
+                "UDMId:="		, "",
+                "MaterialValue:="	, "\"Al-Extruded\"",
+                "SurfaceMaterialValue:=", "\"Steel-oxidised-surface\"",
+                "SolveInside:="		, True,
+                "ShellElement:="	, False,
+                "ShellElementThickness:=", "0mm",
+                "ReferenceTemperature:=", "20cel",
+                "IsMaterialEditable:="	, True,
+                "IsSurfaceMaterialEditable:=", True,
+                "UseMaterialAppearance:=", False,
+                "IsLightweight:="	, False
+            ])
 
     # %%
     oEditor.Unite(
@@ -1135,6 +1140,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
     #   행 S+4     : T_pass1 온도 (1차 통과 후 PAO)
     #   행 S+5     : Opening1 온도 (출구 PAO, 열수지 점검용)
     #   행 S+6     : T_pass2 온도 (2차 통과 후·합류 전 PAO)
+    #   measure=False 면 행 S 차압 다음 행 S+1 이 Opening1 온도 (N_SOURCE + 2 행)
     calc_args = ["SolutionName:=", "Setup1 : SteadyState", "Variation:=", "Nominal"]
 
     for i in range(N_SOURCE):
@@ -1148,22 +1154,26 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params):
                   ["Object", "Surface", "Fan1_Passage", "Pressure", "0.00,0.00,1.00",
                    "Default", "Reduced", "Nominal", False]]
 
-    # 유량 측정면 셋 — 모두 법선 y 단면이라 V6 Rectangle1 과 같은 설정으로 잰다
-    for name in ("Rectangle1", "Q_pass2", "Q_mid"):
+    # 출구 온도 — Opening1 행은 GUI 스크립트 리코더 기록 그대로 (Boundary 로 선택)
+    opening_row = ["Calculation:=",
+                   ["Boundary", "Surface", "Opening1", "Temperature", "0.00,0.00,1.00",
+                    "Default", "Reduced", "Nominal", False]]
+    if measure:
+        # 유량 측정면 셋 — 모두 법선 y 단면이라 V6 Rectangle1 과 같은 설정으로 잰다
+        for name in ("Rectangle1", "Q_pass2", "Q_mid"):
+            calc_args += ["Calculation:=",
+                          ["Object", "Surface", name, "Speed", "0.00,-1.00,0.00",
+                           "Default", "Reduced", "Nominal", False]]
+        # PAO 온도 셋
         calc_args += ["Calculation:=",
-                      ["Object", "Surface", name, "Speed", "0.00,-1.00,0.00",
-                       "Default", "Reduced", "Nominal", False]]
-
-    # PAO 온도 셋 — Opening1 행은 GUI 스크립트 리코더 기록 그대로 (Boundary 로 선택)
-    calc_args += ["Calculation:=",
-                  ["Object", "Surface", "T_pass1", "Temperature", "",
-                   "Default", "Reduced", "Nominal", True]]
-    calc_args += ["Calculation:=",
-                  ["Boundary", "Surface", "Opening1", "Temperature", "0.00,0.00,1.00",
-                   "Default", "Reduced", "Nominal", False]]
-    calc_args += ["Calculation:=",
-                  ["Object", "Surface", "T_pass2", "Temperature", "",
-                   "Default", "Reduced", "Nominal", True]]
+                      ["Object", "Surface", "T_pass1", "Temperature", "",
+                       "Default", "Reduced", "Nominal", True]]
+        calc_args += opening_row
+        calc_args += ["Calculation:=",
+                      ["Object", "Surface", "T_pass2", "Temperature", "",
+                       "Default", "Reduced", "Nominal", True]]
+    else:
+        calc_args += opening_row
 
     oModule.EditFieldsSummarySetting(calc_args)
     print(f"[T7] Fields Summary 설정 끝, export 시작: {time.strftime('%H:%M:%S')}")

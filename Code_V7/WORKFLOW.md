@@ -49,6 +49,7 @@ V6(`Code_DSD/`, 다른 브랜치)를 이어받은 새 캠페인이다. 형상, �
 | ① 첫 해석 눈으로 확인 | `python verify_point.py` (V6 최종 설계) | AEDT 화면에서 확인한다. ⑴ 발열 시트 17개가 판 윗면(z 10.5)에 붙어 있다. ⑵ Source 경계 17개가 각 40 W다. ⑶ 유량 측정면 셋(Rectangle1·Q_pass2·Q_mid)이 통로 단면을 덮고 다른 유로에 걸치지 않는다. ⑷ 출구 열수지가 약 100%다. ⑸ 1차 통과 후 통로 유량이 4 LPM에 얼마나 가까운지 본다. 발열면 온도가 30~40 °C대인지도 본다. |
 | ② 캠페인 전 점검 | `python grid_convergence.py` | 최종 조건에서 격자 3단계(셀 크기 ×1.3 / ×1 / ÷1.3), 설계 2개(V6 최종, 가장 촘촘한 핀), 재현성 1회로 모두 7회 돈다. 보고서에서 볼 것: 차압·분기비가 조밀 격자 대비 2% 이내인지, 온도 지표의 잡음/신호가 0.1 이하인지, 재현성 차이가 0인지, `TEMP_IN_KIND` 권장값. 기준을 넘으면 `icepak.py`의 `MESH_REGION_*`를 줄이고 결과 파일을 지운 뒤 다시 한다. |
 | ③ 정의 확정 | — | `responses.TEMP_IN_KIND`를 ② 권장값으로 둔다. `icepak.T_PASS1_INSET_MM`(V6에서 z 2.0 mm 메시로 맞춘 값)는 ①의 해석에서 유량가중 평균과 비교해 다시 맞춘다. |
+| (선택) 형상 개념 비교 | `python pass_compare.py` | 1·2·4패스 기본 형상을 V7 조건(면 발열 680 W, 4 LPM)으로 다시 돌린다. `CASES` 에 STEP 경로와 전원모듈 입구 폭을 채운다. 결과 표의 "패스를 늘릴 때 차압 증가 대비 온도 이득"으로 2패스 선정 근거를 본다(1 → 2 는 이득이 크고 2 → 4 는 차압만 크게 느는지). 1·4패스는 첫 회에 AEDT 화면으로 팬·출구 면을 확인한다. |
 | ④ 캠페인 | `python main.py` 또는 `python run_forever.py`(무인) | `results_v7.csv`, `result_000.csv`… 순서는 DOE 80점 → 적응샘플링 → 종료기준(V6와 같음: \|예측 − 실측\| ≤ 0.1·S_j, 3회 연속). 열수지·측정면 점검에 걸린 회차는 `failed_v7.csv`에 이유와 함께 남는다. |
 | ⑤ 진행 확인 | `python ML.py` | 캠페인 상태, 적응샘플링 오차 추이 |
 | ⑥ 검증 | `verify_point.py`의 `POINTS`에 최적 설계와 예측(±2σ)을 넣고 실행 | `Result\VERIFY\results_verify.csv` |
@@ -64,5 +65,6 @@ V6(`Code_DSD/`, 다른 브랜치)를 이어받은 새 캠페인이다. 형상, �
 | `main.py`, `run_forever.py` | 전체 루프, 무인 운전 | DSD 분기 제거 |
 | `grid_convergence.py` | 캠페인 전 점검 (격자 3단계 · 설계 2개 · 재현성) | 새로 씀 — x·y·z 동시, 최종 조건, 잡음/신호 판정 |
 | `verify_point.py` | 검증 해석 | V7 지표로 출력 |
+| `pass_compare.py` | 1·2·4패스 기본 형상 비교 | `icepak.run_icepak(measure=False)` 로 캠페인과 같은 설정, 복사본(`icepak_pass.py`) 없앰. V7 지표 + 차압 대비 온도 이득 표 |
 | `paths.py` | V7 작업폴더 | 새 폴더, 결과 파일명 `*_v7` |
 | `params.py`, `fins.py`, `OLHD.py`, `OLHD_PLOT.py`, `Solidworks.py` | 변수·핀·실험점·형상 | 그대로 |
