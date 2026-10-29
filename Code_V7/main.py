@@ -15,7 +15,8 @@ V7 메인 루프 — DSD 선별(후보 13개) → OLHD + GPR 적응샘플링 (SW
        (①·③ 무인 운전은 python run_forever.py)
 
   main.py 는 캠페인 상태(ML.campaign_state)를 보고 알아서 이어서 진행한다.
-  DSD가 끝났는데 선별 판정이 아직 없으면 멈추고 ②를 안내한다 — 자동으로 넘어가지 않는다.
+  DSD가 끝나면 AUTO_SCREENING = True 일 때 ②를 자동으로 실행하고 ③으로 넘어간다(사전 고정 규칙이라 사람 판단 없음).
+  False 면 멈추고 ②를 안내한다.
 
 실패 처리
   · 형상 검증 실패(갭 제약·변수 누락 등) : 기록하고 다음 점
@@ -38,6 +39,11 @@ import ML
 
 app, errors, warnings = connect_sw()
 desktop, ipk = connect_aedt()
+
+# DSD 37회가 끝나면 DSD_analysis 의 사전 고정 규칙으로 선별 판정을 자동으로 내리고 바로 OLHD 로 넘어간다.
+#   규칙(유의수준·문턱·보호 변수)은 DSD 실행 전에 고정돼 있어 사람이 결과를 보고 고르는 단계가 없다 — 판정 내용은
+#   screening_decision.json · dsd_effects.csv 와 콘솔 로그에 그대로 남는다. False 면 V6 처럼 멈추고 기다린다.
+AUTO_SCREENING = True
 
 MAX_CONSECUTIVE_FAIL = 5
 MAX_SW_RETRY = 3
@@ -80,6 +86,17 @@ while True:
     ML.clear_running()
     phase, idx, params = ML.next_job()
     if phase == "need_screening":
+        if AUTO_SCREENING:
+            print(f"\nDSD {ML.DSD.N_RUNS}회 완료 → 선별 판정 자동 실행 (DSD_analysis 사전 고정 규칙)")
+            try:
+                import DSD_analysis
+                DSD_analysis.run_analysis()
+            except Exception as e:
+                print(f"  ⚠ 자동 선별 판정 실패: {e}\n  `python DSD_analysis.py` 로 직접 확인한 뒤 main.py 를 다시 실행하세요.")
+                exit_code = EXIT_NEED_HUMAN
+                break
+            print("선별 판정 저장 → 2단계 OLHD 로 이어서 진행\n")
+            continue
         print(f"\nDSD {ML.DSD.N_RUNS}회 완료. `python DSD_analysis.py` 로 선별 판정을 확정한 뒤 main.py 를 다시 실행하세요.")
         exit_code = EXIT_NEED_HUMAN
         break
