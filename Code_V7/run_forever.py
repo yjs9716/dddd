@@ -7,7 +7,7 @@
 하는 일
   · main.py 가 꺼지면 이유를 보고 판단한다
       - 캠페인 완료(종료 코드 0)            → 감시도 끝냄
-      - 사람이 봐야 하는 상태(종료 코드 3)   → 감시도 끝냄 (선별 결과 파일 없음 등)
+      - 사람이 봐야 하는 상태(종료 코드 3)   → 감시도 끝냄 (DSD 판정 필요 등)
       - 그 외 전부 (오류로 죽음, AEDT·SolidWorks 와 함께 죽음, 연속 실패로 중단 등) → 다시 띄움
   · 멈춤 감지: HANG_HOURS 시간 동안 main.py 출력이 한 줄도 없으면 멈춘 것으로 보고 강제 종료 후 다시 띄운다
       (실험 1회 30~50분. AEDT 팝업 대기 같은 먹통 대비)
@@ -75,9 +75,9 @@ def kill_apps():
 
 
 def progress_count():
-    """성공 기록 건수 — 한 번 띄운 사이에 실험이 실제로 진행됐는지 판단용 (실패만 쌓인 건 진행으로 보지 않음)."""
+    """성공 기록 건수(DSD + OLHD) — 한 번 띄운 사이에 실험이 실제로 진행됐는지 판단용 (실패만 쌓인 건 진행으로 보지 않음)."""
     import ML
-    return len(ML._load_results())
+    return len(ML._dsd_results()) + len(ML._load_results())
 
 
 def record_crash(reason):
@@ -88,7 +88,7 @@ def record_crash(reason):
         return
     params = job["params"]
     done = ML._load_results()
-    if ML._n_matches(done, [params[n] for n in ML.CANDIDATES]):
+    if job["phase"] != "dsd" and ML._n_matches(done, [params[n] for n in ML.CANDIDATES]):
         log(f"중단된 점({job['phase']}:{job['idx']})은 이미 결과가 기록돼 있음 — 실패로 남기지 않음")
     else:
         ML.log_failure(job["phase"], job["idx"], params, f"{reason} (시작 {job.get('start', '?')})")

@@ -1,5 +1,13 @@
 """
-V7 — 방열핀 배치 계산 (핀 관련 형상 수식의 단일 출처, V6 와 같음)
+V7 — 방열핀 배치 계산 (핀 관련 형상 수식의 단일 출처)
+
+V7 에서 바뀐 것
+  · 유로 깊이(fin_height)가 설계변수가 되면서 최소 갭이 깊이에 따라 바뀐다 (min_gap_for_depth).
+      최소 갭 = max(MIN_GAP_MM, 깊이 ÷ GAP_DEPTH_RATIO)
+    핀 사이 홈은 엔드밀이 파고 들어가는 공간이라, 홈이 깊을수록 공구가 길어져 더 굵은 공구(넓은 홈)가 필요하다.
+    V6 의 "깊이 8 mm 에서 최소 갭 2 mm"(홈 깊이 ÷ 폭 = 4)와 같은 가공 난이도를 깊이마다 유지하는 규칙이다.
+    깊이 8 mm 이하에서는 2.0 mm 그대로, 10 mm 면 2.5 mm, 12 mm 면 3.0 mm.
+    뱅크 단위 함수(bank_feasible 등)는 params 의 fin_height 로 최소 갭을 정하고, 없으면 NOMINAL_DEPTH_MM 으로 본다.
 
 V5(Code/fins.py) 대비 변경점
   ⓪ 최소 갭 2.5 → 2.0mm (아래 MIN_GAP_MM 주석). 두께 1.5mm에서 최대 핀 개수 21 → 24개.
@@ -23,7 +31,9 @@ V5(Code/fins.py) 대비 변경점
 import math
 
 FIN_SPAN_MM = 86.5          # 핀뱅크 안목 길이 [mm]
-MIN_GAP_MM  = 2.0           # 유로 최소 갭 [mm] — V5 2.5 → V6 2.0
+NOMINAL_DEPTH_MM = 8.0      # 기준 유로 깊이 = 핀 높이 [mm] (V6 고정값). icepak.py 의 높이 좌표 기준
+GAP_DEPTH_RATIO  = 4.0      # 홈 깊이 ÷ 최소 폭 — 깊이 8 mm / 최소 갭 2 mm 와 같은 가공 난이도 (모듈 설명)
+MIN_GAP_MM  = 2.0           # 유로 최소 갭의 하한 [mm] — V5 2.5 → V6 2.0
 #   실험 범위를 밀링 가능 한계 쪽(Ø1.5 롱넥 엔드밀, 깊이 8mm)까지 넓혀 둔 값이다.
 #   제작 최소 갭(예: 2.5mm)은 실험이 아니라 최적화 단계의 제약으로 건다 — 그러면
 #   "갭을 2.5 → 2.0mm로 줄이면 성능이 얼마나 좋아지는가"를 대리모델로 정량화할 수 있다.
@@ -39,27 +49,37 @@ BANKS = tuple(BANK_PARAMS)
 _EPS = 1e-9
 
 
+def min_gap_for_depth(depth=NOMINAL_DEPTH_MM):
+    """유로 깊이에 따른 최소 갭 [mm] = max(MIN_GAP_MM, 깊이 ÷ GAP_DEPTH_RATIO)."""
+    return max(MIN_GAP_MM, float(depth) / GAP_DEPTH_RATIO)
+
+
+def params_min_gap(params):
+    """params 의 유로 깊이(fin_height, 없으면 기준 깊이)로 정한 최소 갭."""
+    return min_gap_for_depth(params.get("fin_height", NOMINAL_DEPTH_MM))
+
+
 def fin_gap(fin_thick, fin_count, span=FIN_SPAN_MM):
     """등간격 배치일 때의 유로 갭 [mm]."""
     n = int(round(fin_count))
     return (span - n * float(fin_thick)) / (n + 1)
 
 
-def max_fin_count(fin_thick, span=FIN_SPAN_MM):
+def max_fin_count(fin_thick, span=FIN_SPAN_MM, min_gap=MIN_GAP_MM):
     """이 두께에서 갭 제약을 지킬 수 있는 최대 핀 개수 (is_feasible과 같은 여유 적용)."""
-    return int((span - MIN_GAP_MM) / (float(fin_thick) + MIN_GAP_MM) + _EPS)
+    return int((span - min_gap) / (float(fin_thick) + min_gap) + _EPS)
 
 
-def max_fin_thick(fin_count, span=FIN_SPAN_MM, step=0.1):
+def max_fin_thick(fin_count, span=FIN_SPAN_MM, step=0.1, min_gap=MIN_GAP_MM):
     """이 개수에서 갭 제약을 지킬 수 있는 최대 핀 두께 — step(0.1mm) 격자로 내림.
     N·t + (N+1)·g_min ≤ L  →  t ≤ (L − (N+1)·g_min) / N"""
     n = int(round(fin_count))
-    t = (span - (n + 1) * MIN_GAP_MM) / n
+    t = (span - (n + 1) * min_gap) / n
     return round(math.floor(t / step + _EPS) * step, 10)
 
 
-def is_feasible(fin_thick, fin_count, span=FIN_SPAN_MM):
-    return fin_gap(fin_thick, fin_count, span) >= MIN_GAP_MM - _EPS
+def is_feasible(fin_thick, fin_count, span=FIN_SPAN_MM, min_gap=MIN_GAP_MM):
+    return fin_gap(fin_thick, fin_count, span) >= min_gap - _EPS
 
 
 def channel_offsets(fin_thick, fin_count, span=FIN_SPAN_MM):
@@ -83,30 +103,32 @@ def bank_gap(params, bank):
 
 def bank_feasible(params, bank):
     t, n = bank_values(params, bank)
-    return is_feasible(t, n, BANK_SPAN_MM[bank])
+    return is_feasible(t, n, BANK_SPAN_MM[bank], params_min_gap(params))
 
 
 def all_banks_feasible(params):
     return all(bank_feasible(params, b) for b in BANKS)
 
 
-def describe(fin_thick, fin_count, span=FIN_SPAN_MM):
+def describe(fin_thick, fin_count, span=FIN_SPAN_MM, min_gap=MIN_GAP_MM):
     n = int(round(fin_count))
     g = fin_gap(fin_thick, n, span)
     return (f"핀 {n}개 x t={float(fin_thick):.2f}mm → 갭 {g:.3f}mm "
-            f"(유로 {n+1}개, 최소 {MIN_GAP_MM}mm {'OK' if is_feasible(fin_thick, n, span) else '위반'})")
+            f"(유로 {n+1}개, 최소 {min_gap:g}mm {'OK' if is_feasible(fin_thick, n, span, min_gap) else '위반'})")
 
 
 def describe_bank(params, bank):
     t, n = bank_values(params, bank)
-    return f"[{bank}차 뱅크] " + describe(t, n, BANK_SPAN_MM[bank])
+    return f"[{bank}차 뱅크] " + describe(t, n, BANK_SPAN_MM[bank], params_min_gap(params))
 
 
 if __name__ == "__main__":
-    print(f"핀뱅크 길이 L = {FIN_SPAN_MM}mm,  최소 갭 = {MIN_GAP_MM}mm\n")
-    for k in range(15, 31):
-        t = k / 10
-        n = max_fin_count(t)
-        assert is_feasible(t, n) and not is_feasible(t, n + 1), t
-        print(f"  t={t:.1f}mm → N_max={n:2d}  (갭 {fin_gap(t, n):.3f}mm)")
-    print("\nmax_fin_count ↔ is_feasible 일치 확인 OK (t=1.5~3.0)")
+    for depth in (6.0, 8.0, 10.0, 12.0):
+        g = min_gap_for_depth(depth)
+        print(f"핀뱅크 길이 L = {FIN_SPAN_MM}mm, 깊이 {depth:g}mm → 최소 갭 {g:g}mm")
+        for k in range(15, 31, 5):
+            t = k / 10
+            n = max_fin_count(t, min_gap=g)
+            assert is_feasible(t, n, min_gap=g) and not is_feasible(t, n + 1, min_gap=g), (depth, t)
+            print(f"  t={t:.1f}mm → N_max={n:2d}  (갭 {fin_gap(t, n):.3f}mm)")
+    print("\nmax_fin_count ↔ is_feasible 일치 확인 OK")

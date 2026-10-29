@@ -26,8 +26,11 @@ OBJ_NAMES = [o[0] for o in OBJECTIVES]
 
 # 제약조건용 지표 — GPR 학습은 하지만 적응샘플링 방향·종료판정에는 관여하지 않음
 #   power_module_flow: 분기 유량 ÷ (분기 + 2차 통과 전체 유량) — 둘 다 핀 없는 통로의 단면 측정면(result_parser.py)
+#   psu_margin       : 분기비 − 전원부 필요 분기비 (≥ 0 이면 충족). 필요 분기비 = Q_PSU / (Q_PSU + Q_2차) —
+#                      "전원부를 지난 냉각수가 냉각판 출구 온도를 넘지 않는다" (result_parser.py 설명)
 CONSTRAINTS = [
     ("power_module_flow", False),
+    ("psu_margin",        False),
     ("weight",            False),
 ]
 CONSTRAINT_NAMES = [c[0] for c in CONSTRAINTS]
@@ -36,14 +39,14 @@ CONSTRAINT_NAMES = [c[0] for c in CONSTRAINTS]
 #   temp_in_range / temp_in_sd : 채널 안 편차 두 정의 (temp_in 은 이 중 TEMP_IN_KIND 쪽과 같은 값)
 #   temp_in_worst : 슬롯별 (최고 − 최저) 중 가장 큰 값 — "평균은 좋은데 한 슬롯만 나쁜" 설계를 확인하는 용도
 #   hot_slot / worst_in_slot : 최고온도가 난 슬롯 번호, (최고 − 최저)가 가장 큰 슬롯 번호 (1 ~ 17)
-#   power_module_flow_raw    : 분기 유량 ÷ 4 LPM (정규화 전)
+#   power_module_flow_raw    : 분기 유량 ÷ 그 회차 유량 (정규화 전)
 #   power_module_flow_energy : 에너지 보존으로 구한 분기비 (T2 − 출구) / (T2 − T1) — 유량 측정과 교차 확인용
-#   q_mid_ratio   : 1차 통과 후 통로 단면 유량 ÷ 4 LPM — 단면 유량 측정 편향의 크기 (1 에 가까울수록 정확)
+#   q_mid_ratio   : 1차 통과 후 통로 단면 유량 ÷ 그 회차 유량 — 단면 유량 측정 편향의 크기 (1 에 가까울수록 정확)
+#   psu_ratio_required : 전원부 필요 분기비 / T_psu_coolant : 전원부를 지난 냉각수 온도 (측정 분기비 기준)
 #   T_pass1 / T_outlet / T_pass2 : 1차 통과 후 · 출구 · 2차 통과 후(합류 전) PAO 온도
-#   weight_icepak : 알루미늄(SolidWorks) + PAO(Icepak 냉각수 덩어리 부피) — weight 와 비교용 (result_parser 참고)
 RECORD_ONLY = ["temp_in_range", "temp_in_sd", "temp_in_worst", "hot_slot", "worst_in_slot",
                "power_module_flow_raw", "power_module_flow_energy", "q_mid_ratio",
-               "T_pass1", "T_outlet", "T_pass2", "weight_icepak"]
+               "psu_ratio_required", "T_psu_coolant", "T_pass1", "T_outlet", "T_pass2"]
 
 MODELED = OBJECTIVES + CONSTRAINTS
 MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
@@ -51,8 +54,9 @@ LOG_RESP = {n: lg for n, lg in MODELED}
 
 UNIT = {
     "pressure_drop": "Pa", "temp_std": "°C", "max_temp": "°C", "temp_in": "°C",
-    "power_module_flow": "-", "weight": "kg",
+    "power_module_flow": "-", "psu_margin": "-", "weight": "kg",
     "temp_in_range": "°C", "temp_in_sd": "°C", "temp_in_worst": "°C", "hot_slot": "-", "worst_in_slot": "-",
     "power_module_flow_raw": "-", "power_module_flow_energy": "-", "q_mid_ratio": "-",
-    "T_pass1": "°C", "T_outlet": "°C", "T_pass2": "°C", "weight_icepak": "kg",
+    "psu_ratio_required": "-", "T_psu_coolant": "°C",
+    "T_pass1": "°C", "T_outlet": "°C", "T_pass2": "°C",
 }

@@ -1,8 +1,8 @@
 """
 V7 — 선별 후 활성 변수만으로 Optimal Latin Hypercube Design (V6 OLHD.py 그대로)
 
-V6 의 olhd_plan.csv / olhd_plan_meta.json 을 V7 Result\\OLHD 로 복사하면 V6 와 같은 80점을 돈다.
-없으면 같은 규칙·같은 시드(42)로 새로 만든다.
+V7 은 후보에 유량·유로 깊이가 들어가 V7 DSD 선별 결과로 실험점을 새로 만든다(V6 olhd_plan.csv 는 쓰지 않는다).
+점 수 = 10 × 활성 변수 수 (예: 형상 8 + 유량 + 깊이 = 10개면 100점). 갭 제약은 유로 깊이에 따라 바뀐다(params.decode).
 
 V6 가 V5(Code/OLHD.py) 대비 바꾼 점
   · 변수 목록이 고정이 아니라 screening_decision.json(1단계 DSD 결과)에서 정해진다.
@@ -45,7 +45,7 @@ def _min_dist(screening, u):
 
 
 def generate_olhd(screening, n_samples=None, seed=42, n_start=N_START_TRIALS, n_swap=N_SWAP_ITERS):
-    """반환: ((n_samples, 11) 실제 설계값, 최소 거리). 모든 행이 뱅크별 갭 제약을 만족한다."""
+    """반환: ((n_samples, 13) 실제 설계값, 최소 거리). 모든 행이 뱅크별 갭 제약을 만족한다."""
     n_samples = n_samples or default_n_doe(screening)
     d = screening.n_dim
 
@@ -82,7 +82,7 @@ def _plan_key(screening):
 
 
 def get_olhd_plan(screening):
-    """OLHD 실험점 (n, 11) 실제 설계값. olhd_plan.csv 가 있으면 그대로 읽고, 없으면 만들어 저장."""
+    """OLHD 실험점 (n, 13) 실제 설계값. olhd_plan.csv 가 있으면 그대로 읽고, 없으면 만들어 저장."""
     key = _plan_key(screening)
     if os.path.exists(OLHD_PLAN_PATH):
         if not os.path.exists(OLHD_PLAN_META_PATH):

@@ -1,5 +1,5 @@
 """
-V7 — 1·2·4패스 기본 형상 비교 (V6 pass_compare.py 기반, V7 해석 조건: 면 발열 17개 × 40 W = 680 W, 4 LPM)
+V7 — 1·2·4패스 기본 형상 비교 (V6 pass_compare.py 기반, V7 해석 조건: 면 발열 17개 × 40 W = 680 W, 기본 4 LPM·깊이 8 mm)
 
 V6 대비 변경점
   · 해석은 캠페인과 같은 icepak.run_icepak 을 measure=False 로 부른다 — 2패스 전용 측정면만 빼고 메시·물성·
@@ -35,7 +35,7 @@ import pandas as pd
 
 import icepak
 from icepak import connect_aedt, N_SOURCE
-from result_parser import _columns, _num, SKIP_ROWS, COL_NAME, HEAT_CAPACITY_W_PER_K, TOTAL_HEAT_W, HEAT_BALANCE_WARN
+from result_parser import _columns, _num, SKIP_ROWS, COL_NAME, heat_capacity_w_per_k, TOTAL_HEAT_W, HEAT_BALANCE_WARN
 from icepak import INLET_TEMP_C
 from paths import RESULT_DIR
 
@@ -46,6 +46,7 @@ PSI_PA = 6894.757
 # ── 채울 곳 ─────────────────────────────────────────────────
 #   형상 이름: {"step": STEP 경로, "power_input_thick": 전원모듈 입구 폭 [mm]}. step 이 None 이면 건너뜀.
 #   유로 깊이가 8 mm 가 아닌 STEP 이면 "fin_height": 깊이 [mm] 를 같이 넣는다(높이 좌표·z 메시가 따라감).
+#   유량을 바꿔 비교하려면 "flow_lpm": 유량 [LPM] 을 넣는다(없으면 4 LPM). 같은 STEP 을 이름만 달리해 여러 유량으로 돌려도 된다.
 CASES = {
     "1pass":      {"step": None, "power_input_thick": 5.0},    # 예: r"E:\...\flowpath_1pass.STEP"
     "1pass_19mm": {"step": None, "power_input_thick": 19.0},   # 1패스는 전원모듈 직렬 → 주 통로와 같은 폭
@@ -73,7 +74,7 @@ def _check(names):
 
 
 # ── 결과 읽기 ─────────────────────────────────────────────────
-def _parse(name, path):
+def _parse(name, path, flow_lpm):
     """행: source01~ N_SOURCE 행 → Fan1_Passage 차압 → Opening1 출구 온도 (icepak.run_icepak measure=False)."""
     cols, col_src = _columns(path)
     df = pd.read_csv(path, header=None, skiprows=SKIP_ROWS, sep=None, engine="python", on_bad_lines="skip")
@@ -94,7 +95,7 @@ def _parse(name, path):
     if np.any(s_min > s_mean + 1e-6) or np.any(s_mean > s_max + 1e-6):
         raise ValueError(f"[{name}] 최저 ≤ 평균 ≤ 최고가 아님 — 열 위치({col_src} {cols}) 확인")
     s_range = s_max - s_min
-    hb = HEAT_CAPACITY_W_PER_K * (t_out - INLET_TEMP_C) / TOTAL_HEAT_W
+    hb = heat_capacity_w_per_k(flow_lpm) * (t_out - INLET_TEMP_C) / TOTAL_HEAT_W
     if not np.isfinite(hb) or abs(hb - 1) > HEAT_BALANCE_WARN:
         print(f"  ⚠ [{name}] 열수지 {hb*100:.1f}% (출구 {t_out:.2f} °C) — 팬·오프닝 면이 제대로 잡혔는지 AEDT 화면으로 확인할 것")
     row = {"name": name, "max_temp": float(s_max.max()), "temp_std": float(np.std(s_mean)),
@@ -120,7 +121,7 @@ def report():
         print("결과가 아직 없습니다.")
         return
     df = pd.read_csv(SUMMARY_PATH)
-    cols = ["name", "power_input_thick", "max_temp", "temp_std", "temp_in_range", "temp_in_worst",
+    cols = ["name", "power_input_thick", "flow_lpm", "fin_height", "max_temp", "temp_std", "temp_in_range", "temp_in_worst",
             "pressure_drop", "pressure_drop_psi", "heat_balance"]
     print("\n[형상별 결과]")
     print(df[[c for c in cols if c in df.columns]].to_string(index=False, float_format=lambda v: f"{v:.4g}"))
@@ -130,6 +131,9 @@ def report():
         return
     r = df.set_index("name")
     print(f"\n[패스를 늘릴 때 차압 증가 대비 온도 이득] 순서 {' → '.join(seq)}")
+    for key in ("flow_lpm", "fin_height"):
+        if key in r.columns and r.loc[seq, key].nunique() > 1:
+            print(f"  ⚠ 비교하는 형상끼리 {key} 가 다름 {r.loc[seq, key].to_dict()} — 같은 유량·깊이끼리 비교해야 의미가 있다")
     print(f"  {'바꿈':16s} {'차압 증가[psi]':>14s} {'최고온도 감소[°C]':>17s} {'°C/psi':>8s} "
           f"{'채널간 편차 감소':>15s} {'채널안 편차 감소':>15s}")
     for a, b in zip(seq, seq[1:]):
@@ -161,14 +165,16 @@ def main(names):
         icepak.icepak_result_path = lambda phase, idx: csv_path
         try:
             p = {"power_input_thick": c["power_input_thick"]}
-            if "fin_height" in c:
-                p["fin_height"] = c["fin_height"]
+            for key in ("fin_height", "flow_lpm"):
+                if key in c:
+                    p[key] = c[key]
             ipk, path, _ = icepak.run_icepak(desktop, ipk, c["step"], "pass", k, p, measure=False)
         finally:
             icepak.icepak_result_path = original
-        row = _parse(n, path)
+        row = _parse(n, path, c.get("flow_lpm", icepak.NOMINAL_FLOW_LPM))
         row["power_input_thick"] = c["power_input_thick"]
         row["fin_height"] = c.get("fin_height", icepak.NOMINAL_DEPTH_MM)
+        row["flow_lpm"] = c.get("flow_lpm", icepak.NOMINAL_FLOW_LPM)
         _save(row)
         print(f"[{n}] 최고온도 {row['max_temp']:.2f} °C  채널간 편차 {row['temp_std']:.3f}  "
               f"채널안 편차 {row['temp_in_range']:.3f}  차압 {row['pressure_drop']:.0f} Pa "

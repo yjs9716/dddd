@@ -1,5 +1,5 @@
 """
-V7 캠페인 전 점검 — 최종 해석 조건(면 발열 17개 · 680 W · 출구 역류 차단)에서 격자 3단계 + 재현성
+V7 캠페인 전 점검 — 최종 해석 조건(면 발열 17개 · 680 W · 출구 역류 차단)에서 격자 3단계 + 재현성 + 모서리
 
 ⚠ main.py 와 동시에 실행하지 말 것 (같은 SolidWorks/AEDT 사용).
 ⚠ 결과는 Result/GCI 에 따로 저장되며 캠페인 결과와 섞이지 않는다.
@@ -11,17 +11,21 @@ V6 격자 시험과 다른 점 (V6 의 약점을 메운다)
   · V6 는 y·z 를 따로 한 축씩 바꿨고 x 는 바꾸지 않았다. 해석 조건도 최종 캠페인과 달랐다(역류 허용·발열 9개).
     V7 은 최종 조건 그대로, 유체 서브리전과 분기 입구 국소 메시의 x·y·z 셀 크기를 같은 배율로 함께 바꾼다
     (배율 COARSE · 1 · FINE — 1 이 캠페인 값). 판(알루미늄)도 서브리전 안이라 함께 촘촘해진다.
-  · 설계 두 개로 돈다 — 캠페인 값 격자의 오차가 "설계 간 차이"에 비해 충분히 작은지 지표마다 비교하기 위해.
-      v6opt : V6 최종 최적설계 (실제로 최적점이 있을 법한 영역)
-      tight : 두 뱅크 모두 핀 1.5 mm × 24개(갭 2.02 mm, 가장 촘촘), 나머지는 범위 중앙 — 메싱이 가장 어려운 형상
+  · 설계 셋으로 돈다.
+      v6opt  : V6 최종 최적설계, 4 LPM · 깊이 8 mm (실제로 최적점이 있을 법한 영역)
+      tight  : 두 뱅크 모두 핀 1.5 mm × 24개(갭 2.02 mm, 가장 촘촘), 4 LPM · 깊이 8 mm, 나머지는 범위 중앙
+               — v6opt 와 같은 유량·깊이라 둘의 차이가 "같은 조건에서 설계끼리의 차이"(잡음/신호의 신호)가 된다
+      corner : 메시에 가장 까다로운 모서리 — 최대 유량 6 LPM(가장 빠른 유속) · 최소 깊이 6 mm(z 칸이 가장 작음)
+               · 핀 1.5 mm × 24개 · 분기 입구 폭 3 mm(가장 좁은 통로). 여기서 통과하면 범위 전체를 통과한다고 본다
   · 재현성: v6opt 를 캠페인 값 격자로 한 번 더 돌린다(repeat). 입력이 같으면 결과도 같아야 한다.
+  · 모두 10회. 선별(DSD) 전에 도는 점검이라 각도·출구 폭은 V6 선별 고정값(V6_FIXED)으로 둔다.
 
 보고 내용
   · 지표별 세 격자 값, 캠페인 격자(1) 대비 조밀 격자 차이, GCI (Celik et al. 2008, 격자 비가 다를 때의 반복식)
   · 잡음/신호 = |조밀 − 캠페인 격자| ÷ |두 설계의 차이| — 작을수록 캠페인 격자로 설계를 구분하기에 충분하다.
     채널 안 편차는 최고−최저(기본)가 기준 안이면 그대로, 넘고 표준편차는 기준 안이면 표준편차를 권한다.
   · 재현성 = |repeat − 캠페인 격자|
-  · 분기비 교차 확인 — 유량 측정(정규화) vs 에너지 보존, Q_mid ÷ 4 LPM(단면 유량 측정 편향)
+  · 분기비 교차 확인 — 유량 측정(정규화) vs 에너지 보존, Q_mid ÷ 유량(단면 유량 측정 편향)
 판정 기준(권장): 차압·분기비는 조밀 격자 대비 2% 이내, 온도 셋은 잡음/신호 0.1 이하. 넘으면 icepak.py 의
   MESH_REGION_* 를 줄이고 이 점검을 다시 한다(결과 파일을 지우고 — 기준 메시가 바뀌면 이어서 하지 않고 멈춘다).
 """
@@ -46,12 +50,13 @@ from paths import GCI_DIR
 # ══════════════ 점검 설정 — 실행 전에 확정 ══════════════
 COARSE, FINE = 1.3, 1 / 1.3          # 셀 크기 배율 (1 = icepak.py 캠페인 값). 조밀 격자는 셀 수 약 2.2배
 LEVELS = {"coarse": COARSE, "medium": 1.0, "fine": FINE, "repeat": 1.0}
-DESIGNS = ["v6opt", "tight"]          # 돌릴 설계 (아래 test_designs)
+DESIGNS = ["v6opt", "tight", "corner"]   # 돌릴 설계 (아래 test_designs). 앞의 두 개로 잡음/신호를 본다
 REPEAT_DESIGN = "v6opt"               # 재현성 확인 설계
 TOL_PCT = 2.0                         # 차압·분기비 허용 차이 [%] (조밀 격자 대비)
 TOL_NOISE_SIGNAL = 0.1                # 온도 지표 잡음/신호 허용치
 V6_OPT = {"input_thick": 23.1, "power_input_thick": 3.0, "mid_thick": 22.0, "mid_input_thick": 23.9,
-          "fin_thick_1": 1.7, "fin_count_1": 19, "fin_thick_2": 1.6, "fin_count_2": 23}
+          "fin_thick_1": 1.7, "fin_count_1": 19, "fin_thick_2": 1.6, "fin_count_2": 23,
+          "flow_lpm": 4.0, "fin_height": 8.0}
 V6_FIXED = {"input_angle": 150.0, "mid_angle": 115.0, "output_thick": 35.0}   # V6 선별 고정값
 # ═══════════════════════════════════════════════════════
 
@@ -73,11 +78,12 @@ def _setup():
 
 def test_designs():
     mid = to_dict(decode(np.full(N_CAND_DIM, 0.5)))
-    tight = {**mid, **V6_FIXED}          # 활성 변수는 범위 중앙, 선별 고정 변수는 캠페인 값
+    tight = {**mid, **V6_FIXED, "flow_lpm": 4.0, "fin_height": 8.0}   # 형상은 범위 중앙, 유량·깊이는 v6opt 와 같게
     for b in BANKS:
         tight[f"fin_thick_{b}"], tight[f"fin_count_{b}"] = 1.5, 24
+    corner = {**tight, "flow_lpm": 6.0, "fin_height": 6.0, "power_input_thick": 3.0}
     v6 = to_dict([{**V6_FIXED, **V6_OPT}[n] for n in CANDIDATES])
-    out = {"v6opt": v6, "tight": tight}
+    out = {"v6opt": v6, "tight": tight, "corner": corner}
     for name, p in out.items():
         if not all_banks_feasible(p):
             raise RuntimeError(f"시험 설계 {name} 가 갭 제약을 위반함")
@@ -271,7 +277,7 @@ def report():
             print(f"  {k:26s} {dv:+.3g}")
 
     # 분기비 교차 확인
-    print("\n[분기비 교차 확인] 유량 측정(정규화) · 에너지 보존 · Q_mid÷4")
+    print("\n[분기비 교차 확인] 유량 측정(정규화) · 에너지 보존 · Q_mid÷유량")
     for _, r in df.sort_values(["design", "scale"]).iterrows():
         print(f"  {r['design']:6s} {r['level']:7s} 유량 {r['power_module_flow']*100:6.2f}%  에너지 "
               f"{r['power_module_flow_energy']*100:6.2f}%  Q_mid {r['q_mid_ratio']*100:5.1f}%  "

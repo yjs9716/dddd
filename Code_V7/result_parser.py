@@ -7,7 +7,7 @@ V6 대비 변경점
       행 S       : Fan1_Passage 차압
       행 S+1     : Rectangle1 유량 (전원모듈 분기 입구)
       행 S+2     : Q_pass2 유량 (2차 통과 출구 통로 = 2차 통과 전체)
-      행 S+3     : Q_mid 유량 (1차 통과 후 가운데 통로, 4 LPM 이어야 함)
+      행 S+3     : Q_mid 유량 (1차 통과 후 가운데 통로, 입구 유량과 같아야 함)
       행 S+4     : T_pass1 온도 / 행 S+5 : Opening1 온도 (출구) / 행 S+6 : T_pass2 온도
   · 온도 지표 셋 (정의는 responses.py):
       max_temp = maxᵢ 최고ᵢ,   temp_std = std(평균ᵢ),   temp_in = meanᵢ(최고ᵢ − 최저ᵢ)  [TEMP_IN_KIND="sd" 면 표준편차ᵢ]
@@ -16,13 +16,21 @@ V6 대비 변경점
   · 분기비 power_module_flow = 분기 ÷ (분기 + 2차 통과 전체). 두 유량 모두 핀 없는 통로 단면에서 같은 방식으로
     잰 값이라 단면 측정의 공통 편향(벽 쪽 셀에서 속도가 0으로 보간돼 유량이 작게 잡힘 — V6 에서 1차 통과 합계
     3.3 LPM)이 비에서 상쇄된다. 교차 확인용으로 둘을 더 기록한다:
-      q_mid_ratio              = Q_mid ÷ 4 LPM — 그 편향의 크기 (1 에 가까울수록 정확)
+      q_mid_ratio              = Q_mid ÷ 그 회차 유량 — 그 편향의 크기 (1 에 가까울수록 정확)
       power_module_flow_energy = (T2 − T출구) ÷ (T2 − T1) — 에너지 보존 분기비. 해석에 PSU 열이 없어 분기 쪽
                                  냉각수는 T1 그대로 출구에서 2차 통과 냉각수(T2)와 섞인다.
   · 열수지(출구 흡열 ÷ 발열 합계)가 HEAT_BALANCE_FAIL 넘게 어긋나면 이 회차를 실패로 처리한다 — 역류·측정면
     오류가 의심되는 결과를 학습 데이터에 넣지 않으려고. HEAT_BALANCE_WARN 넘으면 경고만 한다.
+  · 냉각수 유량이 후보 변수라(params["flow_lpm"]) 흡열 계산·유량 비율은 그 회차 유량으로 한다(heat_capacity_w_per_k).
+  · 전원부(PSU) 분기 조건 — 제약 psu_margin = 분기비 − 필요 분기비 (≥ 0 이면 충족)
+      전원부 실장 형태·허용 온도는 정해지지 않고 총 손실(PSU_LOSS_W)만 주어지므로, 실장 형태와 무관한 냉각수 에너지
+      기준을 쓴다: "전원부를 지난 냉각수 온도가 냉각판 출구 온도를 넘지 않는다" (= CCA 2차 통과 냉각수보다 뜨겁지 않다).
+      1차 통과 후 냉각수(T1)가 같은 온도로 2차 통과와 분기로 나뉜다고 보면(분기 통로는 CCA 발열 영역 밖)
+          필요 분기비 = Q_PSU / (Q_PSU + Q_2차),   Q_2차 = 발열 합계 − 분기 전 흡열(유량 × c_p × (T1 − 입구))
+  · 중량 = 알루미늄(SolidWorks) + PAO(Icepak 냉각수 덩어리 부피 × 밀도). 유로 깊이가 바뀌면 판 외형이 달라져
+    V6 의 "외형 부피 상수 − 알루미늄" 방식을 쓸 수 없다. 깊이 8 mm 면 V6 방식 값도 로그에 같이 찍어 비교한다.
 
-그대로 (V6): 중량 = 알루미늄(SolidWorks) + PAO(전체 부피 − 알루미늄 부피), 1·2차 통과 후·출구 PAO 온도 기록.
+그대로 (V6): 1·2차 통과 후·출구 PAO 온도 기록.
 """
 import re
 
@@ -30,12 +38,15 @@ import numpy as np
 import pandas as pd
 
 from fins import BANKS, bank_gap
-from icepak import PAO_DENSITY, PAO_SPECIFIC_HEAT, INLET_TEMP_C, SOURCE_POWER_W, N_SOURCE, NOMINAL_DEPTH_MM
+from fins import NOMINAL_DEPTH_MM
+from icepak import PAO_DENSITY, PAO_SPECIFIC_HEAT, INLET_TEMP_C, SOURCE_POWER_W, N_SOURCE, NOMINAL_FLOW_LPM
 from responses import TEMP_IN_KIND
 
-# ⚠ 판재 외형이 V5와 같다는 전제의 값(유로 깊이 8 mm) — 형상을 바꿨다면 SolidWorks에서 다시 실측할 것.
-#   깊이가 8 mm 가 아니면 외형이 달라져 이 값을 쓸 수 없으므로, PAO 부피를 Icepak 냉각수 덩어리 부피로 바꿔 쓴다.
+# V6 중량 방식(외형 부피 − 알루미늄)의 외형 부피 — 유로 깊이 8 mm 판재 기준. V7 은 비교용 로그에만 쓴다.
 FULL_SOLID_VOLUME_MM3 = 2341073.1
+
+# 전원부(PSU) 총 손실 [W] — 800 W급, 효율 90% 가정: CCA 680 W × (1/0.9 − 1). 사양이 확정되면 이 값만 바꾼다.
+PSU_LOSS_W = 75.6
 
 ROW_SOURCE = 0
 ROW_DP     = ROW_SOURCE + N_SOURCE
@@ -53,14 +64,22 @@ DEFAULT_COLS = {"min": 7, "max": 8, "mean": 9, "sd": 10, "area": 11}   # 머리�
 _HEADER_KEYS = {"min": ("min",), "max": ("max",), "mean": ("mean", "avg", "average"),
                 "sd": ("stdev", "std", "standard"), "area": ("area", "volume")}
 
-TOTAL_FLOW_LPM = 4.0
-# 4 LPM 전체를 1 °C 올리는 데 드는 열 [W/K] (≈117.5)
-HEAT_CAPACITY_W_PER_K = PAO_DENSITY * PAO_SPECIFIC_HEAT * TOTAL_FLOW_LPM / 60000.0
 TOTAL_HEAT_W = N_SOURCE * SOURCE_POWER_W     # 17 × 40 = 680 W
 HEAT_BALANCE_WARN = 0.05                     # 출구 열수지 경고 기준
 HEAT_BALANCE_FAIL = 0.10                     # 이보다 어긋나면 실패 처리 (V6 정상 회차는 3% 안팎)
-FLOW_RATIO_WARN = (0.7, 1.3)                 # Q_mid / 4, (분기 + 2차) / 4 — 벗어나면 경고
+FLOW_RATIO_WARN = (0.7, 1.3)                 # Q_mid ÷ 유량, (분기 + 2차) ÷ 유량 — 벗어나면 경고
 FLOW_RATIO_FAIL = (0.5, 1.5)                 # 벗어나면 측정면 위치가 틀린 것으로 보고 실패 처리
+
+
+def heat_capacity_w_per_k(flow_lpm=NOMINAL_FLOW_LPM):
+    """냉각수 전체를 1 °C 올리는 데 드는 열 [W/K] = 밀도 × 비열 × 유량 (4 LPM 에서 ≈117.5)."""
+    return PAO_DENSITY * PAO_SPECIFIC_HEAT * float(flow_lpm) / 60000.0
+
+
+def psu_required_ratio(t_pass1, flow_lpm, q_psu=PSU_LOSS_W):
+    """전원부 필요 분기비 = Q_PSU / (Q_PSU + Q_2차) (모듈 설명). 반환: (필요 분기비, Q_2차 W)."""
+    q_2nd = TOTAL_HEAT_W - heat_capacity_w_per_k(flow_lpm) * (t_pass1 - INLET_TEMP_C)
+    return q_psu / (q_psu + max(q_2nd, 1e-6)), q_2nd
 
 
 def _num(cell):
@@ -118,9 +137,9 @@ def _check_ratio(tag_idx, what, ratio):
         print(f"  ⚠ [{tag_idx}] {what} = 입구 유량의 {ratio*100:.0f}% — 단면 유량 측정 편향이 큼. 측정면·메시를 확인할 것")
 
 
-def _check_heat_balance(tag_idx, t_outlet):
+def _check_heat_balance(tag_idx, t_outlet, flow_lpm):
     """출구 PAO 온도로 본 흡열 ÷ 발열 합계. 크게 어긋나면 실패, 조금 어긋나면 경고. 반환: (흡열 W, 비)."""
-    q_out = HEAT_CAPACITY_W_PER_K * (t_outlet - INLET_TEMP_C)
+    q_out = heat_capacity_w_per_k(flow_lpm) * (t_outlet - INLET_TEMP_C)
     ratio = q_out / TOTAL_HEAT_W
     msg = (f"열수지: 출구 기준 흡열 {q_out:.1f} W (발열 {TOTAL_HEAT_W:.0f} W의 {ratio*100:.1f}%). "
            "Opening1 역류 차단, 출구 온도 행, 발열면 Source 경계를 확인할 것")
@@ -131,13 +150,14 @@ def _check_heat_balance(tag_idx, t_outlet):
     return q_out, ratio
 
 
-def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3, pao_volume_mm3=None):
-    """반환 dict — 목적함수: pressure_drop, temp_std, max_temp, temp_in / 제약: power_module_flow, weight /
+def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3, pao_volume_mm3):
+    """반환 dict — 목적함수: pressure_drop, temp_std, max_temp, temp_in / 제약: power_module_flow, psu_margin, weight /
     기록 전용(responses.RECORD_ONLY): temp_in_range, temp_in_sd, temp_in_worst, hot_slot, worst_in_slot,
-    power_module_flow_raw, power_module_flow_energy, q_mid_ratio, T_pass1, T_outlet, T_pass2, weight_icepak /
-    fin_gap_1, fin_gap_2
-    pao_volume_mm3 : Icepak 냉각수 덩어리(PAO_Separate1) 부피 — run_icepak 의 세 번째 반환값.
-                     깊이 8 mm 면 weight 는 V6 방식(외형 부피 − 알루미늄), 아니면 이 값으로 계산한다."""
+    power_module_flow_raw, power_module_flow_energy, q_mid_ratio, psu_ratio_required, T_psu_coolant,
+    T_pass1, T_outlet, T_pass2 / fin_gap_1, fin_gap_2
+    pao_volume_mm3 : Icepak 냉각수 덩어리(PAO_Separate1) 부피 — run_icepak 의 세 번째 반환값 (중량 계산)."""
+    flow = float(params.get("flow_lpm", NOMINAL_FLOW_LPM))
+    cap = heat_capacity_w_per_k(flow)
     cols, col_src = _columns(result_path)
     df = pd.read_csv(result_path, header=None, skiprows=SKIP_ROWS, sep=None, engine="python",
                      on_bad_lines="skip")
@@ -182,35 +202,33 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
     q2_lpm = _flow_lpm(df, ROW_Q2, cols, tag_idx, "2차 통과(Q_pass2)")
     qmid_lpm = _flow_lpm(df, ROW_QMID, cols, tag_idx, "1차 통과 후(Q_mid)")
     power_module_flow = pm_lpm / (pm_lpm + q2_lpm)
-    power_module_flow_raw = pm_lpm / TOTAL_FLOW_LPM
-    q_mid_ratio = qmid_lpm / TOTAL_FLOW_LPM
+    power_module_flow_raw = pm_lpm / flow
+    q_mid_ratio = qmid_lpm / flow
     _check_ratio(tag_idx, "1차 통과 후 통로 유량(Q_mid)", q_mid_ratio)
-    _check_ratio(tag_idx, "분기 + 2차 통과 유량", (pm_lpm + q2_lpm) / TOTAL_FLOW_LPM)
+    _check_ratio(tag_idx, "분기 + 2차 통과 유량", (pm_lpm + q2_lpm) / flow)
 
     # ── PAO 온도·열수지 ──
-    t_pass1 = _record_value(df, ROW_T1, cols["mean"], tag_idx, "1차 통과 후 온도")
+    t_pass1 = _row_value(df, ROW_T1, cols["mean"], tag_idx, "1차 통과 후 온도")      # 전원부 조건에 쓰여 필수
     t_outlet = _row_value(df, ROW_OUT, cols["mean"], tag_idx, "출구 온도")
     t_pass2 = _record_value(df, ROW_T2, cols["mean"], tag_idx, "2차 통과 후 온도")
-    q_out, hb = _check_heat_balance(tag_idx, t_outlet)
-    q_before = HEAT_CAPACITY_W_PER_K * (t_pass1 - INLET_TEMP_C)    # 분기 전 흡열 [W]
+    q_out, hb = _check_heat_balance(tag_idx, t_outlet, flow)
+    q_before = cap * (t_pass1 - INLET_TEMP_C)    # 분기 전 흡열 [W]
     dt21 = t_pass2 - t_pass1
     pm_energy = (t_pass2 - t_outlet) / dt21 if np.isfinite(dt21) and abs(dt21) > 0.05 else np.nan
 
+    # ── 전원부 분기 조건 (모듈 설명) ──
+    r_req, q_2nd = psu_required_ratio(t_pass1, flow)
+    psu_margin = power_module_flow - r_req
+    t_psu = t_pass1 + PSU_LOSS_W / (cap * power_module_flow)          # 전원부를 지난 냉각수 온도 (측정 분기비 기준)
+    t_out_psu = INLET_TEMP_C + (TOTAL_HEAT_W + PSU_LOSS_W) / cap      # 전원부 열까지 넣은 냉각판 출구 온도
+
+    # ── 중량 ──
+    if pao_volume_mm3 is None or not np.isfinite(float(pao_volume_mm3)) or float(pao_volume_mm3) <= 0:
+        raise ValueError(f"[{tag_idx}] Icepak 냉각수 부피가 없음({pao_volume_mm3}) — run_icepak 반환값을 넘길 것")
+    weight = float(aluminum_mass_kg) + float(pao_volume_mm3) * 1e-9 * PAO_DENSITY
     depth = float(params.get("fin_height", NOMINAL_DEPTH_MM))
-    pao_icepak = float(pao_volume_mm3) if pao_volume_mm3 is not None else np.nan
-    if abs(depth - NOMINAL_DEPTH_MM) < 1e-9:
-        pao_mm3 = FULL_SOLID_VOLUME_MM3 - float(aluminum_volume_mm3)
-        pao_src = "외형 부피 − 알루미늄"
-    elif np.isfinite(pao_icepak):
-        pao_mm3 = pao_icepak
-        pao_src = "Icepak 냉각수 부피"
-    else:
-        raise ValueError(f"[{tag_idx}] 유로 깊이 {depth:g} mm — FULL_SOLID_VOLUME_MM3 는 8 mm 외형 값이라 쓸 수 없음. "
-                         "extract_and_save 에 pao_volume_mm3(run_icepak 반환값)를 넘길 것")
-    if pao_mm3 <= 0:
-        raise ValueError(f"PAO 부피가 0 이하({pao_mm3:.1f} mm^3) — FULL_SOLID_VOLUME_MM3 확인")
-    weight = float(aluminum_mass_kg) + pao_mm3 * 1e-9 * PAO_DENSITY
-    weight_icepak = float(aluminum_mass_kg) + pao_icepak * 1e-9 * PAO_DENSITY
+    weight_v6 = (float(aluminum_mass_kg) + (FULL_SOLID_VOLUME_MM3 - float(aluminum_volume_mm3)) * 1e-9 * PAO_DENSITY
+                 if abs(depth - NOMINAL_DEPTH_MM) < 1e-9 else np.nan)
 
     results = {
         "pressure_drop": pressure_drop,
@@ -218,6 +236,7 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
         "max_temp": max_temp,
         "temp_in": temp_in,
         "power_module_flow": power_module_flow,
+        "psu_margin": psu_margin,
         "weight": weight,
         # 기록 전용 (responses.RECORD_ONLY)
         "temp_in_range": temp_in_range,
@@ -228,23 +247,26 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
         "power_module_flow_raw": power_module_flow_raw,
         "power_module_flow_energy": pm_energy,
         "q_mid_ratio": q_mid_ratio,
+        "psu_ratio_required": r_req,
+        "T_psu_coolant": t_psu,
         "T_pass1": t_pass1,
         "T_outlet": t_outlet,
         "T_pass2": t_pass2,
-        "weight_icepak": weight_icepak,
     }
     results.update({f"fin_gap_{b}": bank_gap(params, b) for b in BANKS})
 
     print(f"[{tag_idx}] 최고온도:{max_temp:.2f}  채널간 편차:{temp_std:.4f}  채널안 편차:{temp_in:.4f} ({TEMP_IN_KIND}, "
           f"최악 {results['temp_in_worst']:.3f} @슬롯{results['worst_in_slot']})  차압:{pressure_drop:.1f}  "
-          f"분기비:{power_module_flow*100:.1f}% (에너지 {pm_energy*100:.1f}%, ÷4LPM {power_module_flow_raw*100:.1f}%)  "
-          f"중량:{weight:.3f}kg")
+          f"분기비:{power_module_flow*100:.1f}% (필요 {r_req*100:.1f}%, 에너지 {pm_energy*100:.1f}%, "
+          f"÷유량 {power_module_flow_raw*100:.1f}%)  중량:{weight:.3f}kg  [{flow:g} LPM · 깊이 {depth:g} mm]")
     print(f"      발열면 {N_SOURCE}개 최저 {s_min.min():.2f} ~ 최고 {max_temp:.2f} °C (가장 뜨거운 슬롯 {results['hot_slot']}) · "
           f"열 위치 {col_src}")
     print(f"      유량: 분기 {pm_lpm:.4f} + 2차 {q2_lpm:.4f} LPM · 1차 통과 후 {qmid_lpm:.4f} LPM "
-          f"(입구 {TOTAL_FLOW_LPM:.1f} LPM의 {q_mid_ratio*100:.0f}%)")
+          f"(입구 {flow:g} LPM의 {q_mid_ratio*100:.0f}%)")
     print(f"      PAO 온도: 1차 후 {t_pass1:.3f} (분기 전 흡열 {q_before:.1f} W) · 2차 후 {t_pass2:.3f} · "
           f"출구 {t_outlet:.3f} °C (흡열 {q_out:.1f} W / 발열 {TOTAL_HEAT_W:.0f} W = {hb*100:.1f}%)")
-    print(f"      중량: {weight:.4f} kg (PAO 부피 {pao_src}"
-          + (f", Icepak 냉각수 부피로는 {weight_icepak:.4f} kg)" if np.isfinite(weight_icepak) else ")"))
+    print(f"      전원부({PSU_LOSS_W:g} W): 분기비 {power_module_flow*100:.1f}% / 필요 {r_req*100:.1f}% (여유 {psu_margin*100:+.1f}%p, "
+          f"Q_2차 {q_2nd:.1f} W) · 전원부 지난 냉각수 {t_psu:.2f} °C / 판 출구(전원부 열 포함) {t_out_psu:.2f} °C")
+    print(f"      중량: {weight:.4f} kg (PAO = Icepak 냉각수 부피 {float(pao_volume_mm3):.0f} mm³"
+          + (f", V6 방식으로는 {weight_v6:.4f} kg)" if np.isfinite(weight_v6) else ")"))
     return results

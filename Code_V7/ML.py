@@ -1,9 +1,13 @@
 """
-V7 캠페인 관리 — GPR 대체모델 · IMSE 적응샘플링 · 자동종료 (V6 ML.py 에서 DSD 단계만 뺐다)
+V7 캠페인 관리 — 1단계 DSD 진행 기록 + 2단계 GPR 대체모델 · IMSE 적응샘플링 · 자동종료 (V6 ML.py 기반)
 
 캠페인 단계 (campaign_state)
-  "need_screening" : screening_decision.json 없음 → V6 Result\\DSD 에서 V7 Result 로 복사할 것 (paths.py)
-  "olhd"           : 진행 중 — DOE(10×활성 변수 수) → IMSE 적응샘플링
+  "dsd"            : DSD 37회 진행 중 — dsd_plan.csv 의 run 을 순서대로 제안
+  "need_screening" : DSD 완료, screening_decision.json 없음
+                     → DSD_analysis.py 를 실행해 선별 판정을 확정해야 다음으로 넘어감
+                       (자동으로 넘어가지 않게 한 이유: 고정할 변수를 사람이 확인하고 SolidWorks 쪽 준비를
+                        점검할 기회를 두기 위함. 판정은 사전 고정 규칙으로 기계적으로 나오므로 결과를 바꾸면 안 됨)
+  "olhd"           : 2단계 진행 중 — DOE(10×활성 변수 수) → IMSE 적응샘플링
   "done"           : 종료기준 충족
 
 V6 에서 그대로 가져온 것
@@ -12,11 +16,16 @@ V6 에서 그대로 가져온 것
   · 적응샘플링: σ 상위 후보 → IMSE 최대
   · GPR: Const × Matern(ν=2.5, ARD) + White, normalize_y, 차압만 log
   · 하이퍼파라미터 5회 재사용 + joblib 병렬, 수렴한 목적함수는 샘플링 방향에서 제외
-  · 입력은 선별 후 활성 변수(params.Screening), 결과 CSV에는 후보 11개 전부(고정 변수는 상수 열)
+  · 입력은 선별 후 활성 변수(params.Screening), 결과 CSV에는 후보 전부(고정 변수는 상수 열)
+  · DSD 실험표·실패 재시도 (1단계)
 
 V7 에서 바뀐 것
   · 목적함수가 차압 · 채널 간 온도편차 · 최고온도 · 채널 안 온도편차(responses.py)라 종료 판정도 이 넷으로 한다.
-  · DSD 단계(실험표·실패 재시도)를 뺐다 — V6 선별 결과를 그대로 쓴다.
+  · 후보에 유량·유로 깊이가 들어가 DSD 를 V7 조건(후보 13개, 37회)으로 다시 한다.
+  · S_j 는 "유량 효과를 뺀 설계끼리의 흩어짐"으로 정한다(_get_S_j). 유량은 운전 조건이라 차압(∝ 유량)과
+    온도(∝ 1/유량) 흩어짐의 대부분을 차지하는데, 그대로 S_j 에 넣으면 기준(α·S_j)이 느슨해져 같은 유량에서
+    설계끼리의 차이를 구분하기 전에 캠페인이 끝날 수 있다. DOE 응답에서 유량에 대한 2차 다항식 추세를 빼고
+    남은 값의 표준편차를 S_j 로 쓴다(유량이 활성 변수일 때만).
 """
 import json
 import os
@@ -27,10 +36,12 @@ import pandas as pd
 from scipy.stats import qmc
 from joblib import Parallel, delayed
 
-from params import CANDIDATES, Screening, to_dict
+from params import CANDIDATES, OPERATING_PARAMS, Screening, to_dict
 from fins import BANKS, bank_gap, all_banks_feasible
 from responses import OBJ_NAMES, MODELED, MODELED_NAMES, RECORD_ONLY, UNIT
-from paths import SCREENING_PATH, RESULTS_PATH, FAILED_PATH
+from paths import (DSD_RESULTS_PATH, DSD_FAILED_PATH, SCREENING_PATH,
+                   RESULTS_PATH, FAILED_PATH)
+import DSD
 
 # ── 실험 설정 (V5와 동일) ──
 N_CONSECUTIVE = 3
@@ -44,6 +55,7 @@ MIN_DIST_NORM = 0.05
 GAP_COLS = [f"fin_gap_{b}" for b in BANKS]
 _METRIC_COLS = [c for n in MODELED_NAMES for c in (f"pred_{n}", n, f"err_{n}")]
 _COLUMNS = ["idx"] + CANDIDATES + GAP_COLS + _METRIC_COLS + RECORD_ONLY
+_DSD_COLUMNS = ["run"] + CANDIDATES + GAP_COLS + MODELED_NAMES + RECORD_ONLY
 
 TERMINATION_GROUPS = {n: {"members": [n]} for n in OBJ_NAMES}
 GROUP_NAMES = list(TERMINATION_GROUPS)
@@ -109,8 +121,56 @@ def _gaps(params):
     return {f"fin_gap_{b}": bank_gap(params, b) for b in BANKS}
 
 
+# ══════════════ 1단계: DSD ══════════════
+def _dsd_results():
+    return _read(DSD_RESULTS_PATH, _DSD_COLUMNS)
+
+
+def _dsd_failed():
+    return _read(DSD_FAILED_PATH, ["run"] + CANDIDATES + ["reason"])
+
+
+def dsd_pending_runs():
+    """아직 성공하지 못했고, 실패 기록도 없는 run 목록 (순서대로)."""
+    plan = DSD.get_plan()
+    done = set(_dsd_results()["run"].dropna().astype(int))
+    failed = set(_dsd_failed()["run"].dropna().astype(int))
+    return [int(r) for r in plan["run"] if r not in done and r not in failed]
+
+
+def dsd_missing_runs():
+    plan = DSD.get_plan()
+    done = set(_dsd_results()["run"].dropna().astype(int))
+    return [int(r) for r in plan["run"] if r not in done]
+
+
+def retry_failed_dsd():
+    """실패 기록을 지워 해당 run 들을 다시 제안 목록에 올린다 (원인 수정 후 실행)."""
+    if os.path.exists(DSD_FAILED_PATH):
+        os.remove(DSD_FAILED_PATH)
+    print(f"DSD 실패 기록 삭제 — 다시 시도할 run: {dsd_missing_runs()}")
+
+
+def _dsd_params(run):
+    plan = DSD.get_plan().set_index("run")
+    row = plan.loc[run, CANDIDATES].values.astype(float)
+    return to_dict(row)
+
+
+def _record_dsd(run, params, results):
+    df = _dsd_results()
+    row = {"run": run, **_row_params(params), **_gaps(params),
+           **{n: results[n] for n in MODELED_NAMES},
+           **{n: results.get(n, np.nan) for n in RECORD_ONLY}}
+    df = pd.concat([df[df["run"] != run], pd.DataFrame([row])], ignore_index=True)
+    _write(df.sort_values("run"), DSD_RESULTS_PATH, _DSD_COLUMNS)
+    print(f"[DSD run {run}] 결과 저장 ({len(df)}/{DSD.N_RUNS})")
+
+
 # ══════════════ 캠페인 상태 / 외부 인터페이스 ══════════════
 def campaign_state():
+    if dsd_missing_runs():
+        return "dsd"
     if not os.path.exists(SCREENING_PATH):
         return "need_screening"
     return "done" if is_done() else "olhd"
@@ -119,6 +179,14 @@ def campaign_state():
 def next_job():
     """다음 실험 → (phase, idx, params).  더 할 게 없으면 (state, None, None)."""
     state = campaign_state()
+    if state == "dsd":
+        pend = dsd_pending_runs()
+        if not pend:
+            return "dsd_blocked", None, None     # 남은 run 이 전부 실패 기록 — 사람이 확인 필요
+        run = pend[0]
+        params = _dsd_params(run)
+        print(f"[DSD {run+1}/{DSD.N_RUNS}] " + _fmt(params))
+        return "dsd", run, params
     if state == "olhd":
         idx, params = _olhd_next()
         return "olhd", idx, params
@@ -129,21 +197,29 @@ def record(phase, idx, params, results):
     missing = [n for n in MODELED_NAMES if n not in results]
     if missing:
         raise KeyError(f"results 에 다음 값이 없음: {missing}")
-    _record_olhd(params, results)
+    if phase == "dsd":
+        _record_dsd(idx, params, results)
+    else:
+        _record_olhd(params, results)
 
 
 def log_failure(phase, idx, params, reason):
-    df = _load_failed()
-    attempt = _n_matches(df, [params[n] for n in CANDIDATES]) + 1
-    row = {**_row_params(params), "reason": str(reason)[:300],
-           "time": time.strftime("%Y-%m-%d %H:%M:%S"), "attempt": attempt}
-    path, cols = FAILED_PATH, _FAILED_COLUMNS
+    if phase == "dsd":
+        df = _dsd_failed()
+        row = {"run": idx, **_row_params(params), "reason": str(reason)[:300]}
+        path, cols = DSD_FAILED_PATH, ["run"] + CANDIDATES + ["reason"]
+    else:
+        df = _load_failed()
+        attempt = _n_matches(df, [params[n] for n in CANDIDATES]) + 1
+        row = {**_row_params(params), "reason": str(reason)[:300],
+               "time": time.strftime("%Y-%m-%d %H:%M:%S"), "attempt": attempt}
+        path, cols = FAILED_PATH, _FAILED_COLUMNS
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     _write(df, path, cols)
     print(f"  ⚠ [{phase}] 실패 기록 ({len(df)}건 누적): {reason}")
 
 
-# ══════════════ OLHD + 적응샘플링 ══════════════
+# ══════════════ 2단계: OLHD + 적응샘플링 ══════════════
 _SC = None
 _DOE_SAMPLES = None
 _S_J_CACHE = {}
@@ -189,7 +265,7 @@ def _load_failed():
 
 
 def _n_matches(df, x):
-    """기록(df)에서 설계값이 x(11개, CANDIDATES 순서)와 같은 행 수."""
+    """기록(df)에서 설계값이 x(후보 13개, CANDIDATES 순서)와 같은 행 수."""
     if not len(df):
         return 0
     X = df[CANDIDATES].values.astype(float)
@@ -204,7 +280,7 @@ def current_idx():
 #   실패한 DOE 점이 영구히 빠지면 행 번호가 당겨져, idx < N 으로 가르면 첫 적응샘플링 점이 DOE 로 분류된다
 #   (예측오차 미기록, S_j 에 섞임). 설계값 대조는 실패·재실행 순서와 무관하다.
 def _plan_vectors():
-    """OLHD 실험계획 N점의 설계값 (N, 11) — 기록에 저장되는 값과 같은 형태(to_dict, 핀 개수 정수)."""
+    """OLHD 실험계획 N점의 설계값 (N, 13) — 기록에 저장되는 값과 같은 형태(to_dict, 핀 개수 정수)."""
     return np.array([[to_dict(r)[n] for n in CANDIDATES] for r in _get_doe_samples()], dtype=float)
 
 
@@ -249,6 +325,18 @@ def _olhd_next():
     return len(df), params
 
 
+def _design_spread(doe_rows, name):
+    """DOE 응답의 설계공간 표준편차. 유량(운전 조건)이 활성 변수면 유량에 대한 2차 다항식 추세를 빼고 남은 값의
+    표준편차 — "같은 유량에서 설계끼리 얼마나 다른가" (모듈 설명)."""
+    y = doe_rows[name].values.astype(float)
+    ops = [n for n in OPERATING_PARAMS if n in screening().active]
+    if not ops:
+        return float(np.std(y))
+    Q = np.column_stack([np.ones(len(y))] + [doe_rows[n].values.astype(float) ** k for n in ops for k in (1, 2)])
+    coef, *_ = np.linalg.lstsq(Q, y, rcond=None)
+    return float(np.std(y - Q @ coef))
+
+
 def _get_S_j(df):
     """DOE 점들의 설계공간 표준편차 (종료 판정 기준). DOE 단계가 끝난 뒤(남은 DOE 점 없음)에만 정하고 고정한다."""
     global _S_J_CACHE
@@ -259,8 +347,10 @@ def _get_S_j(df):
     doe_rows = df[_in_plan_mask(df)]
     if len(doe_rows) < 2:
         return None
-    _S_J_CACHE = {name: float(doe_rows[name].std(ddof=0)) for name in OBJ_NAMES}
-    print(f"\n[S_j 고정] DOE {len(doe_rows)}점 기준 설계공간 표준편차 (계획 {n_doe()}점):")
+    _S_J_CACHE = {name: _design_spread(doe_rows, name) for name in OBJ_NAMES}
+    ops = [n for n in OPERATING_PARAMS if n in screening().active]
+    how = f" — {', '.join(ops)} 2차 추세를 뺀 값" if ops else ""
+    print(f"\n[S_j 고정] DOE {len(doe_rows)}점 기준 설계공간 표준편차{how} (계획 {n_doe()}점):")
     for name, s in _S_J_CACHE.items():
         print(f"    {name:16s} S_j={s:.5f}  threshold={ALPHA*s:.5f}")
     return _S_J_CACHE
@@ -489,7 +579,9 @@ def report_progress():
 
 if __name__ == "__main__":
     print("캠페인 상태:", campaign_state())
-    if campaign_state() == "need_screening":
-        print(f"선별 결과 파일이 없음: {SCREENING_PATH} — V6 Result\\DSD\\screening_decision.json 을 복사할 것")
+    if campaign_state() in ("dsd", "need_screening"):
+        print("DSD 남은 run:", dsd_missing_runs())
+        if campaign_state() == "need_screening":
+            print("  DSD 완료 — `python DSD_analysis.py` 로 선별 판정을 확정할 것")
     else:
         report_progress()

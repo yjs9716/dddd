@@ -16,18 +16,20 @@ V6 대비 변경점
     깊이 8 mm 에서는 V7 처음 버전과 같은 형상·설정이 된다.
   · 측정: 유로별 측정면(V_inlet_00~, V_inlet2_00~)을 없앴다. 채널 균일도는 발열면 온도로 직접 잰다.
     대신 분기비 정규화용으로 2차 통과 전체 유량 측정면(Q_pass2)과, 단면 유량 측정 편향 확인용으로 1차 통과 후
-    통로 전체 유량 측정면(Q_mid, 4 LPM 이어야 함)을 둔다. 분기(Rectangle1)까지 유량 측정면 셋은 모두 핀 없는
+    통로 전체 유량 측정면(Q_mid, 입구 유량과 같아야 함)을 둔다. 분기(Rectangle1)까지 유량 측정면 셋은 모두 핀 없는
     통로 단면을 덮고, 벽 속으로 FLOW_PLANE_OVERLAP_MM 만큼 더 나가게 그린다 — 면 테두리가 벽 표면과 딱 겹치면
     드물게 AEDT 가 면적을 못 구해 nan 이 났다(V6). 고체 속 속도는 0 이라 평균 × 면적(= 유량)은 그대로다.
   · Fields Summary 행 순서가 설계와 무관하게 고정됐다 (N_SOURCE + 7 행, 아래 run_icepak 주석).
 
-V6 에서 그대로인 것: 형상 불러오기, 재질, 팬(4 LPM, 20 °C), 출구 역류 차단, 메시, 해석 설정.
+  · 냉각수 유량(params["flow_lpm"], 기본 NOMINAL_FLOW_LPM = 4 LPM)을 팬 유량으로 넣는다(후보 변수).
+
+V6 에서 그대로인 것: 형상 불러오기, 재질, 팬(20 °C), 출구 역류 차단, 메시, 해석 설정.
 """
 from ansys.aedt.core import Desktop, Icepak
 import os, shutil, time
 
 from paths import AEDT_PROJ_PATH as PROJ_PATH, icepak_result_path
-from fins import describe_bank
+from fins import describe_bank, NOMINAL_DEPTH_MM
 
 
 # 유량 측정면(Rectangle1 · Q_pass2 · Q_mid)을 통로 벽 속으로 더 그리는 길이 [mm] (모듈 설명 참고).
@@ -38,10 +40,11 @@ FLOW_PLANE_OVERLAP_MM = 0.2
 PAO_DENSITY       = 794.0    # [kg/m^3]  AddMaterial mass_density
 PAO_SPECIFIC_HEAT = 2219.0   # [J/(kg·K)] AddMaterial specific_heat
 INLET_TEMP_C      = 20.0     # 팬 흡입 PAO 온도 [°C] (외기 AmbientTemp 와 별개)
+NOMINAL_FLOW_LPM  = 4.0      # params 에 flow_lpm 이 없을 때(pass_compare 등)의 냉각수 총 유량 [LPM]
 SOURCE_POWER_W    = 40.0     # 발열채널(CCA) 하나의 발열 [W]
 
 # ── 1차 통과 후 PAO 온도 측정면 (T_pass1) ──────────────────────
-#   1차 핀뱅크 출구와 2차 핀뱅크 입구 사이 가운데 통로(법선 y). 분기 전이라 4 LPM 전부가 지난다.
+#   1차 핀뱅크 출구와 2차 핀뱅크 입구 사이 가운데 통로(법선 y). 분기 전이라 냉각수 전부가 지난다.
 #   통로: x = MID_PASSAGE_X_WALL ~ (mid_input_thick + MID_PASSAGE_X_WALL), z = 0 ~ CHANNEL_DEPTH_MM.
 #   벽에서 T_PASS1_INSET_MM 만큼 띄운 사각형의 면적평균을 쓴다 — 시험 설계(mid_input_thick 24.9)에서
 #   유량가중 평균(Temp·Vy 격자 내보내기) 22.5 °C와 1 mm 띄움 면적평균 22.45 °C가 일치했다
@@ -81,7 +84,6 @@ SOURCE_Z       = 10.50000002   # 판 윗면 z — 깊이 8 mm 기준 (V6 블록 
 #   유량·온도 측정면의 z 범위 — 유로 깊이 전체 (fin_height 8.0 mm = 유로 깊이, 우회공간 없음)
 #   아래 값은 깊이 8 mm 기준이다. run_icepak 은 깊이(params["fin_height"])에 맞춰 천장 = CHANNEL_Z_TOP + (깊이 − 8),
 #   깊이 = params["fin_height"] 로 계산해 쓴다(유로 바닥 z ≈ 0 은 그대로).
-NOMINAL_DEPTH_MM = 8.0               # 기준 유로 깊이 = params.FIXED_GEOMETRY 의 fin_height
 CHANNEL_Z_TOP    = 7.999999983       # 유로 천장 z좌표 (깊이 8 mm)
 CHANNEL_DEPTH_MM = NOMINAL_DEPTH_MM  # 유로 깊이 = fin_height (깊이 8 mm)
 PAO_BOX_MARGIN_XY_MM = 30.0          # 냉각수 상자를 판 외곽보다 x·y 로 더 크게 그리는 여유 (z 는 여유 없이 딱 맞춤)
@@ -182,14 +184,15 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
     print(f"[T0] run_icepak 진입: {time.strftime('%H:%M:%S')}")
 
     # 유로 깊이 — 유로 천장 위의 높이는 전부 (깊이 − 8)만큼 올라가고, z 메시는 깊이에 비례 (모듈 설명 참고)
+    flow = float(params.get("flow_lpm", NOMINAL_FLOW_LPM))   # 팬 유량 [LPM]
     depth = float(params.get("fin_height", NOMINAL_DEPTH_MM))
     dz = depth - NOMINAL_DEPTH_MM
     ch_top = CHANNEL_Z_TOP + dz                    # 유로 천장 z
     src_z = SOURCE_Z + dz                          # 판 윗면(발열면) z
     mesh_z = MESH_REGION_Z * depth / NOMINAL_DEPTH_MM
     pm_mesh_z = PM_MESH_Z * depth / NOMINAL_DEPTH_MM
-    if abs(dz) > 1e-9:
-        print(f"  유로 깊이 {depth:g} mm — 유로 천장 z {ch_top:.4f}, 발열면 z {src_z:.4f}, z 메시 {mesh_z:.4g} mm")
+    print(f"  냉각수 {flow:g} LPM · 유로 깊이 {depth:g} mm (유로 천장 z {ch_top:.4f}, 발열면 z {src_z:.4f}, "
+          f"z 메시 {mesh_z:.4g} mm)")
 
     # 기존 프로젝트 닫기 (AEDT는 유지)
     if ipk is not None:
@@ -206,6 +209,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
     #   띄우고, 그 팝업이 COM 호출을 막아 Icepak() 생성자가 영원히 반환되지 않는다
     #   ("Project ... has been created"까지만 찍히고 디자인이 생성되지 않는 증상 —
     #   실제로 이 잠금 파일을 지우고 나니 해결됨을 확인함).
+    os.makedirs(os.path.dirname(PROJ_PATH), exist_ok=True)   # AEDT 폴더가 없으면 만든다
     if os.path.exists(PROJ_PATH + ".aedt"):
         os.remove(PROJ_PATH + ".aedt")
     if os.path.exists(PROJ_PATH + ".aedt.lock"):
@@ -221,7 +225,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
     # 직접 고정 이름을 줘서 그 경로를 타지 않게 함
     ipk = Icepak(
         project=PROJ_PATH,
-        design=f"IcepakDesign_{'gci_' if phase == 'gci' else ''}{idx:03d}",
+        design=f"IcepakDesign_{phase + '_' if phase in ('dsd', 'gci') else ''}{idx:03d}",
         new_desktop=False,
         close_on_exit=False,
     )
@@ -576,7 +580,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
                     "Y:="			, ["1","10","100","0"]
                 ],
                 "IntakeTemp:="		, f"{INLET_TEMP_C:g}cel",
-                "Volumetric:="		, "4ltr_per_min",
+                "Volumetric:="		, f"{flow:g}ltr_per_min",
                 "Swirl:="		, "0",
                 "OperatingRPM:="	, "0",
                 "LayerName:="		, "1"
@@ -955,7 +959,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
     if measure:
         # 유량 측정면 셋 — 모두 핀 없는 통로의 단면 전체를 덮고, 벽 속으로 FLOW_PLANE_OVERLAP_MM 더 나간다
         #   (모듈 설명 참고). 분기비 = Rectangle1 ÷ (Rectangle1 + Q_pass2) 로 같은 방식으로 잰 두 유량의 비라 단면 측정
-        #   편향이 상쇄되고, Q_mid(4 LPM 이어야 함)로 그 편향의 크기를 매 회차 기록한다.
+        #   편향이 상쇄되고, Q_mid(입구 유량과 같아야 함)로 그 편향의 크기를 매 회차 기록한다.
         print(f"  {describe_bank(params, 1)}")
         print(f"  {describe_bank(params, 2)}")
         ov = FLOW_PLANE_OVERLAP_MM
@@ -967,7 +971,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
         t2_wall_x = PLATE_X_RIGHT_WALL - params['input_thick'] - PASS2_EXIT_FROM_INPUT
         _rect(oEditor, "Q_pass2", (t2_wall_x + ov, PASS2_EXIT_Y, ch_top + ov),
               -(depth + 2 * ov), -(params['mid_thick'] + 2 * ov), "y")
-        #   Q_mid      : 1차 통과 후 가운데 통로(T_pass1 과 같은 단면) — 분기 전이라 4 LPM 전부가 지난다
+        #   Q_mid      : 1차 통과 후 가운데 통로(T_pass1 과 같은 단면) — 분기 전이라 냉각수 전부가 지난다
         _rect(oEditor, "Q_mid", (MID_PASSAGE_X_WALL - ov, MID_PASSAGE_Y, ch_top - depth - ov),
               depth + 2 * ov, params['mid_input_thick'] + 2 * ov, "y")
 
@@ -1181,7 +1185,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
     #   행 S       : Fan1_Passage 차압
     #   행 S+1     : Rectangle1 유량 (전원모듈 분기 입구)
     #   행 S+2     : Q_pass2 유량 (2차 통과 출구 통로, 합류 전)
-    #   행 S+3     : Q_mid 유량 (1차 통과 후 가운데 통로, 4 LPM 이어야 함)
+    #   행 S+3     : Q_mid 유량 (1차 통과 후 가운데 통로, 입구 유량과 같아야 함)
     #   행 S+4     : T_pass1 온도 (1차 통과 후 PAO)
     #   행 S+5     : Opening1 온도 (출구 PAO, 열수지 점검용)
     #   행 S+6     : T_pass2 온도 (2차 통과 후·합류 전 PAO)

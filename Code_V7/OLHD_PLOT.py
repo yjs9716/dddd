@@ -32,7 +32,7 @@ names = sc.active
 n_dim = sc.n_dim
 lo, hi = sc.lo, sc.hi
 
-X_full = get_olhd_plan(sc)                 # (n, 11) 실제 설계값 — main.py가 돌릴 점과 동일
+X_full = get_olhd_plan(sc)                 # (n, 13) 실제 설계값 — main.py가 돌릴 점과 동일
 samples = X_full[:, sc.idx_active]          # 활성 변수만
 n = len(samples)
 fixed = sc.fixed_values()

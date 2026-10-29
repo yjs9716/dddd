@@ -1,8 +1,13 @@
 """
-V7 — SolidWorks COM 자동화 (전역변수 제어 + STEP 저장, V6 와 같음. 파일 위치만 paths.py 의 V7 폴더)
+V7 — SolidWorks COM 자동화 (전역변수 제어 + STEP 저장)
+
+V7 에서 바뀐 것
+  · 유로 깊이 fin_height 를 전역변수로 써넣는다(후보 변수). 모델은 판 바닥이 기준이고
+    "D1@보스-돌출1" = "fin_height" + 2.5, 유로 빼기 깊이 = "fin_height" 로 묶여 있어야 한다(WORKFLOW.md).
+  · 유량 flow_lpm 은 운전 조건이라 SolidWorks 에 쓰지 않는다(params.OPERATING_PARAMS).
 
 V5(Code/Solidworks.py) 대비 변경점
-  · 전역변수 9개 → 후보 11개(params.CANDIDATES) 전부를 매 회차 써넣는다.
+  · 전역변수 9개 → 형상 변수 전부(V7: params.CANDIDATES 중 유량을 뺀 12개)를 매 회차 써넣는다.
     2단계에서 선별로 고정된 변수도 SolidWorks에는 계속 전역변수로 남아 있으므로,
     고정값(screening_decision.json)을 매번 명시적으로 써넣는다 — 이전 회차 값이
     남아 있어 형상이 조용히 어긋나는 일을 막기 위함.
@@ -14,15 +19,11 @@ V5(Code/Solidworks.py) 대비 변경점
 import pythoncom
 import win32com.client
 
-from params import CANDIDATES, INT_PARAMS, FIXED_GEOMETRY
+from params import CANDIDATES, INT_PARAMS, OPERATING_PARAMS
 from fins import BANKS, bank_feasible, describe_bank
 from paths import PART_PATH, ASM_PATH, step_path
 
-SW_PARAM_NAMES = list(CANDIDATES)
-# 있으면 써넣는 전역변수 — 유로 깊이. SolidWorks 에 "fin_height" 전역변수가 있으면 params 값을 써넣고,
-#   없으면 깊이 8 mm 고정 모델로 보고 건너뛴다(그때 params 의 깊이가 기본값이 아니면 멈춘다).
-#   모델은 판 바닥이 기준이고 바닥·덮개 두께와 포트 높이는 그대로, 유로 천장 위가 깊이만큼 올라가야 한다(icepak.py 설명).
-OPTIONAL_SW_PARAMS = ["fin_height"]
+SW_PARAM_NAMES = [n for n in CANDIDATES if n not in OPERATING_PARAMS]   # 형상 변수 12개
 
 
 def connect_sw():
@@ -51,7 +52,7 @@ def _validate(params):
 
 
 def update_sw(app, errors, warnings, params):
-    """전역변수 11개 업데이트 및 리빌드. 반환: (aluminum_mass_kg, aluminum_volume_mm3)"""
+    """형상 전역변수 12개 업데이트 및 리빌드. 반환: (aluminum_mass_kg, aluminum_volume_mm3)"""
     _validate(params)
 
     part  = app.ActivateDoc3(PART_PATH, False, 0, errors)
@@ -68,18 +69,9 @@ def update_sw(app, errors, warnings, params):
         raise KeyError(
             f"SolidWorks에 없는 전역변수: {missing}\n"
             f"  현재 존재하는 변수: {sorted(name_to_i)}\n"
-            "  → paths.py 상단 '시작 전 준비'의 변수 11개와 뱅크별 갭 수식을 Equation Manager에 만들 것")
+            "  → paths.py 상단 '시작 전 준비'의 형상 변수 12개(fin_height 포함)와 뱅크별 갭 수식을 Equation Manager에 만들 것")
 
     written = list(SW_PARAM_NAMES)
-    for name in OPTIONAL_SW_PARAMS:
-        if name not in params:
-            continue
-        if name in name_to_i:
-            written.append(name)
-        elif abs(float(params[name]) - FIXED_GEOMETRY[name]) > 1e-9:
-            raise KeyError(f"{name}={params[name]} 을 쓰려면 SolidWorks Equation Manager 에 전역변수 \"{name}\" 이 있어야 함 "
-                           f"(없으면 {FIXED_GEOMETRY[name]:g} 고정 모델로만 돌 수 있음)")
-
     for name in written:
         value = params[name]
         text = str(int(value)) if name in INT_PARAMS else str(value)
