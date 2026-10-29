@@ -79,7 +79,7 @@ POINTS = [
         "x": {"input_thick": 24.6, "power_input_thick": 3.0, "mid_thick": 22.1, "mid_input_thick": 25.0,
               "fin_thick_1": 1.9, "fin_count_1": 18, "fin_thick_2": 1.5, "fin_count_2": 23},
     },
-    {   # 유로 깊이 12 mm 형상 확인용 — V6 최적설계에서 핀만 깊이 12 mm 최소 갭(3 mm)에 맞춤 (2 mm × 15개, 갭 3.53 mm)
+    {   # 유로 깊이 12 mm 형상 확인용 — V6 최적설계에서 핀만 2 mm × 15개(갭 3.53 mm — 깊이 12 mm 가공성 기준 3 mm 이상)로 바꿈
         "x": {"input_thick": 23.1, "power_input_thick": 3.0, "mid_thick": 22.0, "mid_input_thick": 23.9,
               "fin_thick_1": 2.0, "fin_count_1": 15, "fin_thick_2": 2.0, "fin_count_2": 15,
               "fin_height": 12.0},

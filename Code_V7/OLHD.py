@@ -2,7 +2,7 @@
 V7 — 선별 후 활성 변수만으로 Optimal Latin Hypercube Design (V6 OLHD.py 그대로)
 
 V7 은 후보에 유량·유로 깊이가 들어가 V7 DSD 선별 결과로 실험점을 새로 만든다(V6 olhd_plan.csv 는 쓰지 않는다).
-점 수 = 10 × 활성 변수 수 (예: 형상 8 + 유량 + 깊이 = 10개면 100점). 갭 제약은 유로 깊이에 따라 바뀐다(params.decode).
+점 수 = 10 × 활성 변수 수 (예: 형상 8 + 유량 + 깊이 = 10개면 100점). 갭 제약은 모든 깊이에서 최소 2.0 mm(params.decode).
 
 V6 가 V5(Code/OLHD.py) 대비 바꾼 점
   · 변수 목록이 고정이 아니라 screening_decision.json(1단계 DSD 결과)에서 정해진다.

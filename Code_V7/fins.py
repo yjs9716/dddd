@@ -2,12 +2,11 @@
 V7 — 방열핀 배치 계산 (핀 관련 형상 수식의 단일 출처)
 
 V7 에서 바뀐 것
-  · 유로 깊이(fin_height)가 설계변수가 되면서 최소 갭이 깊이에 따라 바뀐다 (min_gap_for_depth).
-      최소 갭 = max(MIN_GAP_MM, 깊이 ÷ GAP_DEPTH_RATIO)
-    핀 사이 홈은 엔드밀이 파고 들어가는 공간이라, 홈이 깊을수록 공구가 길어져 더 굵은 공구(넓은 홈)가 필요하다.
-    V6 의 "깊이 8 mm 에서 최소 갭 2 mm"(홈 깊이 ÷ 폭 = 4)와 같은 가공 난이도를 깊이마다 유지하는 규칙이다.
-    깊이 8 mm 이하에서는 2.0 mm 그대로, 10 mm 면 2.5 mm, 12 mm 면 3.0 mm.
-    뱅크 단위 함수(bank_feasible 등)는 params 의 fin_height 로 최소 갭을 정하고, 없으면 NOMINAL_DEPTH_MM 으로 본다.
+  · 유로 깊이(fin_height)가 설계변수가 됐지만 실험(DSD·OLHD·적응샘플링)의 최소 갭은 모든 깊이에서 MIN_GAP_MM(2.0 mm)
+    하나다 — 2.0 mm 는 해석 품질 한계(y 메시 0.3 mm 로 갭 6~7칸)라 실험에서 지킨다.
+    깊은 홈의 가공성(예: 홈 깊이 ÷ 폭 ≤ 4 → 12 mm 면 갭 3 mm)은 해석과 무관한 제작 조건이라, 제작 최소 갭(2.5 mm)과
+    같이 실험이 아니라 최적설계 단계의 제약으로 건다 — 대리모델은 깊고 좁은 홈까지 전부 배우고, 제작 기준이 바뀌어도
+    다시 해석하지 않는다. 깊이별 규칙을 실험에 다시 넣으려면 GAP_DEPTH_RATIO 에 값을 주면 된다(min_gap_for_depth).
 
 V5(Code/fins.py) 대비 변경점
   ⓪ 최소 갭 2.5 → 2.0mm (아래 MIN_GAP_MM 주석). 두께 1.5mm에서 최대 핀 개수 21 → 24개.
@@ -32,7 +31,7 @@ import math
 
 FIN_SPAN_MM = 86.5          # 핀뱅크 안목 길이 [mm]
 NOMINAL_DEPTH_MM = 8.0      # 기준 유로 깊이 = 핀 높이 [mm] (V6 고정값). icepak.py 의 높이 좌표 기준
-GAP_DEPTH_RATIO  = 4.0      # 홈 깊이 ÷ 최소 폭 — 깊이 8 mm / 최소 갭 2 mm 와 같은 가공 난이도 (모듈 설명)
+GAP_DEPTH_RATIO  = None     # 실험 갭 제약에 깊이별 규칙을 쓰지 않음 (모듈 설명). 4.0 이면 최소 갭 = max(2.0, 깊이 ÷ 4)
 MIN_GAP_MM  = 2.0           # 유로 최소 갭의 하한 [mm] — V5 2.5 → V6 2.0
 #   실험 범위를 밀링 가능 한계 쪽(Ø1.5 롱넥 엔드밀, 깊이 8mm)까지 넓혀 둔 값이다.
 #   제작 최소 갭(예: 2.5mm)은 실험이 아니라 최적화 단계의 제약으로 건다 — 그러면
@@ -50,7 +49,10 @@ _EPS = 1e-9
 
 
 def min_gap_for_depth(depth=NOMINAL_DEPTH_MM):
-    """유로 깊이에 따른 최소 갭 [mm] = max(MIN_GAP_MM, 깊이 ÷ GAP_DEPTH_RATIO)."""
+    """실험의 최소 갭 [mm]. GAP_DEPTH_RATIO 가 None 이면 깊이와 무관하게 MIN_GAP_MM,
+    값이 있으면 max(MIN_GAP_MM, 깊이 ÷ GAP_DEPTH_RATIO)."""
+    if GAP_DEPTH_RATIO is None:
+        return MIN_GAP_MM
     return max(MIN_GAP_MM, float(depth) / GAP_DEPTH_RATIO)
 
 

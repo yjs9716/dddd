@@ -4,8 +4,7 @@ V7 설계변수 정의 — 후보 13개 = V6 형상 11개 + 냉각수 유량(flo
 V7 에서 바뀐 것
   · 유량(운전 조건)과 유로 깊이(= 핀 높이)를 후보에 넣었다. 유량은 SolidWorks 에 쓰지 않고 Icepak 팬 유량에만
     들어간다(OPERATING_PARAMS). 유로 깊이는 SolidWorks 전역변수 fin_height 로 들어간다.
-  · 최소 핀 갭이 유로 깊이에 따라 바뀐다(fins.min_gap_for_depth) — decode 의 핀 두께·개수 접기도 행마다 그 깊이의
-    최소 갭으로 한다.
+  · 최소 핀 갭은 모든 유로 깊이에서 2.0 mm 다(fins.min_gap_for_depth). 깊은 홈 가공성은 최적설계 단계 제약으로 건다.
   · 선별(DSD)을 V7 조건(면 발열, V7 지표, 후보 13개)으로 다시 한다.
 
 흐름
@@ -53,8 +52,8 @@ CANDIDATE_SPEC = [
     # ── V7 추가 ──
     ("flow_lpm",            3.0,   6.0),   # LPM — 냉각수 총 유량(운전 조건). 8 mm 유로에 맞는 범위로 본 3~6 LPM.
                                             #   6 LPM 에서도 가장 빠른 분기 통로 Re ≈ 1000 이하라 층류 해석이 유지된다
-    ("fin_height",          6.0,  12.0),   # mm — 유로 깊이 = 핀 높이 (V6 8 mm 고정). 깊이에 따라 최소 핀 갭이 바뀐다
-                                            #   (fins.min_gap_for_depth: 12 mm 면 3 mm)
+    ("fin_height",          6.0,  12.0),   # mm — 유로 깊이 = 핀 높이 (V6 8 mm 고정). 최소 핀 갭은 깊이와 무관하게 2.0 mm
+                                            #   (깊은 홈 가공성은 최적설계 단계 제약 — fins 모듈 설명)
 ]
 
 # 캠페인 내내 안 바뀌는 값 — SolidWorks 스케치에 숫자로 직접 들어있음(V5와 동일). fin_height 는 V7 부터 후보 변수
@@ -85,8 +84,8 @@ def decode(unit, fold="thick_first"):
       fold="thick_first" (1단계 DSD, V5 OLHD.decode 와 같음)
           두께는 전 범위 그대로, 핀 개수 = round(N_lo + u·(min(N_hi, N_max(t)) − N_lo))
       fold="count_first" (2단계 OLHD·적응샘플링 — STAGE2_FOLD)
-          핀 개수 = round(N_lo + u·(min(N_hi, N_max(t_lo)) − N_lo)) — 그 깊이에서 가장 얇은 핀으로 넣을 수 있는
-          범위 전체(깊이 8 mm 이하면 10~24 그대로), 두께 = round(t_lo + u·(min(t_hi, t_max(N)) − t_lo), 0.1)
+          핀 개수 = round(N_lo + u·(min(N_hi, N_max(t_lo)) − N_lo)) — 가장 얇은 핀으로 넣을 수 있는
+          범위 전체(10~24 그대로), 두께 = round(t_lo + u·(min(t_hi, t_max(N)) − t_lo), 0.1)
           핀 개수가 응답 변동을 가장 많이 설명하므로(V6 DSD) 개수를 가능한 범위에 고르게 둔다.
           thick_first 로는 22~24개가 두께 1.5~1.8mm 모서리에만 있어 80점 중 1~2점밖에 안 뽑힌다.
     """
