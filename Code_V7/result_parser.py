@@ -27,8 +27,12 @@ V6 대비 변경점
       기준을 쓴다: "전원부를 지난 냉각수 온도가 냉각판 출구 온도를 넘지 않는다" (= CCA 2차 통과 냉각수보다 뜨겁지 않다).
       1차 통과 후 냉각수(T1)가 같은 온도로 2차 통과와 분기로 나뉜다고 보면(분기 통로는 CCA 발열 영역 밖)
           필요 분기비 = Q_PSU / (Q_PSU + Q_2차),   Q_2차 = 발열 합계 − 분기 전 흡열(유량 × c_p × (T1 − 입구))
-  · 중량 = 알루미늄(SolidWorks) + PAO(Icepak 냉각수 덩어리 부피 × 밀도). 유로 깊이가 바뀌면 판 외형이 달라져
-    V6 의 "외형 부피 상수 − 알루미늄" 방식을 쓸 수 없다. 깊이 8 mm 면 V6 방식 값도 로그에 같이 찍어 비교한다.
+  · 중량 = 알루미늄 질량 + PAO 부피 × 밀도,  PAO 부피 = 꽉 채운 판 부피(깊이 L) − 알루미늄 부피 (둘 다 SolidWorks)
+      V6 는 꽉 채운 부피를 상수로 썼지만 V7 은 유로 깊이가 변수라 꽉 채운 부피도 깊이를 따라 바뀐다.
+      SolidWorks 모델은 판 바닥 기준으로 첫 보스 두께(= 깊이 + 2.5)만 바뀌므로 꽉 채운 부피는 깊이에 정확히 비례한다:
+          꽉 채운 부피(L) = V₈ + (L − 8) × (V₁₂ − V₈) / 4      (full_solid_volume_mm3)
+      V₈ · V₁₂ 는 유로 빼기 피처를 억제하고 잰 어셈블리 부피(아래 상수). Icepak 냉각수 덩어리 부피로 낸 중량
+      (weight_icepak)을 같이 기록해 두 방식의 차이가 설계마다 일정한지 검산한다.
 
 그대로 (V6): 1·2차 통과 후·출구 PAO 온도 기록.
 """
@@ -42,8 +46,18 @@ from fins import NOMINAL_DEPTH_MM
 from icepak import PAO_DENSITY, PAO_SPECIFIC_HEAT, INLET_TEMP_C, SOURCE_POWER_W, N_SOURCE, NOMINAL_FLOW_LPM
 from responses import TEMP_IN_KIND
 
-# V6 중량 방식(외형 부피 − 알루미늄)의 외형 부피 — 유로 깊이 8 mm 판재 기준. V7 은 비교용 로그에만 쓴다.
-FULL_SOLID_VOLUME_MM3 = 2341073.1
+# 꽉 채운 판(plate + plate_base, 유로 빼기 피처 억제) 부피 [mm³] — V7 SolidWorks 모델에서 잰 값 (모듈 설명)
+#   V4~V6 상수 2,341,073.1 은 V4 형상 기준일 수 있어 V7 에서 다시 쟀다(55,719 mm³ 작음 → V6 중량은 약 44 g 무겁게 계산됨).
+#   SolidWorks 모델을 바꾸면 두 값을 같은 방법으로 다시 잴 것.
+FULL_SOLID_VOLUME_AT_8_MM3  = 2285354.2      # fin_height = 8
+FULL_SOLID_VOLUME_AT_12_MM3 = 2918447.8      # fin_height = 12
+FULL_SOLID_PER_MM_DEPTH = (FULL_SOLID_VOLUME_AT_12_MM3 - FULL_SOLID_VOLUME_AT_8_MM3) / 4.0   # ≈ 158,273 mm³/mm
+#   검산: fin_height = 10 에서 잰 값 2,601,901 = 식의 값 2,601,901.0 — 깊이에 정확히 비례함을 확인
+
+
+def full_solid_volume_mm3(depth):
+    """유로 깊이 depth [mm] 일 때 꽉 채운 판 부피 [mm³] — 깊이에 비례 (모듈 설명)."""
+    return FULL_SOLID_VOLUME_AT_8_MM3 + (float(depth) - NOMINAL_DEPTH_MM) * FULL_SOLID_PER_MM_DEPTH
 
 # 전원부(PSU) 총 손실 [W] — 800 W급, 효율 90% 가정: CCA 680 W × (1/0.9 − 1). 사양이 확정되면 이 값만 바꾼다.
 PSU_LOSS_W = 75.6
@@ -150,12 +164,12 @@ def _check_heat_balance(tag_idx, t_outlet, flow_lpm):
     return q_out, ratio
 
 
-def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3, pao_volume_mm3):
+def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3, pao_volume_mm3=None):
     """반환 dict — 목적함수: pressure_drop, temp_std, max_temp, temp_in / 제약: power_module_flow, psu_margin, weight /
     기록 전용(responses.RECORD_ONLY): temp_in_range, temp_in_sd, temp_in_worst, hot_slot, worst_in_slot,
     power_module_flow_raw, power_module_flow_energy, q_mid_ratio, psu_ratio_required, T_psu_coolant,
-    T_pass1, T_outlet, T_pass2 / fin_gap_1, fin_gap_2
-    pao_volume_mm3 : Icepak 냉각수 덩어리(PAO_Separate1) 부피 — run_icepak 의 세 번째 반환값 (중량 계산)."""
+    T_pass1, T_outlet, T_pass2, weight_icepak / fin_gap_1, fin_gap_2
+    pao_volume_mm3 : Icepak 냉각수 덩어리(PAO_Separate1) 부피 — run_icepak 의 세 번째 반환값 (검산용 weight_icepak)."""
     flow = float(params.get("flow_lpm", NOMINAL_FLOW_LPM))
     cap = heat_capacity_w_per_k(flow)
     cols, col_src = _columns(result_path)
@@ -222,13 +236,16 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
     t_psu = t_pass1 + PSU_LOSS_W / (cap * power_module_flow)          # 전원부를 지난 냉각수 온도 (측정 분기비 기준)
     t_out_psu = INLET_TEMP_C + (TOTAL_HEAT_W + PSU_LOSS_W) / cap      # 전원부 열까지 넣은 냉각판 출구 온도
 
-    # ── 중량 ──
-    if pao_volume_mm3 is None or not np.isfinite(float(pao_volume_mm3)) or float(pao_volume_mm3) <= 0:
-        raise ValueError(f"[{tag_idx}] Icepak 냉각수 부피가 없음({pao_volume_mm3}) — run_icepak 반환값을 넘길 것")
-    weight = float(aluminum_mass_kg) + float(pao_volume_mm3) * 1e-9 * PAO_DENSITY
+    # ── 중량 (모듈 설명) ──
     depth = float(params.get("fin_height", NOMINAL_DEPTH_MM))
-    weight_v6 = (float(aluminum_mass_kg) + (FULL_SOLID_VOLUME_MM3 - float(aluminum_volume_mm3)) * 1e-9 * PAO_DENSITY
-                 if abs(depth - NOMINAL_DEPTH_MM) < 1e-9 else np.nan)
+    full_mm3 = full_solid_volume_mm3(depth)
+    pao_mm3 = full_mm3 - float(aluminum_volume_mm3)
+    if pao_mm3 <= 0:
+        raise ValueError(f"[{tag_idx}] PAO 부피가 0 이하({pao_mm3:.1f} mm³) — 꽉 채운 부피 {full_mm3:.1f} < 알루미늄 부피. "
+                         "result_parser.FULL_SOLID_VOLUME_AT_* 가 지금 SolidWorks 모델과 맞는지 확인할 것")
+    weight = float(aluminum_mass_kg) + pao_mm3 * 1e-9 * PAO_DENSITY
+    pao_icepak = float(pao_volume_mm3) if pao_volume_mm3 is not None else np.nan
+    weight_icepak = float(aluminum_mass_kg) + pao_icepak * 1e-9 * PAO_DENSITY
 
     results = {
         "pressure_drop": pressure_drop,
@@ -252,6 +269,7 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
         "T_pass1": t_pass1,
         "T_outlet": t_outlet,
         "T_pass2": t_pass2,
+        "weight_icepak": weight_icepak,
     }
     results.update({f"fin_gap_{b}": bank_gap(params, b) for b in BANKS})
 
@@ -267,6 +285,7 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
           f"출구 {t_outlet:.3f} °C (흡열 {q_out:.1f} W / 발열 {TOTAL_HEAT_W:.0f} W = {hb*100:.1f}%)")
     print(f"      전원부({PSU_LOSS_W:g} W): 분기비 {power_module_flow*100:.1f}% / 필요 {r_req*100:.1f}% (여유 {psu_margin*100:+.1f}%p, "
           f"Q_2차 {q_2nd:.1f} W) · 전원부 지난 냉각수 {t_psu:.2f} °C / 판 출구(전원부 열 포함) {t_out_psu:.2f} °C")
-    print(f"      중량: {weight:.4f} kg (PAO = Icepak 냉각수 부피 {float(pao_volume_mm3):.0f} mm³"
-          + (f", V6 방식으로는 {weight_v6:.4f} kg)" if np.isfinite(weight_v6) else ")"))
+    print(f"      중량: {weight:.4f} kg (PAO {pao_mm3:.0f} mm³ = 꽉 채운 부피 {full_mm3:.0f} − 알루미늄 {float(aluminum_volume_mm3):.0f})"
+          + (f" · 검산: Icepak 냉각수 부피 {pao_icepak:.0f} mm³ → {weight_icepak:.4f} kg "
+             f"(차이 {(weight_icepak - weight) * 1000:+.1f} g)" if np.isfinite(pao_icepak) else ""))
     return results
