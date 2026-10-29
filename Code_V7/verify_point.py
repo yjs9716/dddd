@@ -12,7 +12,8 @@ icepak.run_icepak(메시·물성·경계조건·측정면 전부 캠페인과 �
        (V7 선별 결과가 있으면 그 값, 아직 없으면 V6 선별 고정값). 활성 변수는 직접 넣어야 한다.
      · pred 에 대리모델 예측과 ±2σ 범위를 넣으면 CFD 값이 그 안에 드는지 같이 판정·저장한다(선택).
        V7 지표 이름: max_temp, temp_std(채널 간), temp_in(채널 안), pressure_drop, power_module_flow, psu_margin
-  2) F5(인자 없이)                                   → RUN 에 적은 번호의 설계만 (RUN 이 비어 있으면 POINTS 전부)
+  2) F5(인자 없이)                                   → RUN 에 적은 번호의 설계만 (RUN 이 비어 있으면 POINTS 전부).
+                                                       F5_CHECK = True 면 아래 점검 모드로 돈다
      python verify_point.py input_thick=23.1 power_input_thick=3 mid_thick=22 ... flow_lpm=5 fin_height=10
                                                      → 인자로 준 설계 하나만 (pred 없음)
      python verify_point.py check [이름=값 ...]       → 점검 모드: 해석 없이 모델만 만들어 AEDT\\check_<이름>.aedt 로
@@ -78,10 +79,17 @@ POINTS = [
         "x": {"input_thick": 24.6, "power_input_thick": 3.0, "mid_thick": 22.1, "mid_input_thick": 25.0,
               "fin_thick_1": 1.9, "fin_count_1": 18, "fin_thick_2": 1.5, "fin_count_2": 23},
     },
+    {   # 유로 깊이 12 mm 형상 확인용 — V6 최적설계에서 핀만 깊이 12 mm 최소 갭(3 mm)에 맞춤 (2 mm × 15개, 갭 3.53 mm)
+        "x": {"input_thick": 23.1, "power_input_thick": 3.0, "mid_thick": 22.0, "mid_input_thick": 23.9,
+              "fin_thick_1": 2.0, "fin_count_1": 15, "fin_thick_2": 2.0, "fin_count_2": 15,
+              "fin_height": 12.0},
+    },
 ]
 
 # F5(인자 없이) 실행할 POINTS 번호 — 비워 두면 POINTS 전부
-RUN = [0]
+RUN = [2]
+# F5(인자 없이) 실행을 점검 모드로 — True 면 해석 없이 모델만 만들어 AEDT\check_<이름>.aedt 로 저장 (python verify_point.py check 와 같음)
+F5_CHECK = True
 
 
 # ── 입력 정리·검사 ─────────────────────────────────────────────
@@ -212,8 +220,8 @@ def _cleanup_projects(desktop):
 
 
 def main(argv):
-    check = bool(argv) and argv[0] == "check"
-    if check:
+    check = (bool(argv) and argv[0] == "check") or (not argv and F5_CHECK)
+    if argv and argv[0] == "check":
         argv = argv[1:]
     pts = _from_argv(argv) if argv else [POINTS[i] for i in (RUN or range(len(POINTS)))]
     jobs = []
