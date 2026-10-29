@@ -23,7 +23,9 @@ V6 대비 변경점
 
   · 냉각수 유량(params["flow_lpm"], 기본 NOMINAL_FLOW_LPM = 4 LPM)을 팬 유량으로 넣는다(후보 변수).
 
-V6 에서 그대로인 것: 형상 불러오기, 재질, 팬(20 °C), 출구 역류 차단, 메시, 해석 설정.
+  · 냉각수 입구 온도: 20 °C → 25 °C (INLET_TEMP_C). 물성이 온도와 무관하게 고정이라 온도 값만 +5 K 평행이동한다.
+
+V6 에서 그대로인 것: 형상 불러오기, 재질, 팬 설정, 출구 역류 차단, 메시, 해석 설정.
 """
 from ansys.aedt.core import Desktop, Icepak
 import os, shutil, time
@@ -39,7 +41,7 @@ FLOW_PLANE_OVERLAP_MM = 0.2
 # PAO 물성·운전 조건 — 해석 설정과 result_parser 의 열수지 계산이 같은 값을 쓰도록 여기서만 정한다
 PAO_DENSITY       = 794.0    # [kg/m^3]  AddMaterial mass_density
 PAO_SPECIFIC_HEAT = 2219.0   # [J/(kg·K)] AddMaterial specific_heat
-INLET_TEMP_C      = 20.0     # 팬 흡입 PAO 온도 [°C] (외기 AmbientTemp 와 별개)
+INLET_TEMP_C      = 25.0     # 팬 흡입 PAO 온도 [°C] (외기 AmbientTemp 와 별개). V6 는 20 °C
 NOMINAL_FLOW_LPM  = 4.0      # params 에 flow_lpm 이 없을 때(pass_compare 등)의 냉각수 총 유량 [LPM]
 SOURCE_POWER_W    = 40.0     # 발열채널(CCA) 하나의 발열 [W]
 
