@@ -15,7 +15,11 @@ icepak.run_icepak(메시·물성·경계조건·측정면 전부 캠페인과 �
   2) F5(인자 없이)                                   → RUN 에 적은 번호의 설계만 (RUN 이 비어 있으면 POINTS 전부)
      python verify_point.py input_thick=23.1 power_input_thick=3 mid_thick=22 ... flow_lpm=5 fin_height=10
                                                      → 인자로 준 설계 하나만 (pred 없음)
-  3) 결과: Result/VERIFY/
+     python verify_point.py check [이름=값 ...]       → 점검 모드: 해석 없이 모델만 만들어 AEDT\\check_<이름>.aedt 로
+                                                       저장한다(몇 분). 그 파일을 AEDT 로 열어 발열 시트·Source 경계·
+                                                       냉각수 영역·팬/출구·측정면이 제대로 들어갔는지 눈으로 본다.
+                                                       결과 CSV·results_verify.csv 는 만들지 않는다.
+  3) 결과(점검 모드 아닐 때): Result/VERIFY/
        results_verify.csv            설계마다 한 줄 (같은 이름을 다시 돌리면 그 줄만 덮어씀)
        result_verify_<이름>.csv       Icepak Fields Summary 원본
        flowpath_verify_<이름>.STEP    형상
@@ -35,7 +39,7 @@ from Solidworks import connect_sw, update_sw
 from result_parser import extract_and_save, PSU_LOSS_W
 from params import CANDIDATES, INT_PARAMS, C_LO, C_HI, Screening, to_dict
 from fins import BANKS, bank_feasible, describe_bank
-from paths import RESULT_DIR, ASM_PATH, SCREENING_PATH
+from paths import RESULT_DIR, ASM_PATH, SCREENING_PATH, AEDT_DIR
 
 VERIFY_DIR = os.path.join(RESULT_DIR, "VERIFY")
 SUMMARY_PATH = os.path.join(VERIFY_DIR, "results_verify.csv")
@@ -132,6 +136,15 @@ def export_step_to(app, errors, path):
     return path
 
 
+def check_point(app, errors, warnings, desktop, ipk, k, name, params):
+    """점검 모드 — 형상 갱신·STEP 저장 후 해석 없이 Icepak 모델만 만들어 AEDT\\check_<이름>.aedt 로 저장."""
+    update_sw(app, errors, warnings, params)
+    step_file = export_step_to(app, errors, os.path.join(VERIFY_DIR, f"flowpath_verify_{name}.STEP"))
+    save_as = os.path.join(AEDT_DIR, f"check_{name}.aedt")
+    ipk, _, pao_mm3 = icepak.run_icepak(desktop, ipk, step_file, "verify", k, params, save_as=save_as)
+    return ipk, save_as
+
+
 def run_point(app, errors, warnings, desktop, ipk, k, name, params):
     mass_kg, vol_mm3 = update_sw(app, errors, warnings, params)
     step_file = export_step_to(app, errors, os.path.join(VERIFY_DIR, f"flowpath_verify_{name}.STEP"))
@@ -199,16 +212,34 @@ def _cleanup_projects(desktop):
 
 
 def main(argv):
+    check = bool(argv) and argv[0] == "check"
+    if check:
+        argv = argv[1:]
     pts = _from_argv(argv) if argv else [POINTS[i] for i in (RUN or range(len(POINTS)))]
     jobs = []
     for p in pts:                                   # SolidWorks·AEDT 를 띄우기 전에 입력부터 전부 검사
         name = make_name(p["x"])
         jobs.append((name, build_params(p["x"]), p.get("pred")))
     os.makedirs(VERIFY_DIR, exist_ok=True)
-    print("검증할 설계:", [j[0] for j in jobs])
+    print(("점검할 설계(해석 없음): " if check else "검증할 설계: ") + str([j[0] for j in jobs]))
 
     app, errors, warnings = connect_sw()
     desktop, ipk = connect_aedt()
+    if check:
+        saved = []
+        for k, (name, params, pred) in enumerate(jobs):
+            print(f"\n===== [점검] {name} ({k + 1}/{len(jobs)}) {time.strftime('%H:%M:%S')} =====")
+            try:
+                ipk, path = check_point(app, errors, warnings, desktop, ipk, k, name, params)
+                saved.append(path)
+            except Exception as e:
+                print(f"  ⚠ [{name}] 점검 실패: {e}")
+            _cleanup_projects(desktop)           # 저장한 점검 프로젝트를 닫아 다음 설계가 새로 만들게
+            ipk = None
+        print("\n점검 완료 — AEDT 에서 열어 볼 파일:")
+        for p in saved:
+            print("  " + p)
+        return
     for k, (name, params, pred) in enumerate(jobs):
         print(f"\n===== {name} 시작 ({k + 1}/{len(jobs)}) {time.strftime('%H:%M:%S')} =====")
         t0 = time.time()

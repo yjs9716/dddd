@@ -171,8 +171,10 @@ def _rect(oEditor, name, start, width, height, axis, model=False):
         ])
 
 
-def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
+def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True, save_as=None):
     """
+    save_as 를 주면(.aedt 경로) 해석(메싱·풀이) 없이 모델만 끝까지 만들어 그 경로로 저장하고 (ipk, None, PAO 부피)를
+    돌려준다 — verify_point.py check (형상·경계·측정면이 제대로 들어갔는지 AEDT 화면으로 보는 점검 모드).
     measure=False 면 2패스 전용 측정면(Rectangle1·Q_pass2·Q_mid·T_pass1·T_pass2)을 만들지 않고, Fields Summary 는
     발열면 온도·팬 차압·출구 온도 N_SOURCE + 2 행만 쓴다(pass_compare.py — 1·2·4패스 비교). 그 밖의 해석 설정은 같다.
     params 는 measure=False 일 때 power_input_thick(분기 입구 국소 메시 폭)만 있으면 된다.
@@ -491,6 +493,8 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
     target_faces.sort(key=lambda face: face.center[0])
     fan_face     = target_faces[-1]   # x값이 큰 쪽(120.3) = Fan
     opening_face = target_faces[0]    # x값이 작은 쪽(78.3) = Opening
+    _c = lambda f: ", ".join(f"{float(v):.2f}" for v in f.center)
+    print(f"  팬 면 중심 ({_c(fan_face)}) · 출구 면 중심 ({_c(opening_face)}) mm")
 
     # 팬 위치를 동적으로
     fan_x = fan_face.center[0]
@@ -1164,6 +1168,14 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
         ])
 
     # %%
+    # 점검 모드 — 해석 없이 여기까지 만든 모델을 따로 저장하고 끝낸다 (캠페인 프로젝트 파일과 섞이지 않게 다른 이름)
+    if save_as:
+        pao_volume_mm3 = float(ipk.modeler["PAO_Separate1"].volume)
+        os.makedirs(os.path.dirname(save_as), exist_ok=True)
+        ipk.save_project(file_name=save_as, overwrite=True)
+        print(f"[점검] 해석 없이 모델 저장: {save_as}  (냉각수 덩어리 부피 {pao_volume_mm3:.0f} mm³)")
+        return ipk, None, pao_volume_mm3
+
     print(f"[T5] AnalyzeAll 시작(메싱+솔브): {time.strftime('%H:%M:%S')}")
     oDesign.AnalyzeAll()
     print(f"[T6] AnalyzeAll 끝(메싱+솔브 완료): {time.strftime('%H:%M:%S')}")
