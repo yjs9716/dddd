@@ -4,18 +4,24 @@ V7 캠페인 관리 — 1단계 DSD 진행 기록 + 2단계 GPR 대체모델 · 
 캠페인 단계 (campaign_state)
   "dsd"            : DSD 37회 진행 중 — dsd_plan.csv 의 run 을 순서대로 제안
   "need_screening" : DSD 완료, screening_decision.json 없음
-                     → DSD_analysis.py 를 실행해 선별 판정을 확정해야 다음으로 넘어감
-                       (자동으로 넘어가지 않게 한 이유: 고정할 변수를 사람이 확인하고 SolidWorks 쪽 준비를
-                        점검할 기회를 두기 위함. 판정은 사전 고정 규칙으로 기계적으로 나오므로 결과를 바꾸면 안 됨)
+                     → main.py 가 DSD_analysis 를 자동 실행해 넘어간다(main.AUTO_SCREENING, 사전 고정 규칙)
   "olhd"           : 2단계 진행 중 — DOE(10×활성 변수 수) → IMSE 적응샘플링
   "done"           : 종료기준 충족
 
+종료기준 (V6 데이터로 정한 최종 로직 — √IMSE 포화)
+  U_j(n) = √( 고정 후보점 N_U_CAND 개에서 σ_j(x)² 의 평균 ) ÷ S_j
+      σ_j : 목적함수 j 의 GPR 예측 표준편차에서 CFD 노이즈(WhiteKernel)를 뺀 값. log 학습 지표는 예측값을 곱해 원 단위
+  r_j(n) = ( U_j(n − STOP_WINDOW) − U_j(n) ) ÷ U_j(n − STOP_WINDOW)      (20회 전 대비 감소율)
+  4개 목적함수 모두 r_j < STOP_RATE 인 상태가 STOP_CONSECUTIVE 회 연속이면 종료.
+  매 회차 U_j·r_j 를 u_history.csv 에 남긴다. 다음 실험점 선정은 STOP_RATE 와 무관하므로, STOP_RATE 를 작게(1%)
+  두고 길게 돌린 뒤 u_history 에서 5% 를 처음 만족한 시점 n* 을 사후에 찾아도 처음부터 5% 로 돌린 것과 같다
+  (n* 까지 = 최종 대리모델, 이후 점 = 독립 검증).
+  점별 예측오차 |예측 − 실측| ÷ (α·S_j) 는 err_* 열에 계속 기록한다(보고용, 종료 판정에는 안 씀).
+
 V6 에서 그대로 가져온 것
-  · 종료기준: |예측 − 실측| ≤ α·S_j (α=0.1, S_j는 DOE 점에서만 1회 계산 후 고정),
-    모든 목적함수가 N_CONSECUTIVE회 연속 만족하면 종료
-  · 적응샘플링: σ 상위 후보 → IMSE 최대
+  · 적응샘플링: σ 상위 후보 → IMSE 최대. 4개 목적함수를 항상 같이 고려한다(V6 의 "수렴한 목적함수 제외"는 뺐다)
   · GPR: Const × Matern(ν=2.5, ARD) + White, normalize_y, 차압만 log
-  · 하이퍼파라미터 5회 재사용 + joblib 병렬, 수렴한 목적함수는 샘플링 방향에서 제외
+  · 하이퍼파라미터 5회 재사용 + joblib 병렬
   · 입력은 선별 후 활성 변수(params.Screening), 결과 CSV에는 후보 전부(고정 변수는 상수 열)
   · DSD 실험표·실패 재시도 (1단계)
 
@@ -44,8 +50,16 @@ from paths import (DSD_RESULTS_PATH, DSD_FAILED_PATH, SCREENING_PATH,
 import DSD
 
 # ── 실험 설정 (V5와 동일) ──
-N_CONSECUTIVE = 3
-ALPHA = 0.1
+N_CONSECUTIVE = 3        # (보고용) 점별 예측오차 연속 만족 횟수 — 종료 판정에는 안 씀
+ALPHA = 0.1              # 점별 예측오차 정규화 α·S_j (err_* 열)
+
+# ── 종료기준: √IMSE 포화 (모듈 설명) ──
+STOP_WINDOW      = 20     # 감소율 비교 간격 [회]
+STOP_RATE        = 0.01   # 논문 기준은 5% — 실험점 선정과 무관하므로 1% 로 길게 돌리고 5% 시점은 u_history 로 사후 판정
+STOP_CONSECUTIVE = 3
+N_U_CAND         = 4096   # U_j 를 계산하는 고정 후보점 (Sobol, seed U_SEED, decode 로 갭 제약 만족)
+U_SEED           = 2026
+U_HISTORY_PATH   = os.path.join(os.path.dirname(RESULTS_PATH), "u_history.csv")
 
 N_CAND        = 65536
 N_IMSE_CAND   = 2000
@@ -422,22 +436,66 @@ def _adaptive_rows(df):
     return df.dropna(subset=[f"pred_{OBJ_NAMES[0]}"])
 
 
+_U_COLS = [f"U_{g}" for g in OBJ_NAMES]
+_R_COLS = [f"r_{g}" for g in OBJ_NAMES]
+_U_CAND = None
+
+
+def _load_u_history():
+    if os.path.exists(U_HISTORY_PATH):
+        return pd.read_csv(U_HISTORY_PATH)
+    return pd.DataFrame(columns=["n"] + _U_COLS + _R_COLS)
+
+
 def is_done():
+    """4개 목적함수 모두 r_j < STOP_RATE 인 상태가 STOP_CONSECUTIVE 회 연속 (모듈 설명)."""
     if not os.path.exists(SCREENING_PATH):
         return False
-    adaptive = _adaptive_rows(_load_results())
-    if len(adaptive) < N_CONSECUTIVE:
+    hist = _load_u_history()
+    if len(hist) < STOP_CONSECUTIVE:
         return False
-    ok = _group_ok(adaptive.tail(N_CONSECUTIVE))
-    return bool(np.all([ok[g].all() for g in GROUP_NAMES]))
+    r = hist.sort_values("n").tail(STOP_CONSECUTIVE)[_R_COLS].values.astype(float)
+    return bool(np.all(np.isfinite(r)) and np.all(r < STOP_RATE))
 
 
-def _converged_objectives(df):
-    adaptive = _adaptive_rows(df)
-    if len(adaptive) < N_CONSECUTIVE:
-        return set()
-    ok = _group_ok(adaptive.tail(N_CONSECUTIVE))
-    return {g for g in GROUP_NAMES if ok[g].all()}
+def _u_candidates():
+    global _U_CAND
+    if _U_CAND is None:
+        sc = screening()
+        u = qmc.Sobol(d=sc.n_dim, scramble=True, seed=U_SEED).random(N_U_CAND)
+        _U_CAND = sc.normalize_active(sc.decode_active(u))
+    return _U_CAND
+
+
+def _latent_sigma(gpr, use_log, X):
+    """GPR 예측 표준편차에서 CFD 노이즈(WhiteKernel) 몫을 뺀 값 — 원 단위(log 학습이면 예측값을 곱함)."""
+    mu, sd = gpr.predict(X, return_std=True)
+    y_std = float(np.ravel(getattr(gpr, "_y_train_std", 1.0))[0])
+    noise = float(gpr.kernel_.k2.noise_level) * y_std ** 2
+    sig = np.sqrt(np.maximum(sd ** 2 - noise, 0.0))
+    return sig * np.exp(mu) if use_log else sig
+
+
+def _record_u(models, n):
+    """학습점 n 개 모델의 U_j(n) 과 20회 전 대비 감소율 r_j(n) 을 u_history.csv 에 기록."""
+    s_j = _get_S_j(_load_results())
+    if s_j is None:
+        return
+    X = _u_candidates()
+    row = {"n": int(n)}
+    for g in OBJ_NAMES:
+        gpr, use_log = models[g]
+        row[f"U_{g}"] = float(np.sqrt(np.mean(_latent_sigma(gpr, use_log, X) ** 2)) / s_j[g])
+    hist = _load_u_history()
+    hist = hist[hist["n"] != n]
+    prev = hist[hist["n"] == n - STOP_WINDOW]
+    for g in OBJ_NAMES:
+        u0 = float(prev[f"U_{g}"].iloc[0]) if len(prev) else np.nan
+        row[f"r_{g}"] = (u0 - row[f"U_{g}"]) / u0 if np.isfinite(u0) and u0 > 0 else np.nan
+    hist = pd.concat([hist, pd.DataFrame([row])], ignore_index=True).sort_values("n")
+    hist.to_csv(U_HISTORY_PATH, index=False)
+    print(f"  [U_j, n={n}] " + "  ".join(f"{g} {row[f'U_{g}']:.4f}" + (f" (r {row[f'r_{g}']*100:+.1f}%)"
+                                         if np.isfinite(row[f'r_{g}']) else "") for g in OBJ_NAMES))
 
 
 # ── GPR ──
@@ -523,10 +581,8 @@ def _gpr_suggest(df):
         keep[:] = True
     cand_real, cand_norm = cand_real[keep], cand_norm[keep]
 
-    converged = _converged_objectives(df)
-    active_objs = [n for n in OBJ_NAMES if n not in converged] or list(OBJ_NAMES)
-    if converged:
-        print(f"  (수렴 판단되어 다음 실험점 선정에서 제외: {sorted(converged)})")
+    _record_u(models, len(df))                 # 종료 판정용 U_j(n) — 실험점 선정과는 무관
+    active_objs = list(OBJ_NAMES)              # 4개 목적함수를 항상 같이 고려
 
     sig_sum = np.zeros(len(cand_norm))
     for name in active_objs:
@@ -575,6 +631,11 @@ def report_progress():
         print("  기준: " + "  ".join(f"{g}<={thr[g]:.4f}{GROUP_UNIT[g]}" for g in GROUP_NAMES))
     for i in range(len(adaptive)):
         print(f"  {i+1:3d}회 " + "".join(f"{gv[g][i]:13.4f}{'o' if ok[g][i] else 'x':>2s}" for g in GROUP_NAMES))
+    hist = _load_u_history()
+    if len(hist):
+        print(f"\n=== 종료 지표 U_j 와 {STOP_WINDOW}회 전 대비 감소율 r_j (종료: 모두 < {STOP_RATE:.0%} 가 "
+              f"{STOP_CONSECUTIVE}회 연속) ===")
+        print(hist.tail(10).to_string(index=False, float_format=lambda v: f"{v:.4f}"))
 
 
 if __name__ == "__main__":
@@ -582,6 +643,6 @@ if __name__ == "__main__":
     if campaign_state() in ("dsd", "need_screening"):
         print("DSD 남은 run:", dsd_missing_runs())
         if campaign_state() == "need_screening":
-            print("  DSD 완료 — `python DSD_analysis.py` 로 선별 판정을 확정할 것")
+            print("  DSD 완료 — main.py 를 실행하면 선별 판정을 자동으로 내린다(또는 `python DSD_analysis.py`)")
     else:
         report_progress()
