@@ -14,11 +14,15 @@ V5(Code/Solidworks.py) 대비 변경점
 import pythoncom
 import win32com.client
 
-from params import CANDIDATES, INT_PARAMS
+from params import CANDIDATES, INT_PARAMS, FIXED_GEOMETRY
 from fins import BANKS, bank_feasible, describe_bank
 from paths import PART_PATH, ASM_PATH, step_path
 
 SW_PARAM_NAMES = list(CANDIDATES)
+# 있으면 써넣는 전역변수 — 유로 깊이. SolidWorks 에 "fin_height" 전역변수가 있으면 params 값을 써넣고,
+#   없으면 깊이 8 mm 고정 모델로 보고 건너뛴다(그때 params 의 깊이가 기본값이 아니면 멈춘다).
+#   모델은 판 바닥이 기준이고 바닥·덮개 두께와 포트 높이는 그대로, 유로 천장 위가 깊이만큼 올라가야 한다(icepak.py 설명).
+OPTIONAL_SW_PARAMS = ["fin_height"]
 
 
 def connect_sw():
@@ -66,7 +70,17 @@ def update_sw(app, errors, warnings, params):
             f"  현재 존재하는 변수: {sorted(name_to_i)}\n"
             "  → paths.py 상단 '시작 전 준비'의 변수 11개와 뱅크별 갭 수식을 Equation Manager에 만들 것")
 
-    for name in SW_PARAM_NAMES:
+    written = list(SW_PARAM_NAMES)
+    for name in OPTIONAL_SW_PARAMS:
+        if name not in params:
+            continue
+        if name in name_to_i:
+            written.append(name)
+        elif abs(float(params[name]) - FIXED_GEOMETRY[name]) > 1e-9:
+            raise KeyError(f"{name}={params[name]} 을 쓰려면 SolidWorks Equation Manager 에 전역변수 \"{name}\" 이 있어야 함 "
+                           f"(없으면 {FIXED_GEOMETRY[name]:g} 고정 모델로만 돌 수 있음)")
+
+    for name in written:
         value = params[name]
         text = str(int(value)) if name in INT_PARAMS else str(value)
         eqMgr._oleobj_.Invoke(dispid, 0, pythoncom.DISPATCH_PROPERTYPUT,
@@ -79,7 +93,7 @@ def update_sw(app, errors, warnings, params):
     asm.ForceRebuild3(False)
     asm.Save3(1, errors, warnings)
 
-    print("SW 업데이트 완료: " + "  ".join(f"{k}={params[k]}" for k in SW_PARAM_NAMES))
+    print("SW 업데이트 완료: " + "  ".join(f"{k}={params[k]}" for k in written))
     for b in BANKS:
         print(f"  {describe_bank(params, b)}")
 

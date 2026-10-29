@@ -116,8 +116,9 @@ while True:
     results = None
     for attempt in range(1, MAX_AEDT_RETRY + 1):
         try:
-            ipk, result_path, _ = run_icepak(desktop, ipk, step_file, phase, idx, params)
-            results = extract_and_save(tag, params, result_path, aluminum_mass_kg, aluminum_volume_mm3)
+            ipk, result_path, pao_volume_mm3 = run_icepak(desktop, ipk, step_file, phase, idx, params)
+            results = extract_and_save(tag, params, result_path, aluminum_mass_kg, aluminum_volume_mm3,
+                                       pao_volume_mm3)
             break
         except Exception as e:
             cleanup_projects(desktop)

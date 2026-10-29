@@ -31,6 +31,7 @@ V6 대비 바뀐 것
      핀 간격 수식:
        "fin_gap_1" = (86.5 - "fin_count_1" * "fin_thick_1") / ("fin_count_1" + 1)
        "fin_gap_2" = (86.5 - "fin_count_2" * "fin_thick_2") / ("fin_count_2" + 1)
+     (선택) 유로 깊이 전역변수 "fin_height" — 있으면 파이썬이 써넣고, 없으면 8 mm 고정 모델로 본다 (WORKFLOW.md)
 
 테스트용: 환경변수 V7_CAMPAIGN_DIR 을 주면 BASE_V7 대신 그 폴더를 쓴다 (실제 캠페인에서는 설정하지 말 것).
 """

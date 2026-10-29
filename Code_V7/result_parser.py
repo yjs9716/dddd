@@ -30,10 +30,11 @@ import numpy as np
 import pandas as pd
 
 from fins import BANKS, bank_gap
-from icepak import PAO_DENSITY, PAO_SPECIFIC_HEAT, INLET_TEMP_C, SOURCE_POWER_W, N_SOURCE
+from icepak import PAO_DENSITY, PAO_SPECIFIC_HEAT, INLET_TEMP_C, SOURCE_POWER_W, N_SOURCE, NOMINAL_DEPTH_MM
 from responses import TEMP_IN_KIND
 
-# ⚠ 판재 외형이 V5와 같다는 전제의 값 — 형상을 바꿨다면 SolidWorks에서 다시 실측할 것
+# ⚠ 판재 외형이 V5와 같다는 전제의 값(유로 깊이 8 mm) — 형상을 바꿨다면 SolidWorks에서 다시 실측할 것.
+#   깊이가 8 mm 가 아니면 외형이 달라져 이 값을 쓸 수 없으므로, PAO 부피를 Icepak 냉각수 덩어리 부피로 바꿔 쓴다.
 FULL_SOLID_VOLUME_MM3 = 2341073.1
 
 ROW_SOURCE = 0
@@ -130,10 +131,13 @@ def _check_heat_balance(tag_idx, t_outlet):
     return q_out, ratio
 
 
-def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3):
+def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_volume_mm3, pao_volume_mm3=None):
     """반환 dict — 목적함수: pressure_drop, temp_std, max_temp, temp_in / 제약: power_module_flow, weight /
     기록 전용(responses.RECORD_ONLY): temp_in_range, temp_in_sd, temp_in_worst, hot_slot, worst_in_slot,
-    power_module_flow_raw, power_module_flow_energy, q_mid_ratio, T_pass1, T_outlet, T_pass2 / fin_gap_1, fin_gap_2"""
+    power_module_flow_raw, power_module_flow_energy, q_mid_ratio, T_pass1, T_outlet, T_pass2, weight_icepak /
+    fin_gap_1, fin_gap_2
+    pao_volume_mm3 : Icepak 냉각수 덩어리(PAO_Separate1) 부피 — run_icepak 의 세 번째 반환값.
+                     깊이 8 mm 면 weight 는 V6 방식(외형 부피 − 알루미늄), 아니면 이 값으로 계산한다."""
     cols, col_src = _columns(result_path)
     df = pd.read_csv(result_path, header=None, skiprows=SKIP_ROWS, sep=None, engine="python",
                      on_bad_lines="skip")
@@ -192,10 +196,21 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
     dt21 = t_pass2 - t_pass1
     pm_energy = (t_pass2 - t_outlet) / dt21 if np.isfinite(dt21) and abs(dt21) > 0.05 else np.nan
 
-    pao_volume_mm3 = FULL_SOLID_VOLUME_MM3 - float(aluminum_volume_mm3)
-    if pao_volume_mm3 <= 0:
-        raise ValueError(f"PAO 부피가 0 이하({pao_volume_mm3:.1f} mm^3) — FULL_SOLID_VOLUME_MM3 확인")
-    weight = float(aluminum_mass_kg) + pao_volume_mm3 * 1e-9 * PAO_DENSITY
+    depth = float(params.get("fin_height", NOMINAL_DEPTH_MM))
+    pao_icepak = float(pao_volume_mm3) if pao_volume_mm3 is not None else np.nan
+    if abs(depth - NOMINAL_DEPTH_MM) < 1e-9:
+        pao_mm3 = FULL_SOLID_VOLUME_MM3 - float(aluminum_volume_mm3)
+        pao_src = "외형 부피 − 알루미늄"
+    elif np.isfinite(pao_icepak):
+        pao_mm3 = pao_icepak
+        pao_src = "Icepak 냉각수 부피"
+    else:
+        raise ValueError(f"[{tag_idx}] 유로 깊이 {depth:g} mm — FULL_SOLID_VOLUME_MM3 는 8 mm 외형 값이라 쓸 수 없음. "
+                         "extract_and_save 에 pao_volume_mm3(run_icepak 반환값)를 넘길 것")
+    if pao_mm3 <= 0:
+        raise ValueError(f"PAO 부피가 0 이하({pao_mm3:.1f} mm^3) — FULL_SOLID_VOLUME_MM3 확인")
+    weight = float(aluminum_mass_kg) + pao_mm3 * 1e-9 * PAO_DENSITY
+    weight_icepak = float(aluminum_mass_kg) + pao_icepak * 1e-9 * PAO_DENSITY
 
     results = {
         "pressure_drop": pressure_drop,
@@ -216,6 +231,7 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
         "T_pass1": t_pass1,
         "T_outlet": t_outlet,
         "T_pass2": t_pass2,
+        "weight_icepak": weight_icepak,
     }
     results.update({f"fin_gap_{b}": bank_gap(params, b) for b in BANKS})
 
@@ -229,4 +245,6 @@ def extract_and_save(tag_idx, params, result_path, aluminum_mass_kg, aluminum_vo
           f"(입구 {TOTAL_FLOW_LPM:.1f} LPM의 {q_mid_ratio*100:.0f}%)")
     print(f"      PAO 온도: 1차 후 {t_pass1:.3f} (분기 전 흡열 {q_before:.1f} W) · 2차 후 {t_pass2:.3f} · "
           f"출구 {t_outlet:.3f} °C (흡열 {q_out:.1f} W / 발열 {TOTAL_HEAT_W:.0f} W = {hb*100:.1f}%)")
+    print(f"      중량: {weight:.4f} kg (PAO 부피 {pao_src}"
+          + (f", Icepak 냉각수 부피로는 {weight_icepak:.4f} kg)" if np.isfinite(weight_icepak) else ")"))
     return results

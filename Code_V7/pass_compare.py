@@ -45,6 +45,7 @@ PSI_PA = 6894.757
 
 # ── 채울 곳 ─────────────────────────────────────────────────
 #   형상 이름: {"step": STEP 경로, "power_input_thick": 전원모듈 입구 폭 [mm]}. step 이 None 이면 건너뜀.
+#   유로 깊이가 8 mm 가 아닌 STEP 이면 "fin_height": 깊이 [mm] 를 같이 넣는다(높이 좌표·z 메시가 따라감).
 CASES = {
     "1pass":      {"step": None, "power_input_thick": 5.0},    # 예: r"E:\...\flowpath_1pass.STEP"
     "1pass_19mm": {"step": None, "power_input_thick": 19.0},   # 1패스는 전원모듈 직렬 → 주 통로와 같은 폭
@@ -159,12 +160,15 @@ def main(names):
         # run_icepak 은 결과 CSV 경로를 paths.icepak_result_path 로 정한다 — 캠페인 결과와 섞이지 않게 이 동안만 바꿈
         icepak.icepak_result_path = lambda phase, idx: csv_path
         try:
-            ipk, path, _ = icepak.run_icepak(desktop, ipk, c["step"], "pass", k,
-                                             {"power_input_thick": c["power_input_thick"]}, measure=False)
+            p = {"power_input_thick": c["power_input_thick"]}
+            if "fin_height" in c:
+                p["fin_height"] = c["fin_height"]
+            ipk, path, _ = icepak.run_icepak(desktop, ipk, c["step"], "pass", k, p, measure=False)
         finally:
             icepak.icepak_result_path = original
         row = _parse(n, path)
         row["power_input_thick"] = c["power_input_thick"]
+        row["fin_height"] = c.get("fin_height", icepak.NOMINAL_DEPTH_MM)
         _save(row)
         print(f"[{n}] 최고온도 {row['max_temp']:.2f} °C  채널간 편차 {row['temp_std']:.3f}  "
               f"채널안 편차 {row['temp_in_range']:.3f}  차압 {row['pressure_drop']:.0f} Pa "

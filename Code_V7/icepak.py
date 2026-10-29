@@ -5,7 +5,15 @@ V6 대비 변경점
   · 발열: FR-4 블록 17개(13.3 × 183 × 8 mm, 부피 발열) → 슬롯 바닥 접촉면 2D 시트 17개(13.3 × 183 mm)에
     Source 경계 Total Power 40 W 씩. 블록이 없으니 블록 내부 전도로 온도가 80~90 K 더 오르던 몫이 사라지고,
     측정 온도가 곧 냉각판 표면(접촉면) 온도가 된다. 시트 이름은 V6 블록과 같은 source01~17.
-    해석 영역(Region) 윗면은 입출구 포트(z 18.5 mm)가 정하므로 블록을 지워도 바뀌지 않는다.
+    해석 영역(Region) 윗면은 입출구 포트(깊이 8 mm 에서 z 18.5 mm)가 정하므로 블록을 지워도 바뀌지 않는다.
+  · 유로 깊이(params["fin_height"], 기본 8 mm)를 바꿀 수 있다. SolidWorks 모델은 판 바닥이 기준이고 바닥·덮개
+    두께와 포트 높이는 그대로라서, 유로 천장 위의 모든 높이(유로 천장, 판 윗면·발열면, 포트 윗면)가 (깊이 − 8)만큼
+    올라간다는 전제다. 그래서 run_icepak 은
+      - 높이 좌표를 깊이 8 mm 기준 상수 + (깊이 − 8)로 계산하고, z 메시는 깊이에 비례시켜 유로 깊이당 칸 수를 유지하고,
+      - 냉각수 상자를 고정 좌표 대신 불러온 판의 외곽 범위로 만들고(z 는 판 바닥 ~ 포트 윗면에 딱 맞춤),
+      - 분리된 냉각수 덩어리를 이름이 아니라 "상자 바깥면에 닿지 않는 것"으로 고르고,
+      - 팬·출구 면을 z 18.5 고정값 대신 냉각수 덩어리의 가장 높은 면 두 개로 찾는다.
+    깊이 8 mm 에서는 V7 처음 버전과 같은 형상·설정이 된다.
   · 측정: 유로별 측정면(V_inlet_00~, V_inlet2_00~)을 없앴다. 채널 균일도는 발열면 온도로 직접 잰다.
     대신 분기비 정규화용으로 2차 통과 전체 유량 측정면(Q_pass2)과, 단면 유량 측정 편향 확인용으로 1차 통과 후
     통로 전체 유량 측정면(Q_mid, 4 LPM 이어야 함)을 둔다. 분기(Rectangle1)까지 유량 측정면 셋은 모두 핀 없는
@@ -21,10 +29,6 @@ import os, shutil, time
 from paths import AEDT_PROJ_PATH as PROJ_PATH, icepak_result_path
 from fins import describe_bank
 
-# 전원모듈 분기 입구 측정 사각형(Rectangle1)의 z 범위 [mm] (= 유로 깊이). x 폭은 power_input_thick(설계변수).
-#   유량 환산 면적은 CSV의 Area/Volume 열 실측값을 쓰므로(메시 이산화로 도면값과
-#   어긋날 수 있어서) 이 상수는 사각형 생성에만 쓰임 — result_parser는 참조하지 않음
-PM_INLET_WIDTH_MM = 8.0
 
 # 유량 측정면(Rectangle1 · Q_pass2 · Q_mid)을 통로 벽 속으로 더 그리는 길이 [mm] (모듈 설명 참고).
 #   0 으로 두면 V6 처럼 통로 단면에 딱 맞춘다.
@@ -72,11 +76,15 @@ SOURCE_PITCH   = 20.8          # 슬롯 간격 [mm]
 SOURCE_WIDTH_X = 13.3          # 발열면 x 폭 [mm]
 SOURCE_Y0      = 5.24999998    # 발열면 y 시작 (2차 통과 핀뱅크 상단벽) [mm]
 SOURCE_LEN_Y   = -183.0        # 발열면 y 길이 (−y 방향) [mm]
-SOURCE_Z       = 10.50000002   # 판 윗면 z (V6 블록 바닥과 같은 값) [mm]
+SOURCE_Z       = 10.50000002   # 판 윗면 z — 깊이 8 mm 기준 (V6 블록 바닥과 같은 값) [mm]. run_icepak 이 깊이만큼 올린다
 
 #   유량·온도 측정면의 z 범위 — 유로 깊이 전체 (fin_height 8.0 mm = 유로 깊이, 우회공간 없음)
-CHANNEL_Z_TOP    = 7.999999983       # 유로 천장 z좌표
-CHANNEL_DEPTH_MM = 8.0               # 유로 깊이 = fin_height(고정값, fins.py 상단 주석 참고)
+#   아래 값은 깊이 8 mm 기준이다. run_icepak 은 깊이(params["fin_height"])에 맞춰 천장 = CHANNEL_Z_TOP + (깊이 − 8),
+#   깊이 = params["fin_height"] 로 계산해 쓴다(유로 바닥 z ≈ 0 은 그대로).
+NOMINAL_DEPTH_MM = 8.0               # 기준 유로 깊이 = params.FIXED_GEOMETRY 의 fin_height
+CHANNEL_Z_TOP    = 7.999999983       # 유로 천장 z좌표 (깊이 8 mm)
+CHANNEL_DEPTH_MM = NOMINAL_DEPTH_MM  # 유로 깊이 = fin_height (깊이 8 mm)
+PAO_BOX_MARGIN_XY_MM = 30.0          # 냉각수 상자를 판 외곽보다 x·y 로 더 크게 그리는 여유 (z 는 여유 없이 딱 맞춤)
 
 # ── 메시 크기 [mm] — 코드 흐름 검증용으로 크게 잡고 싶을 때 여기만 바꾸면 됨 ──
 #   MESH_REGION_*  : SubRegion(유체 도메인)에 거는 로컬 메시
@@ -86,7 +94,7 @@ CHANNEL_DEPTH_MM = 8.0               # 유로 깊이 = fin_height(고정값, fin
 #   틀어질 수 있음 (README 4-(3) 참고)
 MESH_REGION_X = 2.0
 MESH_REGION_Y = 0.3   # V6: 격자 시험(grid_convergence.py, y 0.75~0.25, x·z 2.0 고정)으로 확정
-MESH_REGION_Z = 1.6   # V6: 격자 시험 z(유로 8 mm당 2~6셀)에서 6셀 대비 차압 −1.6%, 최고온도 −0.04 K,
+MESH_REGION_Z = 1.6   # 깊이 8 mm 기준 — run_icepak 은 깊이에 비례시켜 유로 깊이당 5칸을 유지한다. V6: 격자 시험 z(유로 8 mm당 2~6셀)에서 6셀 대비 차압 −1.6%, 최고온도 −0.04 K,
 #                       분기비 −0.2%로 통과한 가장 성긴 5셀. DSD 29회는 2.0 mm(4셀)였다.
 
 # 전원분기 입구 국소 메시 (MeshRegion2) — 입구 폭(power_input_thick, x방향)이 3mm까지 내려가는데
@@ -133,11 +141,11 @@ def _rect(oEditor, name, start, width, height, axis, model=False):
         [
             "NAME:RectangleParameters",
             "IsCovered:="		, True,
-            "XStart:="		, f"{start[0]:.10g}mm",
-            "YStart:="		, f"{start[1]:.10g}mm",
-            "ZStart:="		, f"{start[2]:.10g}mm",
-            "Width:="		, f"{width:.10g}mm",
-            "Height:="		, f"{height:.10g}mm",
+            "XStart:="		, f"{start[0]:.12g}mm",
+            "YStart:="		, f"{start[1]:.12g}mm",
+            "ZStart:="		, f"{start[2]:.12g}mm",
+            "Width:="		, f"{width:.12g}mm",
+            "Height:="		, f"{height:.12g}mm",
             "WhichAxis:="		, axis
         ],
         [
@@ -172,6 +180,16 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
                         (SolidWorks 알루미늄 중량 + PAO 중량 = 총 중량)
     """
     print(f"[T0] run_icepak 진입: {time.strftime('%H:%M:%S')}")
+
+    # 유로 깊이 — 유로 천장 위의 높이는 전부 (깊이 − 8)만큼 올라가고, z 메시는 깊이에 비례 (모듈 설명 참고)
+    depth = float(params.get("fin_height", NOMINAL_DEPTH_MM))
+    dz = depth - NOMINAL_DEPTH_MM
+    ch_top = CHANNEL_Z_TOP + dz                    # 유로 천장 z
+    src_z = SOURCE_Z + dz                          # 판 윗면(발열면) z
+    mesh_z = MESH_REGION_Z * depth / NOMINAL_DEPTH_MM
+    pm_mesh_z = PM_MESH_Z * depth / NOMINAL_DEPTH_MM
+    if abs(dz) > 1e-9:
+        print(f"  유로 깊이 {depth:g} mm — 유로 천장 z {ch_top:.4f}, 발열면 z {src_z:.4f}, z 메시 {mesh_z:.4g} mm")
 
     # 기존 프로젝트 닫기 (AEDT는 유지)
     if ipk is not None:
@@ -375,15 +393,24 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
 
 
     # %%
+    # 냉각수 상자 — 불러온 판의 외곽 범위로 만든다. x·y 는 여유를 두고, z 는 판 바닥 ~ 포트 윗면에 딱 맞춘다.
+    #   상자가 포트 윗면보다 높으면 유로 속 냉각수가 포트 구멍으로 바깥 덩어리와 이어져 분리되지 않는다.
+    #   (깊이 8 mm 에서 V6 고정값은 x ±231.5, y ±215, z −2.5 ~ 18.5 였다)
+    bbs = [o.bounding_box for o in objects]
+    bx0, by0, bz0 = (min(float(b[i]) for b in bbs) for i in range(3))
+    bx1, by1, bz1 = (max(float(b[i]) for b in bbs) for i in range(3, 6))
+    m = PAO_BOX_MARGIN_XY_MM
+    pao_box = (bx0 - m, by0 - m, bz0, bx1 + m, by1 + m, bz1)
+    print(f"  판 외곽: x {bx0:.3f}~{bx1:.3f}, y {by0:.3f}~{by1:.3f}, z {bz0:.3f}~{bz1:.3f} mm")
     oEditor.CreateBox(
         [
             "NAME:BoxParameters",
-            "XPosition:="		, "231.499999983333mm",
-            "YPosition:="		, "215mm",
-            "ZPosition:="		, "-2.49999998333333mm",
-            "XSize:="		, "-462.999999983333mm",
-            "YSize:="		, "-430mm",
-            "ZSize:="		, "20.9999999666667mm"
+            "XPosition:="		, f"{pao_box[0]:.12g}mm",
+            "YPosition:="		, f"{pao_box[1]:.12g}mm",
+            "ZPosition:="		, f"{pao_box[2]:.12g}mm",
+            "XSize:="		, f"{pao_box[3] - pao_box[0]:.12g}mm",
+            "YSize:="		, f"{pao_box[4] - pao_box[1]:.12g}mm",
+            "ZSize:="		, f"{pao_box[5] - pao_box[2]:.12g}mm"
         ], 
         [
             "NAME:Attributes",
@@ -424,21 +451,39 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
         [
             "CreateGroupsForNewObjects:=", False
         ])
-    oEditor.Delete(
-        [
-            "NAME:Selections",
-            "Selections:="		, "PAO"
-        ])
+    # 분리된 덩어리 중 냉각수(유로 속) 고르기 — 상자 x·y 바깥면에 닿지 않는 것. 바깥 덩어리는 상자 x·y 끝까지 닿는다.
+    #   이름("PAO"=바깥, "PAO_Separate1"=유로)은 형상에 따라 바뀔 수 있어 쓰지 않는다. 고른 것을 PAO_Separate1 로 둔다.
+    pieces = [n for n in ipk.modeler.object_names if n == "PAO" or n.startswith("PAO_Separate")]
+    tol = 1e-3
+    def _inside(name):
+        b = [float(v) for v in ipk.modeler[name].bounding_box]
+        return (b[0] > pao_box[0] + tol and b[1] > pao_box[1] + tol
+                and b[3] < pao_box[3] - tol and b[4] < pao_box[4] - tol)
+    fluid = [n for n in pieces if _inside(n)]
+    if len(fluid) != 1:
+        raise RuntimeError(f"냉각수 덩어리를 하나로 고르지 못함 — 분리된 덩어리 {pieces}, 유로 속으로 판단한 것 {fluid}. "
+                           "판 형상(포트가 막혔는지, 유로가 두 덩어리로 끊겼는지)을 확인할 것")
+    others = [n for n in pieces if n != fluid[0]]
+    if others:
+        oEditor.Delete(["NAME:Selections", "Selections:=", ",".join(others)])
+    if fluid[0] != "PAO_Separate1":
+        ipk.modeler[fluid[0]].name = "PAO_Separate1"
+    print(f"  냉각수 덩어리: {fluid[0]} → PAO_Separate1 (지운 바깥 덩어리 {others})")
 
     # %%
     # 발열면 — 슬롯 바닥 접촉면 2D 시트 (상단 상수 주석 참고). 경계조건(Source)은 아래 출구 경계 다음에 건다.
     for i in range(N_SOURCE):
         _rect(oEditor, f"source{i + 1:02d}",
-              (SOURCE_X0 + i * SOURCE_PITCH, SOURCE_Y0, SOURCE_Z), SOURCE_WIDTH_X, SOURCE_LEN_Y, "Z", model=True)
+              (SOURCE_X0 + i * SOURCE_PITCH, SOURCE_Y0, src_z), SOURCE_WIDTH_X, SOURCE_LEN_Y, "Z", model=True)
 
     # %%
     box1 = ipk.modeler["PAO_Separate1"]
-    target_faces = [face for face in box1.faces if abs(face.center[2] - 18.5) < 0.1]
+    # 팬·출구 면 = 냉각수 덩어리의 가장 높은 면 두 개(포트 윗면, 깊이 8 mm 에서 z 18.5)
+    z_top = max(face.center[2] for face in box1.faces)
+    target_faces = [face for face in box1.faces if abs(face.center[2] - z_top) < 0.1]
+    if len(target_faces) != 2:
+        raise RuntimeError(f"냉각수 덩어리 맨 위(z {z_top:.3f})에서 포트 면이 {len(target_faces)}개 — 2개여야 함. "
+                           "포트 윗면보다 높은 형상이 있는지 확인할 것")
     target_faces.sort(key=lambda face: face.center[0])
     fan_face     = target_faces[-1]   # x값이 큰 쪽(120.3) = Fan
     opening_face = target_faces[0]    # x값이 작은 쪽(78.3) = Opening
@@ -651,7 +696,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
             "UserSpecifiedSettings:=", True,
             "MaxElementSizeX:="	, f"{MESH_REGION_X}mm",
             "MaxElementSizeY:="	, f"{MESH_REGION_Y}mm",
-            "MaxElementSizeZ:="	, f"{MESH_REGION_Z}mm",
+            "MaxElementSizeZ:="	, f"{mesh_z:.6g}mm",
             "MinElementsInGap:="	, str(MIN_ELEMENTS_IN_GAP),
             "MinElementsOnEdge:="	, str(MIN_ELEMENTS_ON_EDGE),
             "MaxSizeRatio:="	, "2",
@@ -736,10 +781,10 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
             "NAME:BoxParameters",
             "XPosition:="		, "-195mm",
             "YPosition:="		, "47.5499999833333mm",
-            "ZPosition:="		, "7.99999998333333mm",
+            "ZPosition:="		, f"{ch_top:.12g}mm",            # 유로 천장
             "XSize:="		, f"{params['power_input_thick']}mm",   # 전원분기 입구 폭 = 설계변수
             "YSize:="		, "-42.29999997mm",
-            "ZSize:="		, "-7.99999998333333mm"
+            "ZSize:="		, f"{-depth:.12g}mm"
         ], 
         [
             "NAME:Attributes",
@@ -844,7 +889,7 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
             "UserSpecifiedSettings:=", True,
             "MaxElementSizeX:="	, f"{PM_MESH_X}mm",
             "MaxElementSizeY:="	, f"{PM_MESH_Y}mm",
-            "MaxElementSizeZ:="	, f"{PM_MESH_Z}mm",
+            "MaxElementSizeZ:="	, f"{pm_mesh_z:.6g}mm",
             "MinElementsInGap:="	, "3",
             "MinElementsOnEdge:="	, "2",
             "MaxSizeRatio:="	, "2",
@@ -916,15 +961,15 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
         ov = FLOW_PLANE_OVERLAP_MM
         #   Rectangle1 : 전원모듈 분기 입구 — 분기 입구(y=5.25)에서 약 4 mm 안쪽(y=9), 입구 직후의 꺾인 흐름을 피함.
         #                x 폭 = power_input_thick(설계변수)
-        _rect(oEditor, "Rectangle1", (MID_PASSAGE_X_WALL - ov, 9.0, CHANNEL_Z_TOP + ov),
-              -(PM_INLET_WIDTH_MM + 2 * ov), params['power_input_thick'] + 2 * ov, "y")
+        _rect(oEditor, "Rectangle1", (MID_PASSAGE_X_WALL - ov, 9.0, ch_top + ov),
+              -(depth + 2 * ov), params['power_input_thick'] + 2 * ov, "y")
         #   Q_pass2    : 2차 통과 출구 통로(T_pass2 와 같은 단면) — 2차 핀뱅크를 다 지나고 분기와 합류하기 전
         t2_wall_x = PLATE_X_RIGHT_WALL - params['input_thick'] - PASS2_EXIT_FROM_INPUT
-        _rect(oEditor, "Q_pass2", (t2_wall_x + ov, PASS2_EXIT_Y, CHANNEL_Z_TOP + ov),
-              -(CHANNEL_DEPTH_MM + 2 * ov), -(params['mid_thick'] + 2 * ov), "y")
+        _rect(oEditor, "Q_pass2", (t2_wall_x + ov, PASS2_EXIT_Y, ch_top + ov),
+              -(depth + 2 * ov), -(params['mid_thick'] + 2 * ov), "y")
         #   Q_mid      : 1차 통과 후 가운데 통로(T_pass1 과 같은 단면) — 분기 전이라 4 LPM 전부가 지난다
-        _rect(oEditor, "Q_mid", (MID_PASSAGE_X_WALL - ov, MID_PASSAGE_Y, CHANNEL_Z_TOP - CHANNEL_DEPTH_MM - ov),
-              CHANNEL_DEPTH_MM + 2 * ov, params['mid_input_thick'] + 2 * ov, "y")
+        _rect(oEditor, "Q_mid", (MID_PASSAGE_X_WALL - ov, MID_PASSAGE_Y, ch_top - depth - ov),
+              depth + 2 * ov, params['mid_input_thick'] + 2 * ov, "y")
 
         # %%
         # 1차 통과 후 PAO 온도 측정면 (T_pass1) — 가운데 통로 단면에서 벽마다 T_PASS1_INSET_MM 띄움
@@ -937,8 +982,8 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
                 "IsCovered:="		, True,
                 "XStart:="		, f"{round(MID_PASSAGE_X_WALL + t1_inset, 6)}mm",
                 "YStart:="		, f"{MID_PASSAGE_Y}mm",
-                "ZStart:="		, f"{round(CHANNEL_Z_TOP - CHANNEL_DEPTH_MM + t1_inset, 6)}mm",
-                "Width:="		, f"{round(CHANNEL_DEPTH_MM - 2 * t1_inset, 6)}mm",
+                "ZStart:="		, f"{round(ch_top - depth + t1_inset, 6)}mm",
+                "Width:="		, f"{round(depth - 2 * t1_inset, 6)}mm",
                 "Height:="		, f"{round(params['mid_input_thick'] - 2 * t1_inset, 6)}mm",
                 "WhichAxis:="		, "y"
             ],
@@ -970,8 +1015,8 @@ def run_icepak(desktop, ipk, step_file, phase, idx, params, measure=True):
                 "IsCovered:="		, True,
                 "XStart:="		, f"{round(t2_wall_x - t1_inset, 6)}mm",
                 "YStart:="		, f"{PASS2_EXIT_Y}mm",
-                "ZStart:="		, f"{round(CHANNEL_Z_TOP - t1_inset, 6)}mm",
-                "Width:="		, f"{-round(CHANNEL_DEPTH_MM - 2 * t1_inset, 6)}mm",
+                "ZStart:="		, f"{round(ch_top - t1_inset, 6)}mm",
+                "Width:="		, f"{-round(depth - 2 * t1_inset, 6)}mm",
                 "Height:="		, f"{-round(params['mid_thick'] - 2 * t1_inset, 6)}mm",
                 "WhichAxis:="		, "y"
             ],

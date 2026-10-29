@@ -40,9 +40,10 @@ CONSTRAINT_NAMES = [c[0] for c in CONSTRAINTS]
 #   power_module_flow_energy : 에너지 보존으로 구한 분기비 (T2 − 출구) / (T2 − T1) — 유량 측정과 교차 확인용
 #   q_mid_ratio   : 1차 통과 후 통로 단면 유량 ÷ 4 LPM — 단면 유량 측정 편향의 크기 (1 에 가까울수록 정확)
 #   T_pass1 / T_outlet / T_pass2 : 1차 통과 후 · 출구 · 2차 통과 후(합류 전) PAO 온도
+#   weight_icepak : 알루미늄(SolidWorks) + PAO(Icepak 냉각수 덩어리 부피) — weight 와 비교용 (result_parser 참고)
 RECORD_ONLY = ["temp_in_range", "temp_in_sd", "temp_in_worst", "hot_slot", "worst_in_slot",
                "power_module_flow_raw", "power_module_flow_energy", "q_mid_ratio",
-               "T_pass1", "T_outlet", "T_pass2"]
+               "T_pass1", "T_outlet", "T_pass2", "weight_icepak"]
 
 MODELED = OBJECTIVES + CONSTRAINTS
 MODELED_NAMES = OBJ_NAMES + CONSTRAINT_NAMES
@@ -53,5 +54,5 @@ UNIT = {
     "power_module_flow": "-", "weight": "kg",
     "temp_in_range": "°C", "temp_in_sd": "°C", "temp_in_worst": "°C", "hot_slot": "-", "worst_in_slot": "-",
     "power_module_flow_raw": "-", "power_module_flow_energy": "-", "q_mid_ratio": "-",
-    "T_pass1": "°C", "T_outlet": "°C", "T_pass2": "°C",
+    "T_pass1": "°C", "T_outlet": "°C", "T_pass2": "°C", "weight_icepak": "kg",
 }

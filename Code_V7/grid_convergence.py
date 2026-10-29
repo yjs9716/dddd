@@ -160,9 +160,9 @@ def run_one(app, errors, warnings_, desktop, ipk, design, params, level, idx):
     al_mass, al_vol = update_sw(app, errors, warnings_, params)
     step_file = export_step(app, errors, "gci", idx)
     t1 = time.time()
-    ipk, result_path, _ = run_icepak(desktop, ipk, step_file, "gci", idx, params)
+    ipk, result_path, pao_volume_mm3 = run_icepak(desktop, ipk, step_file, "gci", idx, params)
     t2 = time.time()
-    res = extract_and_save(f"gci:{design}:{level}", params, result_path, al_mass, al_vol)
+    res = extract_and_save(f"gci:{design}:{level}", params, result_path, al_mass, al_vol, pao_volume_mm3)
     elements, source = _mesh_elements(ipk, idx)
     row = {"design": design, "level": level, "scale": scale, "setup": _setup(),
            "minutes": (time.time() - t0) / 60, "minutes_icepak": (t2 - t1) / 60, "elements": elements,

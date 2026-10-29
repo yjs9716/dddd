@@ -49,7 +49,10 @@ DEFAULTS = {"input_angle": 150.0, "mid_angle": 115.0, "output_thick": 35.0}
 # 파일 이름에 쓰는 약어 (CANDIDATES 순서로 이어 붙임)
 ABBR = {"input_thick": "in", "input_angle": "ina", "power_input_thick": "psu", "mid_thick": "mid",
         "mid_angle": "mida", "mid_input_thick": "midin", "output_thick": "out",
-        "fin_thick_1": "t1-", "fin_count_1": "n1-", "fin_thick_2": "t2-", "fin_count_2": "n2-"}
+        "fin_thick_1": "t1-", "fin_count_1": "n1-", "fin_thick_2": "t2-", "fin_count_2": "n2-",
+        "fin_height": "h"}
+# 후보 11개 말고 x 에 넣을 수 있는 값 — 유로 깊이(SolidWorks 에 전역변수 fin_height 가 있어야 함, 넣지 않으면 8 mm)
+EXTRA = ["fin_height"]
 
 # ── 검증할 설계 ─────────────────────────────────────────────────
 #   x    : 설계변수 (넣은 것만 이름에 들어감)
@@ -77,14 +80,14 @@ def _fmt(name, v):
 
 def make_name(x_in):
     """입력한 변수만 CANDIDATES 순서로 이어 붙인 이름."""
-    return "_".join(f"{ABBR[n]}{_fmt(n, x_in[n])}" for n in CANDIDATES if n in x_in)
+    return "_".join(f"{ABBR[n]}{_fmt(n, x_in[n])}" for n in CANDIDATES + EXTRA if n in x_in)
 
 
 def build_params(x_in):
     """입력 + DEFAULTS → SolidWorks·Icepak 에 넣을 params(후보 11개 + 고정 형상). 범위·갭 제약 검사."""
-    unknown = [k for k in x_in if k not in CANDIDATES]
+    unknown = [k for k in x_in if k not in CANDIDATES + EXTRA]
     if unknown:
-        raise ValueError(f"모르는 변수: {unknown} (가능: {CANDIDATES})")
+        raise ValueError(f"모르는 변수: {unknown} (가능: {CANDIDATES + EXTRA})")
     full = {**DEFAULTS, **x_in}
     missing = [n for n in CANDIDATES if n not in full]
     if missing:
@@ -95,6 +98,7 @@ def build_params(x_in):
         if n in INT_PARAMS and float(full[n]) != int(full[n]):
             raise ValueError(f"{n}={full[n]} — 정수여야 함")
     params = to_dict([full[n] for n in CANDIDATES])
+    params.update({n: float(x_in[n]) for n in EXTRA if n in x_in})
     for b in BANKS:
         if not bank_feasible(params, b):
             raise ValueError(f"갭 제약 위반: {describe_bank(params, b)}")
@@ -131,10 +135,10 @@ def run_point(app, errors, warnings, desktop, ipk, k, name, params):
     original = icepak.icepak_result_path
     icepak.icepak_result_path = lambda phase, idx: csv_path
     try:
-        ipk, result_path, _ = icepak.run_icepak(desktop, ipk, step_file, "verify", k, params)
+        ipk, result_path, pao_volume_mm3 = icepak.run_icepak(desktop, ipk, step_file, "verify", k, params)
     finally:
         icepak.icepak_result_path = original
-    res = extract_and_save(name, params, result_path, mass_kg, vol_mm3)
+    res = extract_and_save(name, params, result_path, mass_kg, vol_mm3, pao_volume_mm3)
     return ipk, res, step_file, result_path
 
 
